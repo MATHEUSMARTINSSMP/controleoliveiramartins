@@ -3046,8 +3046,17 @@ export default function LojaDashboard() {
                             console.log('📱 [4/4] Mensagem formatada:', message);
                             console.log(`📱 [4/4] Enviando WhatsApp para ${adminPhones.length} destinatário(s)...`);
 
-                            Promise.all(
-                                adminPhones.map(async (phone) => {
+                            // ✅ CORREÇÃO: Processar mensagens sequencialmente com delay para evitar rate limiting
+                            // Ao invés de Promise.all, processar uma por vez com intervalo de 500ms
+                            for (let i = 0; i < adminPhones.length; i++) {
+                                const phone = adminPhones[i];
+                                
+                                // Adicionar delay entre mensagens (exceto a primeira)
+                                if (i > 0) {
+                                    await new Promise(resolve => setTimeout(resolve, 500)); // 500ms de delay
+                                }
+                                
+                                await (async () => {
                                     try {
                                         const result = await sendWhatsAppMessage({
                                             phone,

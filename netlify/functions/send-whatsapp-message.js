@@ -552,7 +552,7 @@ exports.handler = async (event, context) => {
       method: 'POST',
       headers: headers,
       body: JSON.stringify(payload),
-    }, 8000); // 8 segundos de timeout
+    }, 15000); // 15 segundos de timeout (aumentado para evitar timeouts intermitentes)
 
     const elapsed = Date.now() - startTime;
     console.log(`[WhatsApp] Status: ${response.status} ${response.statusText} (${elapsed}ms)`);
