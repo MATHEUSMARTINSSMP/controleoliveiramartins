@@ -76,7 +76,7 @@ CREATE POLICY shifts_modify_policy ON sistemaretiradas.shifts
         EXISTS (
             SELECT 1 FROM sistemaretiradas.profiles
             WHERE id = auth.uid()
-            AND role = 'admin'
+            AND role = 'ADMIN'
         )
     );
 
@@ -96,7 +96,7 @@ CREATE POLICY daily_tasks_insert_policy ON sistemaretiradas.daily_tasks
         EXISTS (
             SELECT 1 FROM sistemaretiradas.profiles
             WHERE id = auth.uid()
-            AND role = 'admin'
+            AND role = 'ADMIN'
             AND store_id = daily_tasks.store_id
         )
     );
@@ -107,7 +107,7 @@ CREATE POLICY daily_tasks_update_policy ON sistemaretiradas.daily_tasks
         EXISTS (
             SELECT 1 FROM sistemaretiradas.profiles
             WHERE id = auth.uid()
-            AND role = 'admin'
+            AND role = 'ADMIN'
             AND store_id = daily_tasks.store_id
         )
     );
@@ -118,7 +118,7 @@ CREATE POLICY daily_tasks_delete_policy ON sistemaretiradas.daily_tasks
         EXISTS (
             SELECT 1 FROM sistemaretiradas.profiles
             WHERE id = auth.uid()
-            AND role = 'admin'
+            AND role = 'ADMIN'
             AND store_id = daily_tasks.store_id
         )
     );
@@ -157,7 +157,7 @@ CREATE POLICY task_completions_update_policy ON sistemaretiradas.task_completion
         OR EXISTS (
             SELECT 1 FROM sistemaretiradas.profiles
             WHERE id = auth.uid()
-            AND role = 'admin'
+            AND role = 'ADMIN'
         )
     );
 
