@@ -79,9 +79,18 @@ export function useListaDaVezColaboradoras(
         isInitialLoadRef.current = true;
         fetchColaboradoras(false); // Carregamento inicial
 
+        // ✅ Debounce para evitar múltiplas atualizações rápidas
+        let debounceTimeout: NodeJS.Timeout | null = null;
+        const debouncedFetch = (silent: boolean) => {
+            if (debounceTimeout) clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(() => {
+                fetchColaboradoras(silent);
+            }, 300); // 300ms de debounce
+        };
+
         // Setup realtime subscription para profiles (caso alguém seja ativado/desativado)
         const channel = supabase
-            .channel(`lista-da-vez-colaboradoras-${storeId}`)
+            .channel(`lista-da-vez-colaboradoras-${storeId}`) // ✅ Canal fixo para reutilizar
             .on(
                 'postgres_changes',
                 {
@@ -92,25 +101,20 @@ export function useListaDaVezColaboradoras(
                 },
                 (payload) => {
                     console.log('[useListaDaVezColaboradoras] Mudança em profiles:', payload);
-                    // ✅ Atualizar silenciosamente quando detectar mudança (sem loading)
-                    fetchColaboradoras(true); // silent = true
+                    // ✅ Atualizar silenciosamente com debounce quando detectar mudança (sem loading)
+                    debouncedFetch(true); // silent = true
                 }
             )
             .subscribe((status) => {
                 console.log('[useListaDaVezColaboradoras] Subscription status:', status);
-                if (status === 'SUBSCRIBED') {
-                    // ✅ Só fazer fetch inicial se ainda não carregou, senão atualizar silenciosamente
-                    if (isInitialLoadRef.current) {
-                        fetchColaboradoras(false); // Carregamento inicial
-                    } else {
-                        fetchColaboradoras(true); // Reconexão - silencioso
-                    }
-                }
+                // ✅ NÃO fazer fetch automático na reconexão - apenas escutar mudanças
+                // O fetch inicial já foi feito acima
             });
 
         channelRef.current = channel;
 
         return () => {
+            if (debounceTimeout) clearTimeout(debounceTimeout);
             channel.unsubscribe();
         };
     }, [storeId, fetchColaboradoras]);

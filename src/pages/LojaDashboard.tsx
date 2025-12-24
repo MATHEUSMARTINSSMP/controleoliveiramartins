@@ -2369,11 +2369,15 @@ export default function LojaDashboard() {
                             }
                         }
 
+                        // ✅ Usar queryClient.invalidateQueries ao invés de fetch direto (mais eficiente)
                         // Pequeno delay para garantir que a mudança foi persistida
                         setTimeout(() => {
-                            fetchSalesWithStoreId(storeId, salesDateFilter);
-                            // Também atualizar metas e outros dados que podem ter mudado
-                            fetchGoalsWithStoreId(storeId);
+                            // Invalidar queries para atualização automática sem loading
+                            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales, 'store', storeId] });
+                            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales, 'metrics', storeId] });
+                            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.goals, storeId] });
+                            // Refetch silencioso (sem loading)
+                            refetchSales();
                         }, 500);
                     }
                 }

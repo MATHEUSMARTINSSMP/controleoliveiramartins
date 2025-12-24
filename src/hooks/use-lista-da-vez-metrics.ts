@@ -69,9 +69,18 @@ export function useListaDaVezMetrics(storeId: string | null) {
         isInitialLoadRef.current = true;
         fetchMetrics(false); // Carregamento inicial
 
+        // ✅ Debounce para evitar múltiplas atualizações rápidas
+        let debounceTimeout: NodeJS.Timeout | null = null;
+        const debouncedFetch = (silent: boolean) => {
+            if (debounceTimeout) clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(() => {
+                fetchMetrics(silent);
+            }, 500); // 500ms de debounce (métricas podem ser mais pesadas)
+        };
+
         // Setup realtime subscription para attendances e outcomes
         const channel = supabase
-            .channel(`lista-da-vez-metrics-${storeId}`)
+            .channel(`lista-da-vez-metrics-${storeId}`) // ✅ Canal fixo para reutilizar
             .on(
                 'postgres_changes',
                 {
@@ -81,8 +90,8 @@ export function useListaDaVezMetrics(storeId: string | null) {
                 },
                 (payload) => {
                     console.log('[useListaDaVezMetrics] Mudança em outcomes:', payload);
-                    // ✅ Atualizar silenciosamente quando detectar mudança (sem loading)
-                    setTimeout(() => fetchMetrics(true), 500); // silent = true
+                    // ✅ Atualizar silenciosamente com debounce quando detectar mudança (sem loading)
+                    debouncedFetch(true); // silent = true
                 }
             )
             .on(
@@ -95,25 +104,20 @@ export function useListaDaVezMetrics(storeId: string | null) {
                 },
                 (payload) => {
                     console.log('[useListaDaVezMetrics] Mudança em attendances:', payload);
-                    // ✅ Atualizar silenciosamente quando detectar mudança (sem loading)
-                    setTimeout(() => fetchMetrics(true), 500); // silent = true
+                    // ✅ Atualizar silenciosamente com debounce quando detectar mudança (sem loading)
+                    debouncedFetch(true); // silent = true
                 }
             )
             .subscribe((status) => {
                 console.log('[useListaDaVezMetrics] Subscription status:', status);
-                if (status === 'SUBSCRIBED') {
-                    // ✅ Só fazer fetch inicial se ainda não carregou, senão atualizar silenciosamente
-                    if (isInitialLoadRef.current) {
-                        fetchMetrics(false); // Carregamento inicial
-                    } else {
-                        fetchMetrics(true); // Reconexão - silencioso
-                    }
-                }
+                // ✅ NÃO fazer fetch automático na reconexão - apenas escutar mudanças
+                // O fetch inicial já foi feito acima
             });
 
         channelRef.current = channel;
 
         return () => {
+            if (debounceTimeout) clearTimeout(debounceTimeout);
             channel.unsubscribe();
         };
     }, [storeId, fetchMetrics]);

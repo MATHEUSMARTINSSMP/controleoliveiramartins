@@ -72,9 +72,18 @@ export function useListaDaVezAttendances(sessionId: string | null, storeId: stri
         isInitialLoadRef.current = true;
         fetchAttendances(false); // Carregamento inicial
 
+        // ✅ Debounce para evitar múltiplas atualizações rápidas
+        let debounceTimeout: NodeJS.Timeout | null = null;
+        const debouncedFetch = (silent: boolean) => {
+            if (debounceTimeout) clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(() => {
+                fetchAttendances(silent);
+            }, 300); // 300ms de debounce
+        };
+
         // Setup realtime subscription
         const channel = supabase
-            .channel(`lista-da-vez-attendances-${sessionId}`)
+            .channel(`lista-da-vez-attendances-${sessionId}`) // ✅ Canal fixo para reutilizar
             .on(
                 'postgres_changes',
                 {
@@ -85,25 +94,20 @@ export function useListaDaVezAttendances(sessionId: string | null, storeId: stri
                 },
                 (payload) => {
                     console.log('[useListaDaVezAttendances] Mudança detectada:', payload);
-                    // ✅ Atualizar silenciosamente quando detectar mudança (sem loading)
-                    fetchAttendances(true); // silent = true
+                    // ✅ Atualizar silenciosamente com debounce quando detectar mudança (sem loading)
+                    debouncedFetch(true); // silent = true
                 }
             )
             .subscribe((status) => {
                 console.log('[useListaDaVezAttendances] Subscription status:', status);
-                if (status === 'SUBSCRIBED') {
-                    // ✅ Só fazer fetch inicial se ainda não carregou, senão atualizar silenciosamente
-                    if (isInitialLoadRef.current) {
-                        fetchAttendances(false); // Carregamento inicial
-                    } else {
-                        fetchAttendances(true); // Reconexão - silencioso
-                    }
-                }
+                // ✅ NÃO fazer fetch automático na reconexão - apenas escutar mudanças
+                // O fetch inicial já foi feito acima
             });
 
         channelRef.current = channel;
 
         return () => {
+            if (debounceTimeout) clearTimeout(debounceTimeout);
             channel.unsubscribe();
         };
     }, [sessionId, storeId, fetchAttendances]);

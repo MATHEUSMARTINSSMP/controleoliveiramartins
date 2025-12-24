@@ -72,9 +72,18 @@ export function useListaDaVezQueue(sessionId: string | null, storeId: string | n
         isInitialLoadRef.current = true;
         fetchQueueMembers(false); // Carregamento inicial
 
+        // ✅ Debounce para evitar múltiplas atualizações rápidas
+        let debounceTimeout: NodeJS.Timeout | null = null;
+        const debouncedFetch = (silent: boolean) => {
+            if (debounceTimeout) clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(() => {
+                fetchQueueMembers(silent);
+            }, 300); // 300ms de debounce
+        };
+
         // Setup realtime subscription
         const channel = supabase
-            .channel(`lista-da-vez-queue-${sessionId}-${Date.now()}`)
+            .channel(`lista-da-vez-queue-${sessionId}`) // ✅ Remover Date.now() para reutilizar canal
             .on(
                 'postgres_changes',
                 {
@@ -85,27 +94,20 @@ export function useListaDaVezQueue(sessionId: string | null, storeId: string | n
                 },
                 (payload) => {
                     console.log('[useListaDaVezQueue] Mudança detectada:', payload);
-                    // ✅ Atualizar silenciosamente quando detectar mudança (sem loading)
-                    setTimeout(() => {
-                        fetchQueueMembers(true); // silent = true
-                    }, 100);
+                    // ✅ Atualizar silenciosamente com debounce quando detectar mudança (sem loading)
+                    debouncedFetch(true); // silent = true
                 }
             )
             .subscribe((status) => {
                 console.log('[useListaDaVezQueue] Subscription status:', status);
-                if (status === 'SUBSCRIBED') {
-                    // ✅ Só fazer fetch inicial se ainda não carregou, senão atualizar silenciosamente
-                    if (isInitialLoadRef.current) {
-                        fetchQueueMembers(false); // Carregamento inicial
-                    } else {
-                        fetchQueueMembers(true); // Reconexão - silencioso
-                    }
-                }
+                // ✅ NÃO fazer fetch automático na reconexão - apenas escutar mudanças
+                // O fetch inicial já foi feito acima
             });
 
         channelRef.current = channel;
 
         return () => {
+            if (debounceTimeout) clearTimeout(debounceTimeout);
             channel.unsubscribe();
         };
     }, [sessionId, storeId, fetchQueueMembers]);
