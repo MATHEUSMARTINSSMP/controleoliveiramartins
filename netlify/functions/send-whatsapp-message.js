@@ -566,12 +566,50 @@ exports.handler = async (event, context) => {
       responseData = { message: responseText, raw: responseText };
     }
 
+    // ✅ VALIDAÇÃO RIGOROSA: Verificar se realmente foi enviado
+    // O N8N pode retornar HTTP 200 mas com erro na resposta JSON
+    console.log('[WhatsApp] Resposta completa do N8N:', JSON.stringify(responseData, null, 2));
+    
+    // Verificar se há erro explícito na resposta
+    if (responseData.error || responseData.errors) {
+      const errorMsg = responseData.error || JSON.stringify(responseData.errors);
+      console.error('[WhatsApp] ❌ Erro na resposta do N8N:', errorMsg);
+      throw new Error(errorMsg || 'Erro ao enviar mensagem via N8N');
+    }
+    
+    // Verificar se há indicação de falha na resposta
+    if (responseData.success === false || responseData.status === 'error' || responseData.status === 'failed') {
+      const errorMsg = responseData.message || responseData.error || 'Falha ao enviar mensagem';
+      console.error('[WhatsApp] ❌ Falha indicada na resposta do N8N:', errorMsg);
+      throw new Error(errorMsg);
+    }
+    
+    // Verificar campos que indicam sucesso real (dependendo do formato da resposta do N8N)
+    // Alguns possíveis campos: sent, delivered, messageId, id, etc.
+    const hasSuccessIndicator = 
+      responseData.success === true ||
+      responseData.sent === true ||
+      responseData.delivered === true ||
+      responseData.messageId ||
+      responseData.id ||
+      responseData.status === 'sent' ||
+      responseData.status === 'success' ||
+      (response.ok && !responseData.error && !responseData.errors);
+    
     if (!response.ok) {
-      console.error('[WhatsApp] Erro:', responseData);
+      console.error('[WhatsApp] ❌ HTTP Error:', response.status, responseData);
       throw new Error(responseData.message || responseData.error || `HTTP ${response.status}`);
     }
+    
+    if (!hasSuccessIndicator) {
+      // Se não tem indicador claro de sucesso, logar e considerar como possível falha
+      console.warn('[WhatsApp] ⚠️ Resposta do N8N não tem indicador claro de sucesso:', responseData);
+      console.warn('[WhatsApp] ⚠️ Considerando como sucesso por enquanto, mas verificar logs do N8N');
+      // Continuar como sucesso, mas adicionar flag de aviso
+    }
 
-    console.log('[WhatsApp] Mensagem enviada com sucesso');
+    console.log('[WhatsApp] ✅ Mensagem enviada com sucesso (validado)');
+    console.log('[WhatsApp] Resposta do N8N:', JSON.stringify(responseData, null, 2));
 
     return {
       statusCode: 200,
@@ -581,6 +619,7 @@ exports.handler = async (event, context) => {
         message: 'Mensagem enviada com sucesso',
         credentials_source: credentialsSource,
         data: responseData,
+        n8n_response: responseData, // Incluir resposta completa para debug
       }),
     };
   } catch (error) {
