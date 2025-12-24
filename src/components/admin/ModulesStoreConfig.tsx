@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Gift, MessageSquare, Package, Info, Heart, Clock, ChevronDown, ChevronRight, Check, X, Target, Settings, Scissors, Banknote } from 'lucide-react';
+import { Loader2, Gift, MessageSquare, Package, Info, Heart, Clock, ChevronDown, ChevronRight, Check, X, Target, Settings, Scissors, Banknote, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -20,6 +20,7 @@ interface Store {
   ponto_ativo: boolean;
   ajustes_condicionais_ativo: boolean;
   caixa_ativo: boolean;
+  lista_da_vez_ativo: boolean;
   whatsapp_notificacoes_ajustes_condicionais: string | null;
   whatsapp_caixa_numeros: string[] | null;
   whatsapp_caixa_usar_global: boolean;
@@ -30,11 +31,11 @@ interface Store {
 }
 
 interface ModuleInfo {
-  id: 'cashback' | 'crm' | 'erp' | 'wishlist' | 'ponto' | 'ajustes_condicionais' | 'daily_goal_check' | 'caixa';
+  id: 'cashback' | 'crm' | 'erp' | 'wishlist' | 'ponto' | 'ajustes_condicionais' | 'daily_goal_check' | 'caixa' | 'lista_da_vez';
   name: string;
   description: string;
   icon: React.ReactNode;
-  field: 'cashback_ativo' | 'crm_ativo' | 'wishlist_ativo' | 'ponto_ativo' | 'ajustes_condicionais_ativo' | 'daily_goal_check_ativo' | 'caixa_ativo';
+  field: 'cashback_ativo' | 'crm_ativo' | 'wishlist_ativo' | 'ponto_ativo' | 'ajustes_condicionais_ativo' | 'daily_goal_check_ativo' | 'caixa_ativo' | 'lista_da_vez_ativo';
   color: string;
   hasConfig?: boolean;
 }
@@ -105,6 +106,15 @@ const modules: ModuleInfo[] = [
     field: 'caixa_ativo',
     color: 'text-emerald-600 dark:text-emerald-400',
     hasConfig: false
+  },
+  {
+    id: 'lista_da_vez',
+    name: 'Lista da Vez',
+    description: 'Sistema de fila de atendimento para o salão de vendas. Organiza vendedores por disponibilidade, gerencia atendimentos em tempo real e registra métricas de conversão.',
+    icon: <Users className="h-5 w-5" />,
+    field: 'lista_da_vez_ativo',
+    color: 'text-cyan-600 dark:text-cyan-400',
+    hasConfig: false
   }
 ];
 
@@ -132,7 +142,7 @@ export const ModulesStoreConfig = () => {
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, whatsapp_caixa_numeros, whatsapp_caixa_usar_global, active')
+        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, whatsapp_caixa_numeros, whatsapp_caixa_usar_global, active')
         .eq('active', true)
         .order('name');
 
@@ -409,6 +419,11 @@ export const ModulesStoreConfig = () => {
                         <Target className="h-3.5 w-3.5" />
                         <span className="font-medium">Check Meta</span>
                         {store.daily_goal_check_ativo ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                      </div>
+                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded ${store.lista_da_vez_ativo ? 'bg-success/10 text-success' : 'text-muted-foreground'}`}>
+                        <Users className="h-3.5 w-3.5" />
+                        <span className="font-medium">Lista da Vez</span>
+                        {store.lista_da_vez_ativo ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                       </div>
                     </div>
                   )}
