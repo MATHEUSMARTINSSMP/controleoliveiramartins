@@ -193,7 +193,7 @@ export function AdminDailyTasksConfig() {
         setFormData({
             title: "",
             description: "",
-            shift_id: "",
+            shift_id: "sem-turno",
             due_time: "",
             is_recurring: false,
             display_order: 0
@@ -213,7 +213,7 @@ export function AdminDailyTasksConfig() {
                     p_task_id: editingTask.id,
                     p_title: formData.title.trim(),
                     p_description: formData.description.trim() || null,
-                    p_shift_id: formData.shift_id || null,
+                    p_shift_id: formData.shift_id === "sem-turno" ? null : formData.shift_id || null,
                     p_due_time: formData.due_time || null,
                     p_is_recurring: formData.is_recurring,
                     p_display_order: formData.display_order
@@ -227,7 +227,7 @@ export function AdminDailyTasksConfig() {
                     p_store_id: selectedStoreId,
                     p_title: formData.title.trim(),
                     p_description: formData.description.trim() || null,
-                    p_shift_id: formData.shift_id || null,
+                    p_shift_id: formData.shift_id === "sem-turno" ? null : formData.shift_id || null,
                     p_due_time: formData.due_time || null,
                     p_is_recurring: formData.is_recurring,
                     p_display_order: formData.display_order,
@@ -493,7 +493,7 @@ export function AdminDailyTasksConfig() {
                                         <SelectValue placeholder="Selecione um turno" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">Sem Turno</SelectItem>
+                                        <SelectItem value="sem-turno">Sem Turno</SelectItem>
                                         {shifts.map(shift => (
                                             <SelectItem key={shift.id} value={shift.id}>
                                                 {shift.name}
