@@ -55,7 +55,7 @@ export function EditAttendanceDialog({
         profile_id: "",
         started_at: "",
         ended_at: "",
-        result: "" as 'venda' | 'perda' | '',
+        result: "" as 'venda' | 'perda' | '' | 'none',
         sale_value: "",
         loss_reason_id: "",
         cliente_nome: ""
@@ -74,7 +74,7 @@ export function EditAttendanceDialog({
                 profile_id: attendance.profile_id,
                 started_at: format(new Date(attendance.started_at), "yyyy-MM-dd'T'HH:mm"),
                 ended_at: attendance.ended_at ? format(new Date(attendance.ended_at), "yyyy-MM-dd'T'HH:mm") : "",
-                result: attendance.result || "",
+                result: attendance.result || "none",
                 sale_value: attendance.sale_value?.toString() || "",
                 loss_reason_id: attendance.loss_reason_id || "",
                 cliente_nome: attendance.cliente_nome || ""
@@ -236,14 +236,14 @@ export function EditAttendanceDialog({
                     <div>
                         <Label>Resultado</Label>
                         <Select
-                            value={formData.result}
-                            onValueChange={(value: any) => setFormData(prev => ({ ...prev, result: value }))}
+                            value={formData.result || undefined}
+                            onValueChange={(value: any) => setFormData(prev => ({ ...prev, result: value === "none" ? "" : value }))}
                         >
                             <SelectTrigger>
                                 <SelectValue placeholder="Selecione o resultado" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">Sem resultado</SelectItem>
+                                <SelectItem value="none">Sem resultado</SelectItem>
                                 <SelectItem value="venda">Venda Realizada</SelectItem>
                                 <SelectItem value="perda">Venda Perdida</SelectItem>
                             </SelectContent>
