@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Users, Minimize2, Maximize2 } from "lucide-react";
+import { Users } from "lucide-react";
 import { useListaDaVezSession } from "@/hooks/use-lista-da-vez-session";
 import { useListaDaVezQueue } from "@/hooks/use-lista-da-vez-queue";
 import { useListaDaVezAttendances } from "@/hooks/use-lista-da-vez-attendances";
@@ -27,7 +27,6 @@ interface ListaDaVezProps {
 
 export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: ListaDaVezProps) {
     const { profile } = useAuth();
-    const [minimized, setMinimized] = useState(false);
     const [lossReasons, setLossReasons] = useState<Array<{ id: string; name: string }>>([]);
     const [finalizingAttendanceId, setFinalizingAttendanceId] = useState<string | null>(null);
     const [finalizingColaboradoraName, setFinalizingColaboradoraName] = useState<string>("");
@@ -198,34 +197,25 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className={`max-w-6xl ${minimized ? 'max-h-[200px]' : 'max-h-[90vh]'} overflow-y-auto transition-all`}>
-                    <DialogHeader className="flex flex-row items-center justify-between pb-4 border-b">
-                        <DialogTitle className="flex items-center gap-3 text-xl font-semibold">
-                            <div className="p-2 rounded-lg bg-primary/10">
-                                <Users className="h-5 w-5 text-primary" />
+                <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader className="flex flex-row items-center justify-between pb-3 border-b">
+                        <DialogTitle className="flex items-center gap-2.5 text-lg font-semibold">
+                            <div className="p-1.5 rounded-lg bg-primary/10">
+                                <Users className="h-4 w-4 text-primary" />
                             </div>
                             <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
                                 Lista da Vez
                             </span>
                         </DialogTitle>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setMinimized(!minimized)}
-                            title={minimized ? "Maximizar" : "Minimizar"}
-                            className="h-8 w-8"
-                        >
-                            {minimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
-                        </Button>
                     </DialogHeader>
 
-                    {!minimized && (
+                    {(
                         <Tabs defaultValue="fila" className="w-full">
-                            <TabsList className="grid w-full grid-cols-2 mb-6 bg-muted/50">
-                                <TabsTrigger value="fila" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                            <TabsList className="grid w-full grid-cols-2 mb-4 bg-muted/50 h-9">
+                                <TabsTrigger value="fila" className="text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
                                     Fila de Atendimento
                                 </TabsTrigger>
-                                <TabsTrigger value="historico" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                                <TabsTrigger value="historico" className="text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
                                     Histórico
                                 </TabsTrigger>
                             </TabsList>
