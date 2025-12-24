@@ -334,7 +334,13 @@ BEGIN
     LEFT JOIN peak_hour_data ph ON ph.store_id = s.id
     LEFT JOIN best_worst_days bwd ON bwd.store_id = s.id
     LEFT JOIN top_collaborator tc ON tc.store_id = s.id
-    WHERE s.id = p_store_id;
+    WHERE s.id = p_store_id
+    GROUP BY s.id, s.name, ast.total_attendances, ast.total_sales, ast.total_losses, 
+             ast.total_sale_value, ast.avg_sale_value, ast.avg_duration, ast.total_time, 
+             ast.active_collaborators, qs.total_queue_time, qs.avg_queue_time, 
+             ph.peak_hour, ph.peak_hour_attendances, bwd.best_day, bwd.best_day_attendances, 
+             bwd.best_day_sales, bwd.worst_day, bwd.worst_day_attendances, bwd.worst_day_sales,
+             tc.profile_id, tc.profile_name, tc.sales_count;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

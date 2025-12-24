@@ -146,7 +146,11 @@ export function useListaDaVezAnalytics(storeId: string | null) {
             });
 
             if (error) throw error;
-            return data && data.length > 0 ? data[0] as StoreDetailedMetrics : null;
+            // ✅ CORREÇÃO: Verificar se data existe e tem elementos antes de acessar
+            if (!data || !Array.isArray(data) || data.length === 0) {
+                return null;
+            }
+            return data[0] as StoreDetailedMetrics;
         } catch (error: any) {
             console.error('[useListaDaVezAnalytics] Erro ao buscar métricas da loja:', error);
             return null;

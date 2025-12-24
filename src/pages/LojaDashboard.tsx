@@ -2694,6 +2694,16 @@ export default function LojaDashboard() {
                 setSubmitSuccess(false);
                 setSubmitting(false);
             }, 1500);
+            
+            // ✅ ATUALIZAR DADOS AUTOMATICAMENTE SEM PRECISAR REFRESH
+            // Invalidar queries relacionadas para atualizar automaticamente
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales, 'store', storeId] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales, 'metrics', storeId] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.goals, storeId] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.profiles, 'colaboradoras', storeId] });
+            
+            // Refetch imediato para atualização instantânea
+            refetchSales();
             // PRIORIDADE 1: Salvar venda (já salvo acima)
             // IMPORTANTE: Salvar dados da venda ANTES de resetar o form
             const vendaData = {
@@ -3357,7 +3367,7 @@ export default function LojaDashboard() {
                         .from('tiny_orders')
                         .select('cliente_nome, itens, forma_pagamento')
                         .eq('id', tinyOrderId)
-                        .single();
+                        .maybeSingle(); // ✅ Usar maybeSingle() para evitar erro quando não encontrar
 
                     if (!error && data) {
                         setErpSaleDetails(prev => ({
@@ -3620,7 +3630,16 @@ export default function LojaDashboard() {
                 console.error(error);
             } else {
                 toast.success(isVendaERP ? 'Venda e pedido do ERP excluídos com sucesso!' : 'Venda excluída com sucesso!');
-                if (storeId) await fetchDataWithStoreId(storeId);
+                
+                // ✅ ATUALIZAR DADOS AUTOMATICAMENTE SEM PRECISAR REFRESH
+                // Invalidar queries relacionadas para atualizar automaticamente
+                queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales, 'store', storeId] });
+                queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales, 'metrics', storeId] });
+                queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.goals, storeId] });
+                queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.profiles, 'colaboradoras', storeId] });
+                
+                // Refetch imediato para atualização instantânea
+                refetchSales();
             }
         } catch (error: any) {
             toast.error('Erro ao deletar: ' + error.message);
