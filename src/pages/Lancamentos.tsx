@@ -1171,149 +1171,147 @@ const Lancamentos = () => {
                       const mesFormatado = `${mes.slice(4)}/${mes.slice(0, 4)}`;
                       
                       return (
-                        <Card key={mes} className="overflow-hidden">
-                          <CardHeader className="bg-gradient-to-r from-primary/10 to-accent/10 border-b">
-                            <CardTitle className="text-xl">
-                              Mês: {mesFormatado}
-                            </CardTitle>
+                        <Card key={mes}>
+                          <CardHeader>
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-lg">
+                                {mesFormatado}
+                              </CardTitle>
+                              <div className="flex gap-4 text-sm">
+                                <div>
+                                  <span className="text-muted-foreground">Total: </span>
+                                  <span className="font-semibold">
+                                    {formatCurrency(colaboradoras.reduce((sum, c) => sum + c.total, 0))}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
                           </CardHeader>
-                          <CardContent className="p-0">
-                            <div className="space-y-6 p-6">
-                              {colaboradoras.map((colaboradora) => (
-                                <div key={colaboradora.colaboradoraId} className="border rounded-lg p-4 space-y-4">
-                                  {/* Cabeçalho da Colaboradora */}
-                                  <div className="flex items-center justify-between pb-3 border-b">
-                                    <h3 className="text-lg font-semibold text-foreground">
-                                      {colaboradora.colaboradoraNome}
-                                    </h3>
-                                    <div className="text-right">
-                                      <p className="text-sm text-muted-foreground">Total</p>
-                                      <p className="text-xl font-bold text-primary">
-                                        {formatCurrency(colaboradora.total)}
-                                      </p>
+                          <CardContent>
+                            <div className="space-y-4">
+                              {colaboradoras.map((colaboradora) => {
+                                const todasParcelas = colaboradora.compras.flatMap(c => 
+                                  c.parcelas.filter(p => p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO")
+                                );
+                                const adiantamentosPendentes = colaboradora.adiantamentos.filter(
+                                  a => a.status === "APROVADO" && !a.data_desconto
+                                );
+
+                                if (todasParcelas.length === 0 && adiantamentosPendentes.length === 0) {
+                                  return null;
+                                }
+
+                                return (
+                                  <div key={colaboradora.colaboradoraId} className="space-y-3">
+                                    {/* Cabeçalho da Colaboradora */}
+                                    <div className="flex items-center justify-between pb-2 border-b">
+                                      <h3 className="font-semibold text-foreground">
+                                        {colaboradora.colaboradoraNome}
+                                      </h3>
+                                      <div className="text-right">
+                                        <span className="text-sm text-muted-foreground">Total: </span>
+                                        <span className="font-semibold text-primary">
+                                          {formatCurrency(colaboradora.total)}
+                                        </span>
+                                      </div>
                                     </div>
-                                  </div>
 
-                                  {/* Compras */}
-                                  {colaboradora.compras.length > 0 && (
-                                    <div className="space-y-3">
-                                      <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                                        Compras
-                                      </h4>
-                                      {colaboradora.compras.map((compra) => {
-                                        const compraIdShort = compra.compraId.substring(0, 8).toUpperCase();
-                                        const parcelasPendentes = compra.parcelas.filter(
-                                          p => p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO"
-                                        );
-                                        const totalCompra = parcelasPendentes.reduce((sum, p) => sum + p.valor_parcela, 0);
-
-                                        return (
-                                          <div key={compra.compraId} className="bg-muted/30 rounded-md p-3 space-y-2">
-                                            <div className="flex items-start justify-between">
-                                              <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                  <span className="text-xs font-mono text-primary font-semibold">
-                                                    {compraIdShort}
-                                                  </span>
-                                                  <Badge variant="outline" className="text-xs">
-                                                    {parcelasPendentes.length} parcela{parcelasPendentes.length !== 1 ? 's' : ''}
-                                                  </Badge>
-                                                </div>
-                                                <p className="text-sm text-foreground mb-2">{compra.item}</p>
-                                              </div>
-                                              <div className="text-right">
-                                                <p className="text-sm font-semibold text-foreground">
-                                                  {formatCurrency(totalCompra)}
-                                                </p>
-                                              </div>
-                                            </div>
-                                            
-                                            {/* Lista de Parcelas */}
-                                            <div className="space-y-1.5 pl-4 border-l-2 border-primary/20">
-                                              {parcelasPendentes
-                                                .sort((a, b) => a.n_parcela - b.n_parcela)
-                                                .map((parcela) => (
-                                                  <div
-                                                    key={parcela.id}
-                                                    className="flex items-center justify-between py-1.5 px-2 bg-background/50 rounded text-sm"
-                                                  >
-                                                    <div className="flex items-center gap-3">
-                                                      <span className="text-muted-foreground">
-                                                        Parcela {parcela.n_parcela}/{parcela.purchases.num_parcelas}
-                                                      </span>
-                                                      <span className="font-semibold text-foreground">
-                                                        {formatCurrency(parcela.valor_parcela)}
-                                                      </span>
-                                                    </div>
+                                    {/* Tabela de Parcelas e Adiantamentos */}
+                                    <div className="rounded-md border overflow-hidden">
+                                      <Table>
+                                        <TableHeader>
+                                          <TableRow>
+                                            <TableHead>Tipo</TableHead>
+                                            <TableHead>ID Compra</TableHead>
+                                            <TableHead>Data</TableHead>
+                                            <TableHead>Parcela</TableHead>
+                                            <TableHead>Valor</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead>Ações</TableHead>
+                                          </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                          {/* Parcelas */}
+                                          {todasParcelas
+                                            .sort((a, b) => {
+                                              // Ordenar por data da compra, depois por número da parcela
+                                              const dataA = new Date(a.purchases.data_compra).getTime();
+                                              const dataB = new Date(b.purchases.data_compra).getTime();
+                                              if (dataA !== dataB) return dataB - dataA;
+                                              return a.n_parcela - b.n_parcela;
+                                            })
+                                            .map((parcela) => {
+                                              const compraIdShort = parcela.compra_id.substring(0, 8).toUpperCase();
+                                              
+                                              return (
+                                                <TableRow key={parcela.id}>
+                                                  <TableCell className="text-muted-foreground text-sm">
+                                                    Compra
+                                                  </TableCell>
+                                                  <TableCell>
+                                                    <span className="font-mono text-xs font-semibold text-primary">
+                                                      {compraIdShort}
+                                                    </span>
+                                                  </TableCell>
+                                                  <TableCell>
+                                                    {format(new Date(parcela.purchases.data_compra), "dd/MM/yyyy")}
+                                                  </TableCell>
+                                                  <TableCell>
+                                                    {parcela.n_parcela}/{parcela.purchases.num_parcelas}
+                                                  </TableCell>
+                                                  <TableCell>{formatCurrency(parcela.valor_parcela)}</TableCell>
+                                                  <TableCell>{getStatusBadge(parcela.status_parcela)}</TableCell>
+                                                  <TableCell>
                                                     <Button
                                                       size="sm"
                                                       variant="outline"
                                                       onClick={() => handleDescontar(parcela.id)}
-                                                      className="border-primary/20 h-7 text-xs"
+                                                      className="border-primary/20"
                                                     >
-                                                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                                                      <CheckCircle2 className="h-4 w-4 mr-1" />
                                                       Descontar
                                                     </Button>
-                                                  </div>
-                                                ))}
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-
-                                  {/* Adiantamentos */}
-                                  {colaboradora.adiantamentos.filter(a => a.status === "APROVADO" && !a.data_desconto).length > 0 && (
-                                    <div className="space-y-3">
-                                      <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                                        Adiantamentos
-                                      </h4>
-                                      {colaboradora.adiantamentos
-                                        .filter(a => a.status === "APROVADO" && !a.data_desconto)
-                                        .map((adiantamento) => (
-                                          <div
-                                            key={adiantamento.id}
-                                            className="bg-muted/30 rounded-md p-3 flex items-center justify-between"
-                                          >
-                                            <div>
-                                              <p className="text-sm font-medium text-foreground">
+                                                  </TableCell>
+                                                </TableRow>
+                                              );
+                                            })}
+                                          
+                                          {/* Adiantamentos */}
+                                          {adiantamentosPendentes.map((adiantamento) => (
+                                            <TableRow key={adiantamento.id}>
+                                              <TableCell className="text-muted-foreground text-sm">
                                                 Adiantamento
-                                              </p>
-                                              {adiantamento.observacoes && (
-                                                <p className="text-xs text-muted-foreground mt-1">
-                                                  {adiantamento.observacoes}
-                                                </p>
-                                              )}
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                              <span className="text-sm font-semibold text-foreground">
-                                                {formatCurrency(adiantamento.valor)}
-                                              </span>
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleDescontarAdiantamento(adiantamento.id)}
-                                                className="border-primary/20 h-7 text-xs"
-                                              >
-                                                <CheckCircle2 className="h-3 w-3 mr-1" />
-                                                Descontar
-                                              </Button>
-                                            </div>
-                                          </div>
-                                        ))}
+                                              </TableCell>
+                                              <TableCell className="text-muted-foreground">
+                                                -
+                                              </TableCell>
+                                              <TableCell>
+                                                {format(new Date(adiantamento.data_solicitacao), "dd/MM/yyyy")}
+                                              </TableCell>
+                                              <TableCell className="text-muted-foreground">
+                                                -
+                                              </TableCell>
+                                              <TableCell>{formatCurrency(adiantamento.valor)}</TableCell>
+                                              <TableCell>{getStatusBadge(adiantamento.status)}</TableCell>
+                                              <TableCell>
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  onClick={() => handleDescontarAdiantamento(adiantamento.id)}
+                                                  className="border-primary/20"
+                                                >
+                                                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                                                  Descontar
+                                                </Button>
+                                              </TableCell>
+                                            </TableRow>
+                                          ))}
+                                        </TableBody>
+                                      </Table>
                                     </div>
-                                  )}
-
-                                  {/* Mensagem se não houver itens */}
-                                  {colaboradora.compras.length === 0 && 
-                                   colaboradora.adiantamentos.filter(a => a.status === "APROVADO" && !a.data_desconto).length === 0 && (
-                                    <p className="text-sm text-muted-foreground text-center py-4">
-                                      Nenhum item pendente para esta colaboradora
-                                    </p>
-                                  )}
-                                </div>
-                              ))}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </CardContent>
                         </Card>
