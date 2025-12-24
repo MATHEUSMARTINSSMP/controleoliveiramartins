@@ -95,12 +95,9 @@ DECLARE
     v_new_position INTEGER;
 BEGIN
     -- Buscar dados do atendimento
-    -- Buscar member_id mesmo se status não for 'em_atendimento' (pode ter mudado)
-    SELECT a.*, qm.id as member_id, qs.store_id as store_id
+    SELECT a.*, qs.store_id as store_id, a.session_id
     INTO v_attendance
     FROM sistemaretiradas.attendances a
-    LEFT JOIN sistemaretiradas.queue_members qm ON qm.profile_id = a.profile_id 
-        AND qm.session_id = a.session_id
     LEFT JOIN sistemaretiradas.queue_sessions qs ON qs.id = a.session_id
     WHERE a.id = p_attendance_id
       AND a.status = 'em_andamento';
@@ -109,9 +106,16 @@ BEGIN
         RAISE EXCEPTION 'Atendimento não encontrado ou já finalizado';
     END IF;
     
-    v_member_id := v_attendance.member_id;
     v_session_id := v_attendance.session_id;
     v_store_id := v_attendance.store_id;
+    
+    -- Buscar member_id diretamente pela profile_id e session_id
+    -- IMPORTANTE: Buscar independente do status para garantir que encontramos o registro
+    SELECT id INTO v_member_id
+    FROM sistemaretiradas.queue_members
+    WHERE profile_id = v_attendance.profile_id
+      AND session_id = v_session_id
+    LIMIT 1;
     
     -- Finalizar atendimento
     UPDATE sistemaretiradas.attendances
@@ -144,6 +148,7 @@ BEGIN
     RETURNING id INTO v_outcome_id;
     
     -- Se membro ainda está na fila, SEMPRE mover para o final (independente da configuração)
+    -- IMPORTANTE: Usar UPDATE ao invés de INSERT para evitar violação de constraint única
     IF v_member_id IS NOT NULL THEN
         -- Calcular nova posição (final da fila)
         SELECT COALESCE(MAX(position), 0) + 1 INTO v_new_position
@@ -151,15 +156,20 @@ BEGIN
         WHERE session_id = v_session_id
           AND status = 'disponivel';
         
-        -- Sempre mover para o final da fila
+        -- Sempre mover para o final da fila usando UPDATE (não INSERT)
+        -- Isso evita violação da constraint única idx_queue_members_unique_profile
         UPDATE sistemaretiradas.queue_members
         SET status = 'disponivel',
             position = v_new_position,
             updated_at = NOW()
         WHERE id = v_member_id;
         
-        -- Reorganizar fila
+        -- Reorganizar fila para garantir posições corretas
         PERFORM sistemaretiradas.reorganize_queue_positions(v_session_id);
+    ELSE
+        -- Se não encontrou member_id, pode ser que o membro já foi removido da fila
+        -- Nesse caso, não fazemos nada (atendimento já foi finalizado)
+        RAISE NOTICE 'Membro não encontrado na fila para o atendimento %', p_attendance_id;
     END IF;
     
     -- Registrar evento
