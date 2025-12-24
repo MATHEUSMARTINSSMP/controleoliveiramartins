@@ -150,22 +150,28 @@ BEGIN
     -- Se membro ainda está na fila, SEMPRE mover para o final (independente da configuração)
     -- IMPORTANTE: Usar UPDATE ao invés de INSERT para evitar violação de constraint única
     IF v_member_id IS NOT NULL THEN
-        -- Calcular nova posição (final da fila)
-        SELECT COALESCE(MAX(position), 0) + 1 INTO v_new_position
-        FROM sistemaretiradas.queue_members
-        WHERE session_id = v_session_id
-          AND status = 'disponivel';
-        
-        -- Sempre mover para o final da fila usando UPDATE (não INSERT)
-        -- Isso evita violação da constraint única idx_queue_members_unique_profile
-        UPDATE sistemaretiradas.queue_members
-        SET status = 'disponivel',
-            position = v_new_position,
-            updated_at = NOW()
-        WHERE id = v_member_id;
-        
-        -- Reorganizar fila para garantir posições corretas
-        PERFORM sistemaretiradas.reorganize_queue_positions(v_session_id);
+        -- Verificar se o membro ainda existe (pode ter sido removido)
+        IF EXISTS (SELECT 1 FROM sistemaretiradas.queue_members WHERE id = v_member_id) THEN
+            -- Calcular nova posição (final da fila) - apenas para membros disponíveis
+            SELECT COALESCE(MAX(position), 0) + 1 INTO v_new_position
+            FROM sistemaretiradas.queue_members
+            WHERE session_id = v_session_id
+              AND status = 'disponivel';
+            
+            -- Sempre mover para o final da fila usando UPDATE (não INSERT)
+            -- Isso evita violação da constraint única idx_queue_members_unique_profile
+            UPDATE sistemaretiradas.queue_members
+            SET status = 'disponivel',
+                position = v_new_position,
+                updated_at = NOW()
+            WHERE id = v_member_id;
+            
+            -- Reorganizar fila para garantir posições corretas
+            PERFORM sistemaretiradas.reorganize_queue_positions(v_session_id);
+        ELSE
+            -- Membro foi removido da fila, não fazer nada
+            RAISE NOTICE 'Membro % não existe mais na fila para o atendimento %', v_member_id, p_attendance_id;
+        END IF;
     ELSE
         -- Se não encontrou member_id, pode ser que o membro já foi removido da fila
         -- Nesse caso, não fazemos nada (atendimento já foi finalizado)
