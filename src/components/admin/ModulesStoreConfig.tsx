@@ -149,12 +149,22 @@ export const ModulesStoreConfig = () => {
   const fetchStores = async () => {
     try {
       setLoading(true);
+      // Query defensiva: buscar colunas que podem não existir ainda
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, tasks_ativo, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, whatsapp_caixa_numeros, whatsapp_caixa_usar_global, active')
+        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, whatsapp_caixa_numeros, whatsapp_caixa_usar_global, active')
         .eq('active', true)
         .order('name');
+      
+      // Se tasks_ativo não existir, adicionar como false para todas as lojas
+      if (data) {
+        data.forEach(store => {
+          if (!('tasks_ativo' in store)) {
+            (store as any).tasks_ativo = false;
+          }
+        });
+      }
 
       if (error) throw error;
 

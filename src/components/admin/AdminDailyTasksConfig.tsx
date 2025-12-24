@@ -101,10 +101,20 @@ export function AdminDailyTasksConfig() {
                 .select('*')
                 .order('display_order');
 
-            if (error) throw error;
+            if (error) {
+                // Se a tabela não existir, apenas logar e continuar com array vazio
+                if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+                    console.warn('[AdminDailyTasksConfig] Tabela shifts não existe ainda. Execute a migration primeiro.');
+                    setShifts([]);
+                    return;
+                }
+                throw error;
+            }
             setShifts(data || []);
         } catch (error: any) {
             console.error('[AdminDailyTasksConfig] Erro ao buscar turnos:', error);
+            // Continuar com array vazio para não quebrar a UI
+            setShifts([]);
         }
     };
 
