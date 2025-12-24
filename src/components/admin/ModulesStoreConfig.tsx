@@ -21,6 +21,7 @@ interface Store {
   ajustes_condicionais_ativo: boolean;
   caixa_ativo: boolean;
   lista_da_vez_ativo: boolean;
+  tasks_ativo: boolean;
   whatsapp_notificacoes_ajustes_condicionais: string | null;
   whatsapp_caixa_numeros: string[] | null;
   whatsapp_caixa_usar_global: boolean;
@@ -31,11 +32,11 @@ interface Store {
 }
 
 interface ModuleInfo {
-  id: 'cashback' | 'crm' | 'erp' | 'wishlist' | 'ponto' | 'ajustes_condicionais' | 'daily_goal_check' | 'caixa' | 'lista_da_vez';
+  id: 'cashback' | 'crm' | 'erp' | 'wishlist' | 'ponto' | 'ajustes_condicionais' | 'daily_goal_check' | 'caixa' | 'lista_da_vez' | 'tasks';
   name: string;
   description: string;
   icon: React.ReactNode;
-  field: 'cashback_ativo' | 'crm_ativo' | 'wishlist_ativo' | 'ponto_ativo' | 'ajustes_condicionais_ativo' | 'daily_goal_check_ativo' | 'caixa_ativo' | 'lista_da_vez_ativo';
+  field: 'cashback_ativo' | 'crm_ativo' | 'wishlist_ativo' | 'ponto_ativo' | 'ajustes_condicionais_ativo' | 'daily_goal_check_ativo' | 'caixa_ativo' | 'lista_da_vez_ativo' | 'tasks_ativo';
   color: string;
   hasConfig?: boolean;
 }
@@ -115,6 +116,15 @@ const modules: ModuleInfo[] = [
     field: 'lista_da_vez_ativo',
     color: 'text-cyan-600 dark:text-cyan-400',
     hasConfig: false
+  },
+  {
+    id: 'tasks',
+    name: 'Tarefas do Dia',
+    description: 'Sistema de gerenciamento de tarefas diárias por turno. Permite configurar tarefas organizadas por horário/turno e acompanhar a execução pelas colaboradoras com relatórios de desempenho.',
+    icon: <CheckSquare className="h-5 w-5" />,
+    field: 'tasks_ativo',
+    color: 'text-violet-600 dark:text-violet-400',
+    hasConfig: false
   }
 ];
 
@@ -142,7 +152,7 @@ export const ModulesStoreConfig = () => {
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, whatsapp_caixa_numeros, whatsapp_caixa_usar_global, active')
+        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, tasks_ativo, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, whatsapp_caixa_numeros, whatsapp_caixa_usar_global, active')
         .eq('active', true)
         .order('name');
 
@@ -184,7 +194,7 @@ export const ModulesStoreConfig = () => {
         .from('stores')
         .update(updateData)
         .eq('id', storeId)
-        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, daily_goal_check_ativo');
+        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, tasks_ativo, daily_goal_check_ativo');
 
       if (error) {
         console.error('[ModulesStoreConfig] Erro na atualização:', error);
