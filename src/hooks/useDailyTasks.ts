@@ -94,9 +94,10 @@ export function useDailyTasks({
             if (completeError) throw completeError;
 
             // Atualizar lista localmente
+            const user = (await supabase.auth.getUser()).data.user;
             setTasks(prev => prev.map(task => 
                 task.id === taskId 
-                    ? { ...task, completed_by: (await supabase.auth.getUser()).data.user?.id || null, completed_at: new Date().toISOString(), completion_notes: notes || null }
+                    ? { ...task, completed_by: user?.id || null, completed_at: new Date().toISOString(), completion_notes: notes || null }
                     : task
             ));
 

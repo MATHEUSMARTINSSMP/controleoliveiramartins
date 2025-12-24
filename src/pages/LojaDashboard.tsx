@@ -72,6 +72,7 @@ const WishlistLojaView = lazy(() => import("@/components/loja/WishlistLojaView")
 const StoreConditionalsAdjustments = lazy(() => import("@/components/loja/StoreConditionalsAdjustments"));
 const CaixaLojaView = lazy(() => import("@/components/loja/CaixaLojaView"));
 import { ListaDaVez } from "@/components/loja/ListaDaVez";
+const LojaTasksTab = lazy(() => import("@/components/loja/LojaTasksTab").then(m => ({ default: m.LojaTasksTab })));
 
 interface Sale {
     id: string;
@@ -124,7 +125,8 @@ export default function LojaDashboard() {
     const [ajustesCondicionaisAtivo, setAjustesCondicionaisAtivo] = useState<boolean>(false);
     const [caixaAtivo, setCaixaAtivo] = useState<boolean>(false);
     const [listaDaVezAtivo, setListaDaVezAtivo] = useState<boolean>(false);
-    const [activeView, setActiveView] = useState<'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes' | 'caixa'>('metas');
+    const [tasksAtivo, setTasksAtivo] = useState<boolean>(false);
+    const [activeView, setActiveView] = useState<'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes' | 'caixa' | 'tasks'>('metas');
     const [listaDaVezOpen, setListaDaVezOpen] = useState(false);
     const [linkErpSaleDialogOpen, setLinkErpSaleDialogOpen] = useState(false);
     const [linkErpSaleData, setLinkErpSaleData] = useState<{
@@ -712,6 +714,7 @@ export default function LojaDashboard() {
                 const ajustesCondicionais = Boolean(storeSettings.ajustes_condicionais_ativo);
                 const caixa = Boolean(storeSettings.caixa_ativo);
                 const listaDaVez = Boolean(storeSettings.lista_da_vez_ativo);
+                const tasks = Boolean(storeSettings.tasks_ativo);
 
                 console.log('[LojaDashboard] ✅ Valores booleanos calculados:', {
                     cashback,
@@ -733,6 +736,7 @@ export default function LojaDashboard() {
                 setAjustesCondicionaisAtivo(ajustesCondicionais);
                 setCaixaAtivo(caixa);
                 setListaDaVezAtivo(listaDaVez);
+                setTasksAtivo(tasks);
 
                 console.log('[LojaDashboard] ✅ Estados atualizados via storeSettings');
                 return;
@@ -3845,8 +3849,8 @@ export default function LojaDashboard() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo || ajustesCondicionaisAtivo || caixaAtivo) && (
-                            <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes' | 'caixa')}>
+                        {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo || ajustesCondicionaisAtivo || caixaAtivo || tasksAtivo) && (
+                            <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes' | 'caixa' | 'tasks')}>
                                 <TabsList className="flex flex-wrap h-auto gap-0.5 p-0.5">
                                     <TabsTrigger value="metas" className="text-[10px] sm:text-xs px-2 py-1 justify-center">
                                         Metas
@@ -3879,6 +3883,11 @@ export default function LojaDashboard() {
                                     {caixaAtivo && (
                                         <TabsTrigger value="caixa" className="text-[10px] sm:text-xs px-2 py-1 justify-center">
                                             Caixa
+                                        </TabsTrigger>
+                                    )}
+                                    {tasksAtivo && (
+                                        <TabsTrigger value="tasks" className="text-[10px] sm:text-xs px-2 py-1 justify-center">
+                                            Tarefas
                                         </TabsTrigger>
                                     )}
                                 </TabsList>
@@ -3924,8 +3933,8 @@ export default function LojaDashboard() {
                     )}
 
                     {/* Conteúdo Principal com Abas */}
-                    {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo || ajustesCondicionaisAtivo || caixaAtivo) ? (
-                        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes' | 'caixa')} className="space-y-4">
+                    {(cashbackAtivo || crmAtivo || wishlistAtivo || pontoAtivo || ajustesCondicionaisAtivo || caixaAtivo || tasksAtivo) ? (
+                        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes' | 'caixa' | 'tasks')} className="space-y-4">
                             <TabsContent value="metas" className="space-y-4 sm:space-y-6">
                                 {/* Todo o conteúdo atual do dashboard de metas */}
                                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
