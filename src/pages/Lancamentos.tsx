@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Undo2, Trash2, ChevronDown, ChevronRight, Package, Plus, ShoppingBag, Calendar } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Undo2, Trash2, ChevronDown, ChevronRight, Package, Plus, ShoppingBag, Calendar, FileText } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
@@ -41,6 +41,7 @@ interface Parcela {
 
 interface Adiantamento {
   id: string;
+  colaboradora_id: string;
   valor: number;
   mes_competencia: string;
   status: string;
@@ -309,6 +310,111 @@ const Lancamentos = () => {
       }));
   }, [parcelas, mesFiltro]);
 
+  // Agrupar dados consolidados por mês e colaboradora
+  const dadosConsolidados = useMemo(() => {
+    // Obter todos os meses únicos de parcelas e adiantamentos
+    const mesesParcelas = new Set(parcelas.map(p => p.competencia));
+    const mesesAdiantamentos = new Set(adiantamentos.map(a => a.mes_competencia));
+    const todosMeses = Array.from(new Set([...mesesParcelas, ...mesesAdiantamentos]))
+      .filter(mes => mesFiltro === "TODOS" || mes === mesFiltro)
+      .sort((a, b) => b.localeCompare(a));
+
+    return todosMeses.map(mes => {
+      // Parcelas do mês
+      const parcelasMes = parcelas.filter(p => p.competencia === mes);
+      
+      // Adiantamentos do mês
+      const adiantamentosMes = adiantamentos.filter(a => a.mes_competencia === mes);
+
+      // Agrupar por colaboradora
+      const porColaboradora = new Map<string, {
+        colaboradoraId: string;
+        colaboradoraNome: string;
+        compras: Array<{
+          compraId: string;
+          item: string;
+          parcelas: Parcela[];
+        }>;
+        adiantamentos: Adiantamento[];
+        total: number;
+      }>();
+
+      // Processar parcelas (agrupar por compra)
+      parcelasMes.forEach(parcela => {
+        const colaboradoraId = parcela.purchases.colaboradora_id;
+        const colaboradoraNome = parcela.purchases.profiles.name;
+
+        if (!porColaboradora.has(colaboradoraId)) {
+          porColaboradora.set(colaboradoraId, {
+            colaboradoraId,
+            colaboradoraNome,
+            compras: [],
+            adiantamentos: [],
+            total: 0,
+          });
+        }
+
+        const colaboradora = porColaboradora.get(colaboradoraId)!;
+        
+        // Verificar se a compra já existe
+        let compra = colaboradora.compras.find(c => c.compraId === parcela.compra_id);
+        if (!compra) {
+          compra = {
+            compraId: parcela.compra_id,
+            item: parcela.purchases.item,
+            parcelas: [],
+          };
+          colaboradora.compras.push(compra);
+        }
+        compra.parcelas.push(parcela);
+      });
+
+      // Processar adiantamentos
+      adiantamentosMes.forEach(adiantamento => {
+        const colaboradoraId = adiantamento.colaboradora_id || '';
+        const colaboradoraNome = adiantamento.profiles.name;
+
+        if (!porColaboradora.has(colaboradoraId)) {
+          porColaboradora.set(colaboradoraId, {
+            colaboradoraId,
+            colaboradoraNome,
+            compras: [],
+            adiantamentos: [],
+            total: 0,
+          });
+        }
+
+        const colaboradora = porColaboradora.get(colaboradoraId)!;
+        colaboradora.adiantamentos.push(adiantamento);
+      });
+
+      // Calcular totais
+      porColaboradora.forEach(colaboradora => {
+        const totalParcelas = colaboradora.compras.reduce((sum, compra) => {
+          return sum + compra.parcelas.reduce((s, p) => {
+            // Só contar parcelas pendentes ou agendadas
+            if (p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO") {
+              return s + p.valor_parcela;
+            }
+            return s;
+          }, 0);
+        }, 0);
+
+        const totalAdiantamentos = colaboradora.adiantamentos
+          .filter(a => a.status === "APROVADO" && !a.data_desconto)
+          .reduce((sum, a) => sum + a.valor, 0);
+
+        colaboradora.total = totalParcelas + totalAdiantamentos;
+      });
+
+      return {
+        mes,
+        colaboradoras: Array.from(porColaboradora.values())
+          .sort((a, b) => a.colaboradoraNome.localeCompare(b.colaboradoraNome)),
+      };
+    });
+  }, [parcelas, adiantamentos, mesFiltro]);
+
   const handleDescontar = async (parcelaId: string) => {
     try {
       const { error } = await supabase
@@ -545,6 +651,10 @@ const Lancamentos = () => {
                 <TabsTrigger value="adiantamentos">
                   <Package className="h-4 w-4 mr-2" />
                   Adiantamentos
+                </TabsTrigger>
+                <TabsTrigger value="consolidado">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Consolidado
                 </TabsTrigger>
               </TabsList>
 
@@ -1043,6 +1153,172 @@ const Lancamentos = () => {
                           ))}
                       </TableBody>
                     </Table>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* ABA CONSOLIDADO */}
+              <TabsContent value="consolidado" className="space-y-4">
+                {dadosConsolidados.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-8 text-center text-muted-foreground">
+                      Nenhum dado encontrado
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-6">
+                    {dadosConsolidados.map(({ mes, colaboradoras }) => {
+                      const mesFormatado = `${mes.slice(4)}/${mes.slice(0, 4)}`;
+                      
+                      return (
+                        <Card key={mes} className="overflow-hidden">
+                          <CardHeader className="bg-gradient-to-r from-primary/10 to-accent/10 border-b">
+                            <CardTitle className="text-xl">
+                              Mês: {mesFormatado}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-0">
+                            <div className="space-y-6 p-6">
+                              {colaboradoras.map((colaboradora) => (
+                                <div key={colaboradora.colaboradoraId} className="border rounded-lg p-4 space-y-4">
+                                  {/* Cabeçalho da Colaboradora */}
+                                  <div className="flex items-center justify-between pb-3 border-b">
+                                    <h3 className="text-lg font-semibold text-foreground">
+                                      {colaboradora.colaboradoraNome}
+                                    </h3>
+                                    <div className="text-right">
+                                      <p className="text-sm text-muted-foreground">Total</p>
+                                      <p className="text-xl font-bold text-primary">
+                                        {formatCurrency(colaboradora.total)}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {/* Compras */}
+                                  {colaboradora.compras.length > 0 && (
+                                    <div className="space-y-3">
+                                      <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                                        Compras
+                                      </h4>
+                                      {colaboradora.compras.map((compra) => {
+                                        const compraIdShort = compra.compraId.substring(0, 8).toUpperCase();
+                                        const parcelasPendentes = compra.parcelas.filter(
+                                          p => p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO"
+                                        );
+                                        const totalCompra = parcelasPendentes.reduce((sum, p) => sum + p.valor_parcela, 0);
+
+                                        return (
+                                          <div key={compra.compraId} className="bg-muted/30 rounded-md p-3 space-y-2">
+                                            <div className="flex items-start justify-between">
+                                              <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                  <span className="text-xs font-mono text-primary font-semibold">
+                                                    {compraIdShort}
+                                                  </span>
+                                                  <Badge variant="outline" className="text-xs">
+                                                    {parcelasPendentes.length} parcela{parcelasPendentes.length !== 1 ? 's' : ''}
+                                                  </Badge>
+                                                </div>
+                                                <p className="text-sm text-foreground mb-2">{compra.item}</p>
+                                              </div>
+                                              <div className="text-right">
+                                                <p className="text-sm font-semibold text-foreground">
+                                                  {formatCurrency(totalCompra)}
+                                                </p>
+                                              </div>
+                                            </div>
+                                            
+                                            {/* Lista de Parcelas */}
+                                            <div className="space-y-1.5 pl-4 border-l-2 border-primary/20">
+                                              {parcelasPendentes
+                                                .sort((a, b) => a.n_parcela - b.n_parcela)
+                                                .map((parcela) => (
+                                                  <div
+                                                    key={parcela.id}
+                                                    className="flex items-center justify-between py-1.5 px-2 bg-background/50 rounded text-sm"
+                                                  >
+                                                    <div className="flex items-center gap-3">
+                                                      <span className="text-muted-foreground">
+                                                        Parcela {parcela.n_parcela}/{parcela.purchases.num_parcelas}
+                                                      </span>
+                                                      <span className="font-semibold text-foreground">
+                                                        {formatCurrency(parcela.valor_parcela)}
+                                                      </span>
+                                                    </div>
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      onClick={() => handleDescontar(parcela.id)}
+                                                      className="border-primary/20 h-7 text-xs"
+                                                    >
+                                                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                                                      Descontar
+                                                    </Button>
+                                                  </div>
+                                                ))}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+
+                                  {/* Adiantamentos */}
+                                  {colaboradora.adiantamentos.filter(a => a.status === "APROVADO" && !a.data_desconto).length > 0 && (
+                                    <div className="space-y-3">
+                                      <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                                        Adiantamentos
+                                      </h4>
+                                      {colaboradora.adiantamentos
+                                        .filter(a => a.status === "APROVADO" && !a.data_desconto)
+                                        .map((adiantamento) => (
+                                          <div
+                                            key={adiantamento.id}
+                                            className="bg-muted/30 rounded-md p-3 flex items-center justify-between"
+                                          >
+                                            <div>
+                                              <p className="text-sm font-medium text-foreground">
+                                                Adiantamento
+                                              </p>
+                                              {adiantamento.observacoes && (
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                  {adiantamento.observacoes}
+                                                </p>
+                                              )}
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                              <span className="text-sm font-semibold text-foreground">
+                                                {formatCurrency(adiantamento.valor)}
+                                              </span>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => handleDescontarAdiantamento(adiantamento.id)}
+                                                className="border-primary/20 h-7 text-xs"
+                                              >
+                                                <CheckCircle2 className="h-3 w-3 mr-1" />
+                                                Descontar
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        ))}
+                                    </div>
+                                  )}
+
+                                  {/* Mensagem se não houver itens */}
+                                  {colaboradora.compras.length === 0 && 
+                                   colaboradora.adiantamentos.filter(a => a.status === "APROVADO" && !a.data_desconto).length === 0 && (
+                                    <p className="text-sm text-muted-foreground text-center py-4">
+                                      Nenhum item pendente para esta colaboradora
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 )}
               </TabsContent>
