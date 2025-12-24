@@ -2875,12 +2875,16 @@ export default function LojaDashboard() {
                         // Segundo: buscar destinatários WhatsApp do admin da loja (tipo VENDA)
                         console.log('📱 [2/4] Buscando destinatários WhatsApp para notificação de VENDA...');
                         let adminPhones: string[] = [];
+                        let recipientsAllStores: any[] | null = null;
+                        let recipientsThisStore: any[] | null = null;
+                        let recipientsError: any = null;
 
                         if (storeAdminId) {
                             console.log('📱 [2/4] Buscando destinatários para o admin:', storeAdminId);
+                            console.log('📱 [2/4] Store ID:', storeId);
 
                             // Buscar destinatários: store_id IS NULL (todas as lojas) OU store_id = loja atual
-                            const { data: recipientsAllStores } = await supabase
+                            const recipientsAllStoresResult = await supabase
                                 .schema('sistemaretiradas')
                                 .from('whatsapp_notification_config')
                                 .select('phone')
@@ -2889,7 +2893,11 @@ export default function LojaDashboard() {
                                 .eq('active', true)
                                 .is('store_id', null);
 
-                            const { data: recipientsThisStore, error: recipientsError } = await supabase
+                            recipientsAllStores = recipientsAllStoresResult.data;
+                            console.log('📱 [2/4] recipientsAllStores (globais):', recipientsAllStores);
+                            console.log('📱 [2/4] recipientsAllStores error:', recipientsAllStoresResult.error);
+
+                            const recipientsThisStoreResult = await supabase
                                 .schema('sistemaretiradas')
                                 .from('whatsapp_notification_config')
                                 .select('phone')
@@ -2897,6 +2905,11 @@ export default function LojaDashboard() {
                                 .eq('notification_type', 'VENDA')
                                 .eq('active', true)
                                 .eq('store_id', storeId);
+
+                            recipientsThisStore = recipientsThisStoreResult.data;
+                            recipientsError = recipientsThisStoreResult.error;
+                            console.log('📱 [2/4] recipientsThisStore (específicos da loja):', recipientsThisStore);
+                            console.log('📱 [2/4] recipientsThisStore error:', recipientsError);
 
                             // Combinar resultados e remover duplicatas
                             const recipientsData = [
@@ -2906,11 +2919,12 @@ export default function LojaDashboard() {
                                 index === self.findIndex(t => t.phone === item.phone)
                             );
 
-                            console.log('📱 [2/4] Resultado da busca de destinatários:', { recipientsData, recipientsError });
+                            console.log('📱 [2/4] Resultado da busca de destinatários (combinado):', { recipientsData, recipientsError });
 
                             if (recipientsError) {
                                 console.error('❌ Erro ao buscar destinatários WhatsApp:', recipientsError);
-                                return;
+                                // NÃO RETORNAR AQUI - continuar mesmo com erro para tentar usar os globais
+                                console.warn('⚠️ Continuando com destinatários globais mesmo com erro...');
                             }
 
                             // Extrair lista de números dos destinatários
@@ -2932,11 +2946,16 @@ export default function LojaDashboard() {
                         }
 
                         console.log('📱 [3/4] Destinatários WhatsApp encontrados:', adminPhones.length);
+                        console.log('📱 [3/4] recipientsAllStores:', recipientsAllStores);
+                        console.log('📱 [3/4] recipientsThisStore:', recipientsThisStore);
+                        console.log('📱 [3/4] recipientsError:', recipientsError);
                         if (adminPhones.length > 0) {
                             console.log('📱 [3/4] Números:', adminPhones);
                         } else {
                             console.warn('⚠️ [3/4] NENHUM destinatário WhatsApp encontrado!');
                             console.warn('⚠️ [3/4] Verifique se há números configurados em "Configurações > Notificações WhatsApp" para o tipo "VENDA".');
+                            console.warn('⚠️ [3/4] storeAdminId:', storeAdminId);
+                            console.warn('⚠️ [3/4] storeId:', storeId);
                         }
 
                         // Enviar mensagem WhatsApp para todos os números em background
