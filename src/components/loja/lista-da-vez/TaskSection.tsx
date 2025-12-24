@@ -66,7 +66,7 @@ export function TaskSection({
         <Card className={`border-2 ${colorScheme.border} shadow-sm`}>
             <CardHeader className={`pb-3 border-b ${colorScheme.bg}`}>
                 <div className="flex items-center justify-between">
-                    <CardTitle className={`text-base font-semibold flex items-center gap-2 ${colorScheme.text}`}>
+                    <CardTitle className={`text-sm font-semibold flex items-center gap-2 ${colorScheme.text}`}>
                         <div className={`h-2 w-2 rounded-full ${colorScheme.border.replace('border-', 'bg-')}`}></div>
                         {shiftName}
                     </CardTitle>

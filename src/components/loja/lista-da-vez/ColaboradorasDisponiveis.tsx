@@ -23,7 +23,7 @@ export function ColaboradorasDisponiveis({
     return (
         <Card className="border-2 shadow-sm">
             <CardHeader className="pb-3 border-b bg-gradient-to-r from-background to-muted/30">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
                     Colaboradoras Disponíveis
                 </CardTitle>

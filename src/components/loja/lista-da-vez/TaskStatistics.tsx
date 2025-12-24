@@ -35,7 +35,7 @@ export function TaskStatistics({ statistics, loading }: TaskStatisticsProps) {
     return (
         <Card className="border-2 shadow-sm bg-gradient-to-br from-background to-muted/20">
             <CardHeader className="pb-3 border-b">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <TrendingUp className="h-5 w-5 text-primary" />
                     Relatório do Dia
                 </CardTitle>
@@ -45,15 +45,15 @@ export function TaskStatistics({ statistics, loading }: TaskStatisticsProps) {
                 <div className="grid grid-cols-3 gap-4">
                     <div className="text-center p-3 rounded-lg bg-muted/50">
                         <p className="text-xs text-muted-foreground mb-1">Total</p>
-                        <p className="text-2xl font-bold text-primary">{statistics.total_tasks}</p>
+                        <p className="text-xl font-bold text-primary">{statistics.total_tasks}</p>
                     </div>
                     <div className="text-center p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20">
                         <p className="text-xs text-muted-foreground mb-1">Concluídas</p>
-                        <p className="text-2xl font-bold text-emerald-600">{statistics.completed_tasks}</p>
+                        <p className="text-xl font-bold text-emerald-600">{statistics.completed_tasks}</p>
                     </div>
                     <div className="text-center p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/20">
                         <p className="text-xs text-muted-foreground mb-1">Pendentes</p>
-                        <p className="text-2xl font-bold text-amber-600">{statistics.pending_tasks}</p>
+                        <p className="text-xl font-bold text-amber-600">{statistics.pending_tasks}</p>
                     </div>
                 </div>
 

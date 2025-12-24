@@ -41,7 +41,7 @@ export function ListaDaVezMetrics({ metrics, loading }: ListaDaVezMetricsProps) 
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
-                    <p className="text-3xl font-bold text-primary">{metrics.total_attendances}</p>
+                    <p className="text-2xl font-bold text-primary">{metrics.total_attendances}</p>
                 </CardContent>
             </Card>
             <Card className="border-2 hover:border-emerald-500/30 transition-all shadow-sm hover:shadow-md">
@@ -51,7 +51,7 @@ export function ListaDaVezMetrics({ metrics, loading }: ListaDaVezMetricsProps) 
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
-                    <p className="text-3xl font-bold text-emerald-600">{metrics.conversion_rate.toFixed(1)}%</p>
+                    <p className="text-2xl font-bold text-emerald-600">{metrics.conversion_rate.toFixed(1)}%</p>
                 </CardContent>
             </Card>
             <Card className="border-2 hover:border-blue-500/30 transition-all shadow-sm hover:shadow-md">
@@ -61,7 +61,7 @@ export function ListaDaVezMetrics({ metrics, loading }: ListaDaVezMetricsProps) 
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
-                    <p className="text-3xl font-bold text-blue-600">{metrics.total_sales}</p>
+                    <p className="text-2xl font-bold text-blue-600">{metrics.total_sales}</p>
                 </CardContent>
             </Card>
             <Card className="border-2 hover:border-amber-500/30 transition-all shadow-sm hover:shadow-md">
@@ -71,7 +71,7 @@ export function ListaDaVezMetrics({ metrics, loading }: ListaDaVezMetricsProps) 
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
-                    <p className="text-3xl font-bold text-amber-600">
+                    <p className="text-2xl font-bold text-amber-600">
                         {Math.floor(metrics.avg_attendance_duration / 60)}min
                     </p>
                 </CardContent>
