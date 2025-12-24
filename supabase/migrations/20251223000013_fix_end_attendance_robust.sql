@@ -43,10 +43,22 @@ BEGIN
     v_store_id := v_attendance.store_id;
     v_profile_id := v_attendance.profile_id;
     
-    -- IMPORTANTE: Limpar TODOS os registros duplicados primeiro
-    -- Deletar todos os registros exceto o mais recente para esta colaboradora e sessão
+    -- IMPORTANTE: Limpar TODOS os registros duplicados e 'finalizado' primeiro
+    -- Deletar:
+    -- 1. Registros 'finalizado' (não deveriam existir na fila)
+    -- 2. Duplicatas de status ativos (mantém apenas o mais recente)
     DELETE FROM sistemaretiradas.queue_members
     WHERE id IN (
+        -- Remover registros 'finalizado' para esta colaboradora e sessão
+        SELECT id
+        FROM sistemaretiradas.queue_members
+        WHERE session_id = v_session_id
+          AND profile_id = v_profile_id
+          AND status = 'finalizado'
+        
+        UNION ALL
+        
+        -- Remover duplicatas de status ativos (mantém apenas o mais recente)
         SELECT id
         FROM (
             SELECT id,

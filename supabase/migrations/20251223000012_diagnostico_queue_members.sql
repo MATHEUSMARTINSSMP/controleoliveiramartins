@@ -64,22 +64,40 @@ LEFT JOIN sistemaretiradas.profiles p ON p.id = qm.profile_id
 WHERE qm.profile_id = '07d97621-6744-4eb7-a09e-fd59c0e31f08'  -- Substitua pelo profile_id do erro
 ORDER BY qm.session_id, qm.status;
 
--- 5. Limpar registros duplicados (CUIDADO: Execute apenas se tiver certeza!)
--- Esta query mantém apenas o registro mais recente para cada (session_id, profile_id)
--- DELETE FROM sistemaretiradas.queue_members
--- WHERE id IN (
---     SELECT id
---     FROM (
---         SELECT id,
---                ROW_NUMBER() OVER (
---                    PARTITION BY session_id, profile_id 
---                    ORDER BY updated_at DESC, check_in_at DESC
---                ) as rn
---         FROM sistemaretiradas.queue_members
---         WHERE status IN ('disponivel', 'em_atendimento', 'pausado')
---     ) t
---     WHERE rn > 1
--- );
+-- 5. Limpar registros duplicados e registros 'finalizado' órfãos
+-- Esta query:
+-- - Remove registros 'finalizado' que não deveriam existir (só devem existir status ativos)
+-- - Mantém apenas o registro mais recente para cada (session_id, profile_id) com status ativo
+DELETE FROM sistemaretiradas.queue_members
+WHERE id IN (
+    -- Remover registros 'finalizado' (não deveriam existir na fila)
+    SELECT id
+    FROM sistemaretiradas.queue_members
+    WHERE status = 'finalizado'
+    
+    UNION ALL
+    
+    -- Remover duplicatas de status ativos (mantém apenas o mais recente)
+    SELECT id
+    FROM (
+        SELECT id,
+               ROW_NUMBER() OVER (
+                   PARTITION BY session_id, profile_id 
+                   ORDER BY 
+                       CASE status 
+                           WHEN 'em_atendimento' THEN 1  -- Priorizar 'em_atendimento'
+                           WHEN 'disponivel' THEN 2
+                           WHEN 'pausado' THEN 3
+                           ELSE 4
+                       END,
+                       updated_at DESC, 
+                       check_in_at DESC
+               ) as rn
+        FROM sistemaretiradas.queue_members
+        WHERE status IN ('disponivel', 'em_atendimento', 'pausado')
+    ) t
+    WHERE rn > 1
+);
 
 -- ============================================================================
 -- ✅ QUERIES DE DIAGNÓSTICO
