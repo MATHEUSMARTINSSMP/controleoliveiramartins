@@ -7,11 +7,14 @@
 
 -- 1. VERIFICAR SE A FUNÇÃO TEM MAX(attendance_id) (ERRO)
 -- ============================================================================
+-- Procura por SELECT com MAX(attendance_id) no código (não em comentários)
 SELECT 
     CASE 
-        WHEN pg_get_functiondef(p.oid) LIKE '%MAX(attendance_id)%' 
+        WHEN pg_get_functiondef(p.oid) ~ 'SELECT.*COUNT\(\*\).*MAX\(attendance_id\)' 
         THEN '❌ FUNÇÃO AINDA TEM ERRO MAX(uuid) - PRECISA CORRIGIR'
-        ELSE '✅ FUNÇÃO NÃO TEM MAX(attendance_id) - OK'
+        WHEN pg_get_functiondef(p.oid) ~ 'SELECT.*MAX\(attendance_id\)' AND pg_get_functiondef(p.oid) !~ '--.*MAX\(attendance_id\)'
+        THEN '❌ FUNÇÃO AINDA TEM ERRO MAX(uuid) - PRECISA CORRIGIR'
+        ELSE '✅ FUNÇÃO NÃO TEM MAX(attendance_id) NO CÓDIGO - OK'
     END as status_funcao,
     pg_get_functiondef(p.oid) as function_definition
 FROM pg_proc p
@@ -139,11 +142,14 @@ CORRIGIDO: Substituído MAX(attendance_id) por LIMIT 1 em query separada já que
 
 -- 3. VERIFICAR NOVAMENTE APÓS CORREÇÃO
 -- ============================================================================
+-- Procura por SELECT com MAX(attendance_id) no código (não em comentários)
 SELECT 
     CASE 
-        WHEN pg_get_functiondef(p.oid) LIKE '%MAX(attendance_id)%' 
+        WHEN pg_get_functiondef(p.oid) ~ 'SELECT.*COUNT\(\*\).*MAX\(attendance_id\)' 
         THEN '❌ AINDA TEM ERRO'
-        ELSE '✅ CORRIGIDO - SEM MAX(attendance_id)'
+        WHEN pg_get_functiondef(p.oid) ~ 'SELECT.*MAX\(attendance_id\)' AND pg_get_functiondef(p.oid) !~ '--.*MAX\(attendance_id\)'
+        THEN '❌ AINDA TEM ERRO'
+        ELSE '✅ CORRIGIDO - SEM MAX(attendance_id) NO CÓDIGO'
     END as status_apos_correcao
 FROM pg_proc p
 JOIN pg_namespace n ON p.pronamespace = n.oid
