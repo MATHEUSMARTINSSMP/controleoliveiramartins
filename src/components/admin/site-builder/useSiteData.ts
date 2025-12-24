@@ -870,6 +870,13 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
           color_secondary: site.color_secondary,
           color_accent: site.color_accent,
           
+          logo_url: site.logo_url,
+          hero_image_url: site.hero_image_url,
+          gallery_images: site.gallery_images,
+          product_images: site.product_images,
+          ambient_images: site.ambient_images,
+          assets: site.assets,
+          
           github_owner: site.github_full_name?.split('/')[0] || 'MATHEUSMARTINSSMP',
           github_repo: site.github_full_name?.split('/')[1] || site.slug,
           github_branch: site.github_branch || 'main'
