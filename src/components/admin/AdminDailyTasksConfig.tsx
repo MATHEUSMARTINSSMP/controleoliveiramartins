@@ -168,7 +168,7 @@ export function AdminDailyTasksConfig() {
             setFormData({
                 title: task.title,
                 description: task.description || "",
-                shift_id: task.shift_id || "",
+                shift_id: task.shift_id || "sem-turno",
                 due_time: task.due_time || "",
                 is_recurring: task.is_recurring,
                 display_order: task.display_order
