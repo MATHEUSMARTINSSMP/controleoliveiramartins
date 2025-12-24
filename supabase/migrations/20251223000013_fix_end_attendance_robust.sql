@@ -43,51 +43,18 @@ BEGIN
     v_store_id := v_attendance.store_id;
     v_profile_id := v_attendance.profile_id;
     
-    -- IMPORTANTE: Limpar TODOS os registros duplicados e 'finalizado' primeiro
-    -- Deletar:
-    -- 1. Registros 'finalizado' (não deveriam existir na fila)
-    -- 2. Duplicatas de status ativos (mantém apenas o mais recente)
-    DELETE FROM sistemaretiradas.queue_members
-    WHERE id IN (
-        -- Remover registros 'finalizado' para esta colaboradora e sessão
-        SELECT id
-        FROM sistemaretiradas.queue_members
-        WHERE session_id = v_session_id
-          AND profile_id = v_profile_id
-          AND status = 'finalizado'
-        
-        UNION ALL
-        
-        -- Remover duplicatas de status ativos (mantém apenas o mais recente)
-        SELECT id
-        FROM (
-            SELECT id,
-                   ROW_NUMBER() OVER (
-                       PARTITION BY session_id, profile_id 
-                       ORDER BY 
-                           CASE status 
-                               WHEN 'em_atendimento' THEN 1  -- Priorizar 'em_atendimento'
-                               WHEN 'disponivel' THEN 2
-                               WHEN 'pausado' THEN 3
-                               ELSE 4
-                           END,
-                           updated_at DESC, 
-                           check_in_at DESC
-                   ) as rn
-            FROM sistemaretiradas.queue_members
-            WHERE session_id = v_session_id
-              AND profile_id = v_profile_id
-              AND status IN ('disponivel', 'em_atendimento', 'pausado')
-        ) t
-        WHERE rn > 1
-    );
+    -- IMPORTANTE: Usar função helper para limpar duplicatas automaticamente
+    -- Esta função garante que há apenas um registro por (session_id, profile_id)
+    SELECT sistemaretiradas.cleanup_duplicate_queue_members(v_session_id, v_profile_id) INTO v_member_id;
     
-    -- Agora buscar o member_id (deve haver apenas um)
-    SELECT id INTO v_member_id
-    FROM sistemaretiradas.queue_members
-    WHERE profile_id = v_profile_id
-      AND session_id = v_session_id
-    LIMIT 1;
+    -- Se não encontrou member_id após limpeza, buscar novamente
+    IF v_member_id IS NULL THEN
+        SELECT id INTO v_member_id
+        FROM sistemaretiradas.queue_members
+        WHERE profile_id = v_profile_id
+          AND session_id = v_session_id
+        LIMIT 1;
+    END IF;
     
     -- Finalizar atendimento
     UPDATE sistemaretiradas.attendances
