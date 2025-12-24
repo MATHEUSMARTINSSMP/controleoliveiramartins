@@ -73,6 +73,7 @@ export function AdminDailyTasksConfig() {
         } else {
             setTasks([]);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedStoreId]);
 
     const fetchStores = async () => {
