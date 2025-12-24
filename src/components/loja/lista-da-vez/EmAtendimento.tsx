@@ -47,7 +47,7 @@ export function EmAtendimento({
                     Em Atendimento
                 </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 max-h-[400px] overflow-y-auto pt-4">
+            <CardContent className="space-y-2.5 max-h-[500px] overflow-y-auto pt-3">
                 {attendances.length === 0 ? (
                     <div className="text-center py-12">
                         <p className="text-sm text-muted-foreground">

@@ -197,7 +197,7 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
                     <DialogHeader className="flex flex-row items-center justify-between pb-3 border-b">
                         <DialogTitle className="flex items-center gap-2.5 text-lg font-semibold">
                             <div className="p-1.5 rounded-lg bg-primary/10">
@@ -225,7 +225,7 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
                                 <ListaDaVezMetrics metrics={metrics} loading={metricsLoading} />
 
                                 {/* Grid com 3 colunas */}
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                                     {/* Colaboradoras Disponíveis */}
                                     <ColaboradorasDisponiveis
                                         colaboradoras={colaboradoras}

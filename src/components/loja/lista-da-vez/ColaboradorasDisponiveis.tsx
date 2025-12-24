@@ -28,7 +28,7 @@ export function ColaboradorasDisponiveis({
                     Colaboradoras Disponíveis
                 </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 max-h-[400px] overflow-y-auto pt-4">
+            <CardContent className="space-y-2 max-h-[500px] overflow-y-auto pt-3">
                 {loading && colaboradoras.length === 0 ? (
                     <div className="flex items-center justify-center py-12">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -43,13 +43,13 @@ export function ColaboradorasDisponiveis({
                     colaboradoras.map((colab) => (
                         <div
                             key={colab.id}
-                            className={`flex items-center justify-between p-3 border rounded-lg transition-all ${
+                            className={`flex items-center justify-between p-2.5 border rounded-lg transition-all ${
                                 colab.enabled 
-                                    ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 shadow-sm' 
-                                    : 'bg-muted/30 border-border hover:bg-muted/50'
+                                    ? 'bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-200/50 dark:border-emerald-800/50' 
+                                    : 'bg-muted/20 border-border/50 hover:bg-muted/30'
                             }`}
                         >
-                            <span className={`text-sm font-medium ${colab.enabled ? 'text-emerald-900 dark:text-emerald-100' : 'text-muted-foreground'}`}>
+                            <span className={`text-xs font-medium ${colab.enabled ? 'text-emerald-900 dark:text-emerald-100' : 'text-muted-foreground'}`}>
                                 {colab.name}
                             </span>
                             <Switch

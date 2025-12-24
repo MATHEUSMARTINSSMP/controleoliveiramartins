@@ -38,7 +38,7 @@ export function EsperandoAtendimento({
                     Esperando Atendimento
                 </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 max-h-[400px] overflow-y-auto pt-4">
+            <CardContent className="space-y-2.5 max-h-[500px] overflow-y-auto pt-3">
                 {esperando.length === 0 ? (
                     <div className="text-center py-12">
                         <p className="text-sm text-muted-foreground">
@@ -53,57 +53,57 @@ export function EsperandoAtendimento({
                         return (
                             <div
                                 key={member.id}
-                                className={`p-4 border-2 rounded-xl transition-all hover:shadow-md ${
+                                className={`p-3 border rounded-lg transition-all hover:shadow-sm ${
                                     isMe 
-                                        ? 'bg-primary/10 border-primary/40 shadow-sm' 
+                                        ? 'bg-primary/5 border-primary/30' 
                                         : isFirst 
-                                        ? 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800 shadow-sm' 
-                                        : 'bg-card border-border hover:border-primary/30'
+                                        ? 'bg-amber-50/30 dark:bg-amber-950/10 border-amber-200 dark:border-amber-800/50' 
+                                        : 'bg-muted/20 border-border/50 hover:border-primary/20'
                                 }`}
                             >
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-2.5">
+                                    <div className="flex items-center gap-2.5 flex-1 min-w-0">
                                         <Badge 
                                             variant={isFirst ? "default" : "outline"} 
-                                            className={`min-w-[45px] justify-center font-semibold ${
-                                                isFirst ? 'bg-amber-500 hover:bg-amber-600' : ''
+                                            className={`min-w-[38px] justify-center text-xs font-semibold h-6 ${
+                                                isFirst ? 'bg-amber-500 hover:bg-amber-600 border-0' : ''
                                             }`}
                                         >
                                             {member.position}º
                                         </Badge>
-                                        <span className={`text-sm font-semibold truncate ${
-                                            isFirst ? 'text-amber-900 dark:text-amber-100' : ''
+                                        <span className={`text-xs font-medium truncate ${
+                                            isFirst ? 'text-amber-900 dark:text-amber-100' : 'text-foreground'
                                         }`}>
                                             {member.profile_name}
                                         </span>
                                         {isMe && (
-                                            <Badge variant="secondary" className="text-xs shrink-0">Você</Badge>
+                                            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 shrink-0">Você</Badge>
                                         )}
                                     </div>
                                     {/* Botões de reorganizar */}
-                                    <div className="flex items-center gap-1 shrink-0">
+                                    <div className="flex items-center gap-0.5 shrink-0">
                                         {onMoveToTop && !isFirst && (
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-8 w-8 hover:bg-primary/10"
+                                                className="h-7 w-7 hover:bg-primary/10"
                                                 onClick={() => onMoveToTop(member.id)}
                                                 disabled={loading}
                                                 title="Mover para o topo"
                                             >
-                                                <ArrowUp className="h-4 w-4" />
+                                                <ArrowUp className="h-3.5 w-3.5" />
                                             </Button>
                                         )}
                                         {onMoveToEnd && (
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-8 w-8 hover:bg-primary/10"
+                                                className="h-7 w-7 hover:bg-primary/10"
                                                 onClick={() => onMoveToEnd(member.id)}
                                                 disabled={loading}
                                                 title="Mover para o final"
                                             >
-                                                <ArrowDown className="h-4 w-4" />
+                                                <ArrowDown className="h-3.5 w-3.5" />
                                             </Button>
                                         )}
                                     </div>
@@ -111,15 +111,15 @@ export function EsperandoAtendimento({
                                 {/* TODAS as colaboradoras têm botão PLAY */}
                                 <Button
                                     size="sm"
-                                    className={`w-full font-semibold ${
+                                    className={`w-full text-xs font-medium h-8 ${
                                         isFirst 
                                             ? 'bg-amber-500 hover:bg-amber-600 text-white' 
-                                            : 'bg-primary hover:bg-primary/90'
+                                            : 'bg-primary hover:bg-primary/90 text-white'
                                     }`}
                                     onClick={() => onStartAttendance(member.id)}
                                     disabled={loading}
                                 >
-                                    <Play className="h-4 w-4 mr-2" />
+                                    <Play className="h-3.5 w-3.5 mr-1.5" />
                                     Iniciar Atendimento
                                 </Button>
                             </div>
