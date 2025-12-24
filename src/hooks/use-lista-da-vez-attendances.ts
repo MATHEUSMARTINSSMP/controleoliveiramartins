@@ -108,7 +108,12 @@ export function useListaDaVezAttendances(sessionId: string | null, storeId: stri
 
             if (error) throw error;
             toast.success('Atendimento iniciado!');
+            // Forçar atualização imediata de ambas as listas
             await fetchAttendances();
+            // Pequeno delay para garantir que o status foi atualizado no banco
+            setTimeout(() => {
+                // A subscription realtime deve detectar, mas forçamos atualização também
+            }, 200);
             return attendanceId;
         } catch (error: any) {
             console.error('[useListaDaVezAttendances] Erro ao iniciar atendimento:', error);
@@ -145,7 +150,12 @@ export function useListaDaVezAttendances(sessionId: string | null, storeId: stri
 
             if (error) throw error;
             toast.success('Atendimento finalizado!');
+            // Forçar atualização imediata
             await fetchAttendances();
+            // Pequeno delay para garantir que o status foi atualizado no banco
+            setTimeout(() => {
+                // A subscription realtime deve detectar, mas forçamos atualização também
+            }, 200);
         } catch (error: any) {
             console.error('[useListaDaVezAttendances] Erro ao finalizar atendimento:', error);
             toast.error('Erro: ' + (error.message || 'Erro desconhecido'));

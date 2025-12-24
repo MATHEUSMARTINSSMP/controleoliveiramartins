@@ -82,6 +82,13 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
         try {
             // Iniciar sem nome do cliente (será preenchido depois se necessário)
             await startAttendance(memberId, "");
+            // Forçar atualização da fila após iniciar atendimento
+            // Isso garante que a colaboradora desapareça da lista "Esperando Atendimento"
+            if (fetchQueueMembers) {
+                setTimeout(() => {
+                    fetchQueueMembers();
+                }, 300);
+            }
         } catch (error) {
             // Erro já tratado nos hooks
         }
@@ -150,6 +157,13 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
             await endAttendance(attendanceId, result, saleValue, lossReasonId);
             setFinalizingAttendanceId(null);
             setFinalizingColaboradoraName("");
+            // Forçar atualização da fila após finalizar atendimento
+            // Isso garante que a colaboradora volte para o final da fila
+            if (fetchQueueMembers) {
+                setTimeout(() => {
+                    fetchQueueMembers();
+                }, 300);
+            }
         } catch (error) {
             // Erro já tratado nos hooks
         }
