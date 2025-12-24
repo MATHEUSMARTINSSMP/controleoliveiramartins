@@ -38,7 +38,106 @@ export function ImageUploadField({
   };
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024;
+  const MAX_OUTPUT_SIZE = 500 * 1024; // 500KB max after conversion
+  const MAX_DIMENSION = 1920; // Max width/height
+  const WEBP_QUALITY = 0.8;
   const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/svg+xml"];
+
+  // Check if browser supports WebP encoding
+  const supportsWebP = (): boolean => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    return canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+  };
+
+  // Convert image to WebP with resize and compression
+  const convertToWebP = async (file: File): Promise<{ blob: Blob; base64: string; format: string }> => {
+    return new Promise((resolve, reject) => {
+      // SVG doesn't need conversion
+      if (file.type === 'image/svg+xml') {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve({ blob: file, base64, format: 'svg+xml' });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        
+        // Calculate new dimensions (max 1920px)
+        let { width, height } = img;
+        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+          const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        
+        // Create canvas and draw resized image
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas context not available'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Determine output format
+        const useWebP = supportsWebP();
+        const format = useWebP ? 'webp' : 'jpeg';
+        const mimeType = useWebP ? 'image/webp' : 'image/jpeg';
+        
+        // Try different quality levels to stay under 500KB
+        let quality = WEBP_QUALITY;
+        const tryConvert = () => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Failed to convert image'));
+                return;
+              }
+              
+              // If still too large, reduce quality and try again
+              if (blob.size > MAX_OUTPUT_SIZE && quality > 0.3) {
+                quality -= 0.1;
+                tryConvert();
+                return;
+              }
+              
+              // Convert blob to base64
+              const reader = new FileReader();
+              reader.onload = () => {
+                const base64 = (reader.result as string).split(',')[1];
+                resolve({ blob, base64, format });
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            },
+            mimeType,
+            quality
+          );
+        };
+        
+        tryConvert();
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Failed to load image'));
+      };
+      
+      img.src = objectUrl;
+    });
+  };
 
   const handleUrlChange = (url: string) => {
     onChange(url);
@@ -85,6 +184,8 @@ export function ImageUploadField({
     });
   };
 
+  const [isConverting, setIsConverting] = useState(false);
+
   const handleFileSelect = async (file: File) => {
     const validationError = validateFile(file);
     if (validationError) {
@@ -98,24 +199,44 @@ export function ImageUploadField({
     }
 
     setIsLoading(true);
+    setIsConverting(true);
     setError(null);
 
     try {
-      const base64 = await fileToBase64(file);
-      const previewUrl = URL.createObjectURL(file);
+      // Convert to WebP with resize
+      const { blob, base64, format } = await convertToWebP(file);
+      const previewUrl = URL.createObjectURL(blob);
+      
+      // Calculate size reduction
+      const originalSize = file.size;
+      const newSize = blob.size;
+      const reduction = Math.round((1 - newSize / originalSize) * 100);
+      
       onChange(previewUrl, base64);
       if (onBase64Change) {
-        onBase64Change(base64, file.name);
+        const newFileName = file.name.replace(/\.[^.]+$/, `.${format}`);
+        onBase64Change(base64, newFileName);
       }
       setInputMode("preview");
+      
+      const sizeKB = Math.round(newSize / 1024);
       toast({
-        title: "Imagem carregada",
-        description: "A imagem sera enviada junto com os dados do site."
+        title: "Imagem otimizada",
+        description: format === 'svg+xml' 
+          ? "SVG carregado sem alteracoes."
+          : `Convertida para ${format.toUpperCase()} (${sizeKB}KB, ${reduction}% menor)`
       });
     } catch (err) {
+      console.error('Image conversion error:', err);
       setError("Erro ao processar a imagem");
+      toast({
+        title: "Erro",
+        description: "Nao foi possivel converter a imagem",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
+      setIsConverting(false);
     }
   };
 
@@ -167,9 +288,10 @@ export function ImageUploadField({
               onError={handleImageError}
               onLoad={() => setIsLoading(false)}
             />
-            {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+            {(isLoading || isConverting) && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/50">
                 <Loader2 className="h-6 w-6 animate-spin" />
+                {isConverting && <span className="text-xs mt-2">Otimizando...</span>}
               </div>
             )}
           </div>
