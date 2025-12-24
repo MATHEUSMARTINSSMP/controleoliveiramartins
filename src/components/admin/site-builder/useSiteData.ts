@@ -89,31 +89,53 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
     if (!assets || !Array.isArray(assets)) return [];
     return assets
       .filter(asset => {
+        // Manter se tiver URL válida OU base64
+        if (asset.base64) return true;
         if (!asset.url) return false;
         if (asset.url.startsWith('blob:')) return false;
         return true;
       })
-      .map(asset => ({
-        id: asset.id,
-        type: asset.type,
-        url: asset.url,
-        displayOrder: asset.displayOrder,
-        metadata: asset.metadata
-      }));
+      .map(asset => {
+        // Se tem base64 mas URL é blob:, usar data URL temporária
+        let finalUrl = asset.url;
+        if (asset.base64 && (!asset.url || asset.url.startsWith('blob:'))) {
+          // Converter base64 para data URL para persistência
+          finalUrl = asset.base64.startsWith('data:') ? asset.base64 : `data:image/jpeg;base64,${asset.base64}`;
+        }
+        return {
+          id: asset.id,
+          type: asset.type,
+          url: finalUrl,
+          base64: asset.base64,
+          displayOrder: asset.displayOrder,
+          metadata: asset.metadata
+        };
+      });
   };
   
   const extractLegacyImagesFromAssets = (assets: SiteFormData['assets'] | undefined) => {
     if (!assets || !Array.isArray(assets)) return {};
+    
+    const getAssetUrl = (asset: SiteFormData['assets'][0] | undefined): string | null => {
+      if (!asset) return null;
+      // Se tem base64, usar data URL
+      if (asset.base64) {
+        return asset.base64.startsWith('data:') ? asset.base64 : `data:image/jpeg;base64,${asset.base64}`;
+      }
+      // Se URL é blob:, ignorar
+      if (asset.url && asset.url.startsWith('blob:')) return null;
+      return asset.url || null;
+    };
     
     const logo = assets.find(a => a.type === 'logo');
     const hero = assets.find(a => a.type === 'hero');
     const galleryAssets = assets.filter(a => a.type === 'gallery').slice(0, 4);
     
     return {
-      logo_url: logo && !logo.url.startsWith('blob:') ? logo.url : null,
-      hero_image_url: hero && !hero.url.startsWith('blob:') ? hero.url : null,
+      logo_url: getAssetUrl(logo),
+      hero_image_url: getAssetUrl(hero),
       gallery_images: galleryAssets
-        .map(a => !a.url.startsWith('blob:') ? a.url : null)
+        .map(a => getAssetUrl(a))
         .filter(Boolean) as string[]
     };
   };
@@ -216,8 +238,14 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
           cleanImageUrl(formData.gallery_image_3),
           cleanImageUrl(formData.gallery_image_4)
         ].filter(Boolean) as string[] || extractLegacyImagesFromAssets(formData.assets).gallery_images || [],
-        product_images: (formData.assets || []).filter(a => a.type === 'product' && !a.url.startsWith('blob:')).map(a => a.url),
-        ambient_images: (formData.assets || []).filter(a => a.type === 'ambient' && !a.url.startsWith('blob:')).map(a => a.url),
+        product_images: (formData.assets || []).filter(a => a.type === 'product' && (a.base64 || (a.url && !a.url.startsWith('blob:')))).map(a => {
+          if (a.base64) return a.base64.startsWith('data:') ? a.base64 : `data:image/jpeg;base64,${a.base64}`;
+          return a.url;
+        }),
+        ambient_images: (formData.assets || []).filter(a => a.type === 'ambient' && (a.base64 || (a.url && !a.url.startsWith('blob:')))).map(a => {
+          if (a.base64) return a.base64.startsWith('data:') ? a.base64 : `data:image/jpeg;base64,${a.base64}`;
+          return a.url;
+        }),
         assets: sanitizeAssetsForStorage(formData.assets),
         
         cta_button_text: formData.cta_button_text || null,
@@ -276,8 +304,14 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
           if (legacyImages.logo_url) sanitizedUpdates.logo_url = legacyImages.logo_url;
           if (legacyImages.hero_image_url) sanitizedUpdates.hero_image_url = legacyImages.hero_image_url;
           if (legacyImages.gallery_images?.length) sanitizedUpdates.gallery_images = legacyImages.gallery_images;
-          sanitizedUpdates.product_images = (assets || []).filter(a => a.type === 'product' && !a.url.startsWith('blob:')).map(a => a.url);
-          sanitizedUpdates.ambient_images = (assets || []).filter(a => a.type === 'ambient' && !a.url.startsWith('blob:')).map(a => a.url);
+          sanitizedUpdates.product_images = (assets || []).filter(a => a.type === 'product' && (a.base64 || (a.url && !a.url.startsWith('blob:')))).map(a => {
+            if (a.base64) return a.base64.startsWith('data:') ? a.base64 : `data:image/jpeg;base64,${a.base64}`;
+            return a.url;
+          });
+          sanitizedUpdates.ambient_images = (assets || []).filter(a => a.type === 'ambient' && (a.base64 || (a.url && !a.url.startsWith('blob:')))).map(a => {
+            if (a.base64) return a.base64.startsWith('data:') ? a.base64 : `data:image/jpeg;base64,${a.base64}`;
+            return a.url;
+          });
         } else if (imageUrlKeys.includes(key)) {
           sanitizedUpdates[key] = cleanImageUrl(value as string);
         } else {
