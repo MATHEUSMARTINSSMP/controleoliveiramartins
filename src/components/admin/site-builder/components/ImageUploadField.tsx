@@ -139,10 +139,39 @@ export function ImageUploadField({
     });
   };
 
+  // Converts common image hosting page URLs to direct image URLs
+  const normalizeImageUrl = (url: string): string => {
+    // imgbox.com page URL to direct image URL
+    // Example: https://imgbox.com/DjxMm3Hf -> need to fetch the actual image URL
+    // For now, show a helpful message
+    if (url.match(/^https?:\/\/(www\.)?imgbox\.com\/[a-zA-Z0-9]+$/)) {
+      setError("Use a URL direta da imagem (images2.imgbox.com/.../_o.png). Clique em 'Full Size' no imgbox e copie o link da imagem.");
+      return url;
+    }
+    
+    // Google Drive sharing URL to direct download
+    // Example: https://drive.google.com/file/d/FILE_ID/view -> https://drive.google.com/uc?export=view&id=FILE_ID
+    const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+    if (driveMatch) {
+      return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+    }
+    
+    // Dropbox sharing URL to direct download
+    // Example: https://www.dropbox.com/s/xxx/file.jpg?dl=0 -> https://www.dropbox.com/s/xxx/file.jpg?raw=1
+    if (url.includes('dropbox.com')) {
+      return url.replace('?dl=0', '?raw=1').replace('&dl=0', '&raw=1');
+    }
+    
+    return url;
+  };
+
   const handleUrlChange = (url: string) => {
-    onChange(url);
-    setError(null);
-    if (url && url.startsWith("http")) {
+    const normalizedUrl = normalizeImageUrl(url);
+    onChange(normalizedUrl);
+    
+    // Only show preview if URL wasn't flagged with an error
+    if (normalizedUrl && normalizedUrl.startsWith("http") && !error) {
+      setError(null);
       setInputMode("preview");
     }
   };
