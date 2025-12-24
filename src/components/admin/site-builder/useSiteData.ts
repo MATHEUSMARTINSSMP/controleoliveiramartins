@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import type { SiteData, SiteFormData } from "./types";
+import type { SiteData, SiteFormData, SiteAsset } from "./types";
 
 const normalizeWebhookUrl = (url: string): string => {
   return url.replace(/\/+$/, '');
@@ -806,7 +806,7 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
   });
   
   const editSiteMutation = useMutation({
-    mutationFn: async ({ command }: { command: string }) => {
+    mutationFn: async ({ command, localAssets }: { command: string; localAssets?: SiteAsset[] }) => {
       if (!site?.slug) {
         throw new Error("Site não encontrado para edição");
       }
@@ -870,12 +870,22 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
           color_secondary: site.color_secondary,
           color_accent: site.color_accent,
           
-          logo_url: site.logo_url,
-          hero_image_url: site.hero_image_url,
-          gallery_images: site.gallery_images,
-          product_images: site.product_images,
-          ambient_images: site.ambient_images,
-          assets: site.assets,
+          logo_url: localAssets 
+            ? (localAssets.find(a => a.type === 'logo')?.base64 || localAssets.find(a => a.type === 'logo')?.url || site.logo_url)
+            : site.logo_url,
+          hero_image_url: localAssets
+            ? (localAssets.find(a => a.type === 'hero')?.base64 || localAssets.find(a => a.type === 'hero')?.url || site.hero_image_url)
+            : site.hero_image_url,
+          gallery_images: localAssets
+            ? localAssets.filter(a => a.type === 'gallery').map(a => a.base64 || a.url).filter(Boolean)
+            : site.gallery_images,
+          product_images: localAssets
+            ? localAssets.filter(a => a.type === 'product').map(a => a.base64 || a.url).filter(Boolean)
+            : site.product_images,
+          ambient_images: localAssets
+            ? localAssets.filter(a => a.type === 'ambient').map(a => a.base64 || a.url).filter(Boolean)
+            : site.ambient_images,
+          assets: localAssets || site.assets,
           
           github_owner: site.github_full_name?.split('/')[0] || 'MATHEUSMARTINSSMP',
           github_repo: site.github_full_name?.split('/')[1] || site.slug,
