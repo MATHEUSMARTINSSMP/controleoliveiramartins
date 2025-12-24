@@ -25,8 +25,19 @@ import {
   Users,
   Calendar,
   Plus,
-  Trash2
+  Trash2,
+  Sparkles,
+  Wand2
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea as TextareaDialog } from "@/components/ui/textarea";
 import { useSiteData } from "./useSiteData";
 import { AssetManager } from "./components/AssetManager";
 import type { SiteData, SiteFormData, SiteAsset, WEEKDAYS } from "./types";
@@ -48,7 +59,9 @@ interface SiteEditorFormProps {
 }
 
 export function SiteEditorForm({ site, tenantId, onClose }: SiteEditorFormProps) {
-  const { updateSite, isUpdating, refetch } = useSiteData({ tenantId });
+  const { updateSite, isUpdating, refetch, editSite, isEditing } = useSiteData({ tenantId });
+  const [aiEditDialogOpen, setAiEditDialogOpen] = useState(false);
+  const [aiEditCommand, setAiEditCommand] = useState('');
   
   const [formData, setFormData] = useState<Partial<SiteFormData>>({
     company_name: site.company_name || '',
@@ -193,6 +206,15 @@ export function SiteEditorForm({ site, tenantId, onClose }: SiteEditorFormProps)
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={onClose} data-testid="button-cancel-edit">
             Cancelar
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setAiEditDialogOpen(true)}
+            disabled={isEditing || !site.status || site.status === 'draft'}
+            data-testid="button-ai-edit-form"
+          >
+            <Wand2 className="h-4 w-4 mr-2" />
+            Editar com IA
           </Button>
           <Button onClick={handleSave} disabled={isUpdating} data-testid="button-save-edit">
             {isUpdating ? (
@@ -997,6 +1019,66 @@ export function SiteEditorForm({ site, tenantId, onClose }: SiteEditorFormProps)
           </TabsContent>
         </ScrollArea>
       </Tabs>
+
+      {/* Dialog de Edição com IA */}
+      <Dialog open={aiEditDialogOpen} onOpenChange={setAiEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Editar Site com IA
+            </DialogTitle>
+            <DialogDescription>
+              Descreva as alterações que deseja fazer no seu site. A IA irá interpretar seu comando e aplicar as mudanças automaticamente.
+              <br /><br />
+              <strong>As imagens carregadas neste formulário serão enviadas para a IA.</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <TextareaDialog
+              placeholder="Ex: Adicione a logo que carreguei no header do site"
+              value={aiEditCommand}
+              onChange={(e) => setAiEditCommand(e.target.value)}
+              className="min-h-[100px]"
+              data-testid="input-ai-command-form"
+            />
+            <div className="text-xs text-muted-foreground">
+              <p className="font-medium mb-1">Exemplos de comandos:</p>
+              <ul className="list-disc pl-4 space-y-1">
+                <li>Atualize o site com a logo que fiz upload</li>
+                <li>Altere a cor de fundo do header para preto</li>
+                <li>Adicione o telefone (96) 99999-9999 no rodapé</li>
+                <li>Mude o texto do botão de WhatsApp para "Fale Conosco"</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAiEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={async () => {
+                if (!aiEditCommand.trim()) return;
+                // Passa os assets locais para a IA ter acesso às imagens não salvas
+                await editSite({ command: aiEditCommand, localAssets: assets });
+                setAiEditCommand('');
+                setAiEditDialogOpen(false);
+                // Atualiza os dados após edição
+                await refetch();
+              }}
+              disabled={isEditing || !aiEditCommand.trim()}
+              data-testid="button-submit-ai-edit-form"
+            >
+              {isEditing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 mr-2" />
+              )}
+              Aplicar Alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
