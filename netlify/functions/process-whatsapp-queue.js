@@ -187,8 +187,20 @@ exports.handler = async (event, context) => {
         });
 
         const result = await response.json();
+        
+        // ✅ VALIDAÇÃO RIGOROSA: Logar resposta completa para debug
+        console.log(`[ProcessWhatsAppQueue] Resposta do send-whatsapp-message para ${item.queue_id}:`, JSON.stringify(result, null, 2));
+        
+        // Verificar múltiplos indicadores de falha
+        const hasError = 
+          !response.ok ||
+          result.success === false ||
+          result.error ||
+          result.errors ||
+          result.status === 'error' ||
+          result.status === 'failed';
 
-        if (!response.ok || !result.success) {
+        if (hasError) {
           // Erro ao enviar - verificar se deve fazer retry
           const newRetryCount = (queueItem.retry_count || 0) + 1;
           const maxRetries = queueItem.max_retries || 3; // Padrão: 3 tentativas
