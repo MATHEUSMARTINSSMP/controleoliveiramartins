@@ -43,7 +43,7 @@ LIMIT 5;
 -- VERIFICAR SE A FUNÇÃO auto_link_erp_sale_to_attendance FOI CORRIGIDA
 -- ============================================================================
 -- Se a função ainda tiver MAX(attendance_id), vai dar erro aqui
-SELECT pg_get_functiondef(oid) as function_definition
+SELECT pg_get_functiondef(p.oid) as function_definition
 FROM pg_proc p
 JOIN pg_namespace n ON p.pronamespace = n.oid
 WHERE n.nspname = 'sistemaretiradas'
@@ -55,8 +55,8 @@ SELECT
     tgname as trigger_name,
     tgtype,
     tgenabled,
-    pg_get_triggerdef(oid) as trigger_definition
-FROM pg_trigger
+    pg_get_triggerdef(t.oid) as trigger_definition
+FROM pg_trigger t
 WHERE tgrelid = 'sistemaretiradas.sales'::regclass
   AND NOT tgisinternal
 ORDER BY tgname;
