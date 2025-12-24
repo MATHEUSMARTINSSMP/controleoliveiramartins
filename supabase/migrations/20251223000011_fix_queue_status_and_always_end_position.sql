@@ -148,23 +148,53 @@ BEGIN
     RETURNING id INTO v_outcome_id;
     
     -- Se membro ainda está na fila, SEMPRE mover para o final (independente da configuração)
-    -- IMPORTANTE: Usar UPDATE ao invés de INSERT para evitar violação de constraint única
+    -- IMPORTANTE: Verificar se já existe registro 'disponivel' antes de atualizar
     IF v_member_id IS NOT NULL THEN
         -- Verificar se o membro ainda existe (pode ter sido removido)
         IF EXISTS (SELECT 1 FROM sistemaretiradas.queue_members WHERE id = v_member_id) THEN
-            -- Calcular nova posição (final da fila) - apenas para membros disponíveis
-            SELECT COALESCE(MAX(position), 0) + 1 INTO v_new_position
+            -- IMPORTANTE: Verificar se já existe outro registro 'disponivel' para esta colaboradora
+            -- Se existir, deletar o registro antigo (com status 'em_atendimento') e usar o existente
+            -- Buscar se já existe registro 'disponivel' para esta colaboradora e sessão
+            SELECT id INTO v_existing_member_id
             FROM sistemaretiradas.queue_members
-            WHERE session_id = v_session_id
-              AND status = 'disponivel';
+            WHERE profile_id = v_attendance.profile_id
+              AND session_id = v_session_id
+              AND status = 'disponivel'
+              AND id != v_member_id
+            LIMIT 1;
             
-            -- Sempre mover para o final da fila usando UPDATE (não INSERT)
-            -- Isso evita violação da constraint única idx_queue_members_unique_profile
-            UPDATE sistemaretiradas.queue_members
-            SET status = 'disponivel',
-                position = v_new_position,
-                updated_at = NOW()
-            WHERE id = v_member_id;
+            IF v_existing_member_id IS NOT NULL THEN
+                -- Já existe registro 'disponivel', deletar o registro 'em_atendimento'
+                DELETE FROM sistemaretiradas.queue_members
+                WHERE id = v_member_id;
+                
+                -- Usar o registro existente e apenas atualizar posição para o final
+                SELECT COALESCE(MAX(position), 0) + 1 INTO v_new_position
+                FROM sistemaretiradas.queue_members
+                WHERE session_id = v_session_id
+                  AND status = 'disponivel';
+                
+                UPDATE sistemaretiradas.queue_members
+                SET position = v_new_position,
+                    updated_at = NOW()
+                WHERE id = v_existing_member_id;
+                
+                v_member_id := v_existing_member_id; -- Atualizar para usar no evento
+            ELSE
+                -- Não existe registro duplicado, apenas atualizar o existente
+                SELECT COALESCE(MAX(position), 0) + 1 INTO v_new_position
+                FROM sistemaretiradas.queue_members
+                WHERE session_id = v_session_id
+                  AND status = 'disponivel'
+                  AND id != v_member_id;
+                
+                -- Sempre mover para o final da fila usando UPDATE (não INSERT)
+                UPDATE sistemaretiradas.queue_members
+                SET status = 'disponivel',
+                    position = v_new_position,
+                    updated_at = NOW()
+                WHERE id = v_member_id;
+            END IF;
             
             -- Reorganizar fila para garantir posições corretas
             PERFORM sistemaretiradas.reorganize_queue_positions(v_session_id);
