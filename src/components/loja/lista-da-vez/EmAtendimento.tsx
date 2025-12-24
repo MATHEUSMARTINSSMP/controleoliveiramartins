@@ -62,47 +62,43 @@ export function EmAtendimento({
                         return (
                             <div
                                 key={attendance.id}
-                                className={`p-4 border-2 rounded-xl transition-all hover:shadow-md ${
+                                className={`p-3 border rounded-lg transition-all hover:shadow-sm ${
                                     isMe 
-                                        ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-800 shadow-sm' 
-                                        : 'bg-card border-border hover:border-blue-300'
+                                        ? 'bg-blue-50/30 dark:bg-blue-950/10 border-blue-200/50 dark:border-blue-800/50' 
+                                        : 'bg-muted/20 border-border/50 hover:border-blue-200'
                                 }`}
                             >
-                                <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center justify-between">
                                     <div className="flex-1 min-w-0">
-                                        <p className={`text-sm font-semibold ${
-                                            isMe ? 'text-blue-900 dark:text-blue-100' : ''
+                                        <p className={`text-xs font-medium ${
+                                            isMe ? 'text-blue-900 dark:text-blue-100' : 'text-foreground'
                                         }`}>
                                             {attendance.profile_name}
                                         </p>
                                         {attendance.cliente_nome && (
-                                            <p className="text-xs text-muted-foreground mt-1">
+                                            <p className="text-[10px] text-muted-foreground mt-0.5">
                                                 {attendance.cliente_nome}
                                             </p>
                                         )}
                                     </div>
-                                    {isMe && (
-                                        <Badge variant="secondary" className="text-xs ml-2 shrink-0">Você</Badge>
-                                    )}
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
-                                        <p className="text-xs font-medium text-muted-foreground">
-                                            {duration} min
-                                        </p>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <Badge 
+                                            variant="outline" 
+                                            className="text-xs font-medium h-5"
+                                        >
+                                            {duration}min
+                                        </Badge>
+                                        <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            onClick={() => onStopAttendance(attendance.id)}
+                                            disabled={loading}
+                                            className="h-8 text-xs"
+                                        >
+                                            <Square className="h-3 w-3 mr-1" />
+                                            Finalizar
+                                        </Button>
                                     </div>
-                                    {/* Botão STOP para finalizar - sempre visível */}
-                                    <Button
-                                        size="sm"
-                                        variant="destructive"
-                                        onClick={() => onStopAttendance(attendance.id)}
-                                        disabled={loading}
-                                        className="font-semibold"
-                                    >
-                                        <Square className="h-4 w-4 mr-2" />
-                                        Finalizar
-                                    </Button>
                                 </div>
                             </div>
                         );
