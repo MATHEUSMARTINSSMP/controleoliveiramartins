@@ -126,6 +126,15 @@ export default function LojaDashboard() {
     const [listaDaVezAtivo, setListaDaVezAtivo] = useState<boolean>(false);
     const [activeView, setActiveView] = useState<'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes' | 'caixa'>('metas');
     const [listaDaVezOpen, setListaDaVezOpen] = useState(false);
+    const [linkErpSaleDialogOpen, setLinkErpSaleDialogOpen] = useState(false);
+    const [linkErpSaleData, setLinkErpSaleData] = useState<{
+        saleId: string;
+        colaboradoraId: string;
+        colaboradoraName: string;
+        storeId: string;
+        saleDate: string;
+        saleValue: number;
+    } | null>(null);
 
     const [formasPagamento, setFormasPagamento] = useState<FormaPagamentoType[]>([{
         tipo: 'DINHEIRO',
@@ -142,6 +151,7 @@ export default function LojaDashboard() {
         cliente_nome: "", // Nome do cliente (opcional, pode ser texto livre ou "Consumidor Final")
         venda_perdida: false, // Flag para venda perdida
         motivo_perda_venda: "", // Motivo da perda de venda
+        attendance_id: "", // ID do atendimento da Lista da Vez (opcional)
     });
 
     // Estados para busca de cliente
@@ -2313,30 +2323,42 @@ export default function LojaDashboard() {
                     if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
                         console.log('[LojaDashboard] 🔄 Recarregando vendas devido a mudança real-time...');
 
-                        // ✅ NOVO: Se for INSERT e vier do ERP (tiny_order_id não null) e CRM estiver ativo, abrir dialog
+                        // ✅ NOVO: Se for INSERT e vier do ERP, verificar linkagem e CRM
                         if (payload.eventType === 'INSERT' && payload.new) {
                             const newSale = payload.new as any;
-                            // Buscar status do CRM dinamicamente para evitar stale closure
-                            const { data: storeData } = await supabase
-                                .schema("sistemaretiradas")
-                                .from('stores')
-                                .select('crm_ativo')
-                                .eq('id', storeId)
-                                .single();
+                            
+                            // Verificar se é venda do ERP
+                            const isErpSale = newSale.external_order_id || newSale.order_source || newSale.tiny_order_id;
+                            
+                            // Se for venda do ERP e já foi linkada automaticamente, não abrir dialog de Nova Venda
+                            // (já tem todas as informações do ERP)
+                            if (isErpSale && newSale.attendance_id) {
+                                console.log('[LojaDashboard] ✅ Venda do ERP linkada automaticamente com atendimento');
+                                // Não abrir dialog de Nova Venda - já está tudo linkado
+                            }
+                            
+                            // Se for venda do ERP e CRM estiver ativo, abrir dialog de pós-venda
+                            if (isErpSale) {
+                                const { data: storeData } = await supabase
+                                    .schema("sistemaretiradas")
+                                    .from('stores')
+                                    .select('crm_ativo')
+                                    .eq('id', storeId)
+                                    .single();
 
-                            if (newSale.tiny_order_id && storeData?.crm_ativo) {
-                                console.log('[LojaDashboard] 🎯 Venda do ERP detectada! Abrindo dialog de pós-venda...');
+                                if (storeData?.crm_ativo) {
+                                    console.log('[LojaDashboard] 🎯 Venda do ERP detectada! Abrindo dialog de pós-venda...');
 
-                                // Aguardar um pouco para garantir que a venda foi completamente salva
-                                setTimeout(() => {
-                                    setLastSaleData({
-                                        saleId: newSale.id,
-                                        colaboradoraId: newSale.colaboradora_id,
-                                        saleDate: newSale.data_venda,
-                                        saleObservations: newSale.observacoes || null
-                                    });
-                                    setPostSaleDialogOpen(true);
-                                }, 1000);
+                                    setTimeout(() => {
+                                        setLastSaleData({
+                                            saleId: newSale.id,
+                                            colaboradoraId: newSale.colaboradora_id,
+                                            saleDate: newSale.data_venda,
+                                            saleObservations: newSale.observacoes || null
+                                        });
+                                        setPostSaleDialogOpen(true);
+                                    }, 1000);
+                                }
                             }
                         }
 
@@ -2641,6 +2663,7 @@ export default function LojaDashboard() {
                     cliente_nome: formData.cliente_nome || null, // Nome do cliente (opcional)
                     venda_perdida: formData.venda_perdida || false, // Flag de venda perdida
                     motivo_perda_venda: formData.venda_perdida ? (formData.motivo_perda_venda || null) : null, // Motivo apenas se venda perdida
+                    attendance_id: formData.attendance_id || null, // ID do atendimento da Lista da Vez (opcional)
                 })
                 .select()
                 .single();
@@ -2678,8 +2701,38 @@ export default function LojaDashboard() {
             const formasPagamentoData: FormaPagamentoType[] = formasPagamento
                 .filter((fp): fp is FormaPagamentoType => fp.tipo !== undefined && fp.valor !== undefined);
 
+            // Se a venda foi linkada a um atendimento, atualizar attendance_outcome
+            if (formData.attendance_id && insertedSale?.id) {
+                try {
+                    // Atualizar attendance_outcome com sale_id e finalizar
+                    const { error: outcomeError } = await supabase
+                        .schema('sistemaretiradas')
+                        .from('attendance_outcomes')
+                        .update({
+                            sale_id: insertedSale.id,
+                            sale_value: valorVenda
+                        })
+                        .eq('attendance_id', formData.attendance_id)
+                        .is('sale_id', null); // Apenas se ainda não tiver sale_id
+
+                    if (outcomeError) {
+                        console.error('[LojaDashboard] Erro ao linkar venda com atendimento:', outcomeError);
+                    } else {
+                        console.log('[LojaDashboard] ✅ Venda linkada com atendimento:', {
+                            sale_id: insertedSale.id,
+                            attendance_id: formData.attendance_id
+                        });
+                    }
+                } catch (error: any) {
+                    console.error('[LojaDashboard] Erro ao processar linkagem:', error);
+                }
+            }
+
             toast.success('Venda lançada com sucesso!');
             setDialogOpen(false);
+
+            // Limpar attendance_id do formData após salvar
+            setFormData(prev => ({ ...prev, attendance_id: "" }));
 
             // ✅ ABRIR DIALOG DE AGENDAMENTO DE PÓS-VENDA (se CRM estiver ativo)
             console.log('[LojaDashboard] Verificando se deve abrir dialog de pós-venda:', {
@@ -3224,9 +3277,30 @@ export default function LojaDashboard() {
             cliente_nome: sale.cliente_nome || "",
             venda_perdida: vendaPerdida,
             motivo_perda_venda: motivoPerda,
+            attendance_id: "", // Não linkar em edição
         });
         setEditingSaleId(sale.id);
         setDialogOpen(true);
+    };
+
+    const handleOpenNewSaleFromAttendance = (attendanceId: string, colaboradoraId: string, saleValue: number) => {
+        // Preencher formData com dados do atendimento
+        setFormData({
+            colaboradora_id: colaboradoraId,
+            valor: saleValue.toString(),
+            qtd_pecas: "1", // Default, usuário pode alterar
+            data_venda: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+            observacoes: "",
+            cliente_id: "",
+            cliente_nome: "",
+            venda_perdida: false,
+            motivo_perda_venda: "",
+            attendance_id: attendanceId, // Linkar com atendimento
+        });
+        setEditingSaleId(null); // Nova venda, não edição
+        setDialogOpen(true);
+        // Fechar dialog da Lista da Vez
+        setListaDaVezOpen(false);
     };
 
     const handleUpdate = async (e: React.FormEvent) => {
@@ -6265,7 +6339,33 @@ export default function LojaDashboard() {
                         storeId={storeId}
                         open={listaDaVezOpen}
                         onOpenChange={setListaDaVezOpen}
+                        onOpenNewSale={handleOpenNewSaleFromAttendance}
                     />
+
+                    {/* Dialog para linkar venda do ERP com atendimento */}
+                    {linkErpSaleData && (
+                        <LinkErpSaleToAttendanceDialog
+                            open={linkErpSaleDialogOpen}
+                            onOpenChange={(open) => {
+                                setLinkErpSaleDialogOpen(open);
+                                if (!open) {
+                                    setLinkErpSaleData(null);
+                                }
+                            }}
+                            saleId={linkErpSaleData.saleId}
+                            colaboradoraId={linkErpSaleData.colaboradoraId}
+                            colaboradoraName={linkErpSaleData.colaboradoraName}
+                            storeId={linkErpSaleData.storeId}
+                            saleDate={linkErpSaleData.saleDate}
+                            saleValue={linkErpSaleData.saleValue}
+                            onLinked={() => {
+                                // Recarregar vendas após linkagem
+                                if (storeId) {
+                                    fetchSalesWithStoreId(storeId, salesDateFilter);
+                                }
+                            }}
+                        />
+                    )}
                 </>
             )}
         </div>

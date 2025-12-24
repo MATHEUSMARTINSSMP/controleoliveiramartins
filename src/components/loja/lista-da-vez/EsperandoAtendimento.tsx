@@ -1,8 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Play } from "lucide-react";
+import { Play, ArrowUp, ArrowDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface QueueMember {
@@ -16,17 +15,17 @@ interface QueueMember {
 interface EsperandoAtendimentoProps {
     members: QueueMember[];
     loading: boolean;
-    clienteNome: string;
-    onClienteNomeChange: (nome: string) => void;
     onStartAttendance: (memberId: string) => void;
+    onMoveToTop?: (memberId: string) => void;
+    onMoveToEnd?: (memberId: string) => void;
 }
 
 export function EsperandoAtendimento({
     members,
     loading,
-    clienteNome,
-    onClienteNomeChange,
-    onStartAttendance
+    onStartAttendance,
+    onMoveToTop,
+    onMoveToEnd
 }: EsperandoAtendimentoProps) {
     const { profile } = useAuth();
     const esperando = members.filter(m => m.status === 'disponivel');
@@ -54,7 +53,7 @@ export function EsperandoAtendimento({
                                 } ${isFirst ? 'border-primary shadow-sm' : ''}`}
                             >
                                 <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-1">
                                         <Badge variant={isFirst ? "default" : "outline"} className="min-w-[40px] justify-center">
                                             {member.position}º
                                         </Badge>
@@ -65,32 +64,44 @@ export function EsperandoAtendimento({
                                             <Badge variant="secondary" className="text-xs">Você</Badge>
                                         )}
                                     </div>
-                                </div>
-                                {isFirst && (
-                                    <div className="space-y-2 mt-2 pt-2 border-t">
-                                        <Input
-                                            placeholder="Nome do cliente"
-                                            value={clienteNome}
-                                            onChange={(e) => onClienteNomeChange(e.target.value)}
-                                            className="h-8 text-xs"
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && clienteNome.trim()) {
-                                                    onStartAttendance(member.id);
-                                                }
-                                            }}
-                                            autoFocus
-                                        />
-                                        <Button
-                                            size="sm"
-                                            className="w-full"
-                                            onClick={() => onStartAttendance(member.id)}
-                                            disabled={!clienteNome.trim() || loading}
-                                        >
-                                            <Play className="h-3 w-3 mr-1" />
-                                            Iniciar Atendimento
-                                        </Button>
+                                    {/* Botões de reorganizar */}
+                                    <div className="flex items-center gap-1">
+                                        {onMoveToTop && !isFirst && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-7 w-7"
+                                                onClick={() => onMoveToTop(member.id)}
+                                                disabled={loading}
+                                                title="Mover para o topo"
+                                            >
+                                                <ArrowUp className="h-3 w-3" />
+                                            </Button>
+                                        )}
+                                        {onMoveToEnd && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-7 w-7"
+                                                onClick={() => onMoveToEnd(member.id)}
+                                                disabled={loading}
+                                                title="Mover para o final"
+                                            >
+                                                <ArrowDown className="h-3 w-3" />
+                                            </Button>
+                                        )}
                                     </div>
-                                )}
+                                </div>
+                                {/* TODAS as colaboradoras têm botão PLAY */}
+                                <Button
+                                    size="sm"
+                                    className="w-full"
+                                    onClick={() => onStartAttendance(member.id)}
+                                    disabled={loading}
+                                >
+                                    <Play className="h-3 w-3 mr-1" />
+                                    Iniciar Atendimento
+                                </Button>
                             </div>
                         );
                     })
@@ -99,4 +110,3 @@ export function EsperandoAtendimento({
         </Card>
     );
 }
-

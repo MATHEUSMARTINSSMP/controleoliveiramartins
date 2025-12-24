@@ -1,11 +1,7 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { X } from "lucide-react";
+import { Square } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface Attendance {
@@ -17,59 +13,30 @@ interface Attendance {
     duration_seconds: number | null;
 }
 
-interface LossReason {
-    id: string;
-    name: string;
-}
-
 interface EmAtendimentoProps {
     attendances: Attendance[];
     loading: boolean;
-    lossReasons: LossReason[];
-    onEndAttendance: (
-        attendanceId: string,
-        result: 'venda' | 'perda',
-        saleValue: number | null,
-        lossReasonId: string | null
-    ) => void;
+    onStopAttendance: (attendanceId: string) => void;
 }
 
 export function EmAtendimento({
     attendances,
     loading,
-    lossReasons,
-    onEndAttendance
+    onStopAttendance
 }: EmAtendimentoProps) {
     const { profile } = useAuth();
-    const [finalizingId, setFinalizingId] = useState<string | null>(null);
-    const [result, setResult] = useState<'venda' | 'perda' | ''>('');
-    const [saleValue, setSaleValue] = useState('');
-    const [lossReasonId, setLossReasonId] = useState('');
 
-    const handleFinalize = () => {
-        if (!finalizingId || !result) return;
-        if (result === 'venda' && !saleValue) return;
-        if (result === 'perda' && !lossReasonId) return;
-
-        onEndAttendance(
-            finalizingId,
-            result,
-            result === 'venda' ? parseFloat(saleValue) : null,
-            result === 'perda' ? lossReasonId : null
-        );
-
-        // Limpar formulário
-        setFinalizingId(null);
-        setResult('');
-        setSaleValue('');
-        setLossReasonId('');
-    };
-
-    const handleCancel = () => {
-        setFinalizingId(null);
-        setResult('');
-        setSaleValue('');
-        setLossReasonId('');
+    const calculateDuration = (startedAt: string, durationSeconds: number | null): number => {
+        if (durationSeconds !== null) {
+            return Math.floor(durationSeconds / 60);
+        }
+        // Calcular duração em tempo real
+        const startTime = new Date(startedAt).getTime();
+        const now = Date.now();
+        const diffMs = now - startTime;
+        const diffMinutes = Math.floor(diffMs / 60000);
+        // Não mostrar negativo
+        return Math.max(0, diffMinutes);
     };
 
     return (
@@ -85,9 +52,7 @@ export function EmAtendimento({
                 ) : (
                     attendances.map((attendance) => {
                         const isMe = attendance.profile_id === profile?.id;
-                        const duration = attendance.duration_seconds 
-                            ? Math.floor(attendance.duration_seconds / 60)
-                            : Math.floor((Date.now() - new Date(attendance.started_at).getTime()) / 60000);
+                        const duration = calculateDuration(attendance.started_at, attendance.duration_seconds);
 
                         return (
                             <div
@@ -99,94 +64,33 @@ export function EmAtendimento({
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex-1">
                                         <p className="text-sm font-medium">{attendance.profile_name}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {attendance.cliente_nome || 'Sem nome'}
-                                        </p>
+                                        {attendance.cliente_nome && (
+                                            <p className="text-xs text-muted-foreground">
+                                                {attendance.cliente_nome}
+                                            </p>
+                                        )}
                                     </div>
                                     {isMe && (
                                         <Badge variant="secondary" className="text-xs ml-2">Você</Badge>
                                     )}
                                 </div>
-                                <p className="text-xs text-muted-foreground mb-2">
-                                    {duration} min
-                                </p>
-                                {isMe && finalizingId !== attendance.id && (
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="w-full"
-                                        onClick={() => setFinalizingId(attendance.id)}
-                                        disabled={loading}
-                                    >
-                                        Finalizar
-                                    </Button>
-                                )}
-                                {finalizingId === attendance.id && (
-                                    <div className="space-y-2 mt-2 p-2 bg-muted rounded border">
-                                        <Label className="text-xs">Resultado *</Label>
-                                        <Select
-                                            value={result}
-                                            onValueChange={(v: any) => setResult(v)}
+                                <div className="flex items-center justify-between">
+                                    <p className="text-xs text-muted-foreground">
+                                        {duration} min
+                                    </p>
+                                    {/* Botão STOP para finalizar */}
+                                    {isMe && (
+                                        <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            onClick={() => onStopAttendance(attendance.id)}
+                                            disabled={loading}
                                         >
-                                            <SelectTrigger className="h-8 text-xs">
-                                                <SelectValue placeholder="Selecione" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="venda">Venda</SelectItem>
-                                                <SelectItem value="perda">Perda</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        {result === 'venda' && (
-                                            <Input
-                                                type="number"
-                                                step="0.01"
-                                                placeholder="Valor da venda (R$)"
-                                                value={saleValue}
-                                                onChange={(e) => setSaleValue(e.target.value)}
-                                                className="h-8 text-xs"
-                                            />
-                                        )}
-                                        {result === 'perda' && (
-                                            <Select
-                                                value={lossReasonId}
-                                                onValueChange={setLossReasonId}
-                                            >
-                                                <SelectTrigger className="h-8 text-xs">
-                                                    <SelectValue placeholder="Motivo da perda" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {lossReasons.map(reason => (
-                                                        <SelectItem key={reason.id} value={reason.id}>
-                                                            {reason.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        )}
-                                        <div className="flex gap-2">
-                                            <Button
-                                                size="sm"
-                                                className="flex-1"
-                                                onClick={handleFinalize}
-                                                disabled={
-                                                    loading || 
-                                                    !result || 
-                                                    (result === 'venda' && !saleValue) || 
-                                                    (result === 'perda' && !lossReasonId)
-                                                }
-                                            >
-                                                Confirmar
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={handleCancel}
-                                            >
-                                                <X className="h-3 w-3" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )}
+                                            <Square className="h-3 w-3 mr-1" />
+                                            Finalizar
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
                         );
                     })
@@ -195,4 +99,3 @@ export function EmAtendimento({
         </Card>
     );
 }
-

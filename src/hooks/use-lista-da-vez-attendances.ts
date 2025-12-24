@@ -91,9 +91,9 @@ export function useListaDaVezAttendances(sessionId: string | null, storeId: stri
         };
     }, [sessionId, storeId, fetchAttendances]);
 
-    const startAttendance = async (memberId: string, clienteNome: string) => {
-        if (!memberId || !clienteNome.trim()) {
-            toast.error('Informe o nome do cliente');
+    const startAttendance = async (memberId: string, clienteNome: string = "") => {
+        if (!memberId) {
+            toast.error('Erro: membro não encontrado');
             return;
         }
 
@@ -101,7 +101,7 @@ export function useListaDaVezAttendances(sessionId: string | null, storeId: stri
             setLoading(true);
             const { data: attendanceId, error } = await supabase.rpc('start_attendance', {
                 p_member_id: memberId,
-                p_cliente_nome: clienteNome.trim(),
+                p_cliente_nome: clienteNome.trim() || null,
                 p_cliente_id: null,
                 p_cliente_telefone: null
             });

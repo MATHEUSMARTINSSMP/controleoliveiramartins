@@ -33,7 +33,7 @@ export function useListaDaVezQueue(sessionId: string | null, storeId: string | n
                     profiles!queue_members_profile_id_fkey(name)
                 `)
                 .eq('session_id', sessionId)
-                .in('status', ['disponivel', 'em_atendimento'])
+                .eq('status', 'disponivel')
                 .order('position', { ascending: true });
 
             if (error) throw error;

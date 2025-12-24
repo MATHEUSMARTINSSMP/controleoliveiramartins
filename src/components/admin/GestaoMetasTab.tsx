@@ -277,6 +277,12 @@ export default function GestaoMetasTab() {
           )}
         </Button>
       </div>
+
+      {/* Analytics */}
+      <div className="space-y-6 mt-8">
+        <SalesPerformanceAnalytics />
+        <ListaDaVezAnalytics />
+      </div>
     </div>
   );
 }
