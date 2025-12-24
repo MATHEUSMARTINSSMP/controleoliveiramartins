@@ -204,7 +204,7 @@ export const ModulesStoreConfig = () => {
         .from('stores')
         .update(updateData)
         .eq('id', storeId)
-        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, tasks_ativo, daily_goal_check_ativo');
+        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, daily_goal_check_ativo');
 
       if (error) {
         console.error('[ModulesStoreConfig] Erro na atualização:', error);
