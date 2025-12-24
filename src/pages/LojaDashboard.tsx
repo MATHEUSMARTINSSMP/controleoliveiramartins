@@ -749,7 +749,7 @@ export default function LojaDashboard() {
                     const { data, error } = await supabase
                         .schema('sistemaretiradas')
                         .from('stores')
-                        .select('cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo')
+                        .select('cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, tasks_ativo')
                         .eq('id', storeId)
                         .maybeSingle(); // ✅ Usar maybeSingle() para evitar erro quando não encontrar
 
@@ -783,6 +783,7 @@ export default function LojaDashboard() {
                         const ajustesCondicionais = data.ajustes_condicionais_ativo === true;
                         const caixa = data.caixa_ativo === true;
                         const listaDaVez = data.lista_da_vez_ativo === true;
+                        const tasks = data.tasks_ativo === true;
 
                         console.log('[LojaDashboard] ✅ Setando módulos (fallback):', {
                             cashback,
@@ -791,7 +792,8 @@ export default function LojaDashboard() {
                             wishlist,
                             ajustesCondicionais,
                             caixa,
-                            listaDaVez
+                            listaDaVez,
+                            tasks
                         });
 
                         setCashbackAtivo(cashback);
@@ -801,6 +803,7 @@ export default function LojaDashboard() {
                         setAjustesCondicionaisAtivo(ajustesCondicionais);
                         setCaixaAtivo(caixa);
                         setListaDaVezAtivo(listaDaVez);
+                        setTasksAtivo(tasks);
                     } else {
                         console.warn('[LojaDashboard] ⚠️ data é null ou undefined no fallback');
                     }
