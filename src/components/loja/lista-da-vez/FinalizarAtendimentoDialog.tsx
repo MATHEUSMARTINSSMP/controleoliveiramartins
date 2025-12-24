@@ -45,12 +45,12 @@ export function FinalizarAtendimentoDialog({
 
     const handleConfirm = () => {
         if (!result) return;
-        if (result === 'venda' && !saleValue) return;
         if (result === 'perda' && !lossReasonId) return;
 
-        // Se for venda, abrir dialog de Nova Venda
+        // Se for venda, abrir dialog de Nova Venda SEM pedir valor aqui
         if (result === 'venda' && onOpenNewSale) {
-            onOpenNewSale(attendanceId, colaboradoraId, parseFloat(saleValue));
+            // Passar 0 como valor inicial, será preenchido no formulário de Nova Venda
+            onOpenNewSale(attendanceId, colaboradoraId, 0);
             // Limpar formulário
             setResult('');
             setSaleValue('');
@@ -106,18 +106,6 @@ export function FinalizarAtendimentoDialog({
                         </Select>
                     </div>
 
-                    {result === 'venda' && (
-                        <div>
-                            <Label>Valor da Venda (R$) *</Label>
-                            <Input
-                                type="number"
-                                step="0.01"
-                                placeholder="0.00"
-                                value={saleValue}
-                                onChange={(e) => setSaleValue(e.target.value)}
-                            />
-                        </div>
-                    )}
 
                     {result === 'perda' && (
                         <div>
@@ -154,11 +142,10 @@ export function FinalizarAtendimentoDialog({
                             disabled={
                                 loading ||
                                 !result ||
-                                (result === 'venda' && !saleValue) ||
                                 (result === 'perda' && !lossReasonId)
                             }
                         >
-                            Confirmar
+                            {result === 'venda' ? 'Confirmar Nova Venda' : 'Confirmar'}
                         </Button>
                     </div>
                 </div>

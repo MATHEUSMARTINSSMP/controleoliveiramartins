@@ -62,7 +62,7 @@ export function useListaDaVezQueue(sessionId: string | null, storeId: string | n
 
         // Setup realtime subscription
         const channel = supabase
-            .channel(`lista-da-vez-queue-${sessionId}`)
+            .channel(`lista-da-vez-queue-${sessionId}-${Date.now()}`)
             .on(
                 'postgres_changes',
                 {
@@ -73,7 +73,10 @@ export function useListaDaVezQueue(sessionId: string | null, storeId: string | n
                 },
                 (payload) => {
                     console.log('[useListaDaVezQueue] Mudança detectada:', payload);
-                    fetchQueueMembers();
+                    // Atualizar imediatamente quando detectar mudança
+                    setTimeout(() => {
+                        fetchQueueMembers();
+                    }, 100);
                 }
             )
             .subscribe((status) => {

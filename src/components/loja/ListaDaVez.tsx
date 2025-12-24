@@ -34,7 +34,7 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
 
     // Hooks modulares
     const { sessionId } = useListaDaVezSession(storeId);
-    const { queueMembers, loading: queueLoading, addToQueue, removeFromQueue } = useListaDaVezQueue(sessionId, storeId);
+    const { queueMembers, loading: queueLoading, addToQueue, removeFromQueue, fetchQueueMembers } = useListaDaVezQueue(sessionId, storeId);
     const { attendances, loading: attendancesLoading, startAttendance, endAttendance } = useListaDaVezAttendances(sessionId, storeId);
     const { colaboradoras, loading: colaboradorasLoading } = useListaDaVezColaboradoras(storeId, sessionId, queueMembers);
     const { metrics, loading: metricsLoading } = useListaDaVezMetrics(storeId);
@@ -97,6 +97,12 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
                 throw error;
             }
             toast.success('Colaboradora movida para o topo da fila');
+            // Forçar atualização imediata da fila
+            if (fetchQueueMembers) {
+                setTimeout(() => {
+                    fetchQueueMembers();
+                }, 200);
+            }
         } catch (error: any) {
             console.error('[ListaDaVez] Erro ao mover para topo:', error);
             toast.error('Erro ao mover para o topo: ' + (error.message || 'Erro desconhecido'));
@@ -113,6 +119,12 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
                 throw error;
             }
             toast.success('Colaboradora movida para o final da fila');
+            // Forçar atualização imediata da fila
+            if (fetchQueueMembers) {
+                setTimeout(() => {
+                    fetchQueueMembers();
+                }, 200);
+            }
         } catch (error: any) {
             console.error('[ListaDaVez] Erro ao mover para final:', error);
             toast.error('Erro ao mover para o final: ' + (error.message || 'Erro desconhecido'));
