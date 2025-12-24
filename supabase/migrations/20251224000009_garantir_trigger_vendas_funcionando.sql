@@ -5,54 +5,10 @@
 -- Descrição: Garantir que o trigger processa vendas automaticamente e reprocessar pendentes
 -- ============================================================================
 
--- 1. VERIFICAR E GARANTIR QUE O TRIGGER ESTÁ CRIADO CORRETAMENTE
+-- 1. GARANTIR QUE A FUNÇÃO DO TRIGGER EXISTE (CRIAR/ATUALIZAR)
 -- ============================================================================
--- Primeiro, verificar se existe
-DO $$
-BEGIN
-    -- Verificar se o trigger existe
-    IF NOT EXISTS (
-        SELECT 1 
-        FROM pg_trigger 
-        WHERE tgname = 'trigger_auto_processar_tiny_order'
-            AND tgrelid = 'sistemaretiradas.tiny_orders'::regclass
-    ) THEN
-        RAISE NOTICE 'Trigger não existe. Criando...';
-        
-        -- Criar função do trigger (se não existir)
-        CREATE OR REPLACE FUNCTION sistemaretiradas.trigger_processar_tiny_order()
-        RETURNS TRIGGER
-        LANGUAGE plpgsql
-        SECURITY DEFINER
-        AS $$
-        BEGIN
-            -- Processar apenas se o pedido tem dados válidos
-            IF NEW.colaboradora_id IS NOT NULL 
-               AND NEW.store_id IS NOT NULL 
-               AND NEW.valor_total > 0 THEN
-                -- Tentar processar
-                PERFORM sistemaretiradas.processar_tiny_order_para_venda(NEW.id);
-            END IF;
-            
-            RETURN NEW;
-        END;
-        $$;
-        
-        -- Criar trigger
-        CREATE TRIGGER trigger_auto_processar_tiny_order
-        AFTER INSERT OR UPDATE ON sistemaretiradas.tiny_orders
-        FOR EACH ROW
-        WHEN (NEW.colaboradora_id IS NOT NULL AND NEW.store_id IS NOT NULL AND NEW.valor_total > 0)
-        EXECUTE FUNCTION sistemaretiradas.trigger_processar_tiny_order();
-        
-        RAISE NOTICE '✅ Trigger criado com sucesso';
-    ELSE
-        RAISE NOTICE '✅ Trigger já existe';
-    END IF;
-END $$;
+-- Primeiro, criar/atualizar a função (isso pode ser feito fora de DO)
 
--- 2. GARANTIR QUE A FUNÇÃO DO TRIGGER ESTÁ ATUALIZADA
--- ============================================================================
 CREATE OR REPLACE FUNCTION sistemaretiradas.trigger_processar_tiny_order()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -79,6 +35,18 @@ $$;
 COMMENT ON FUNCTION sistemaretiradas.trigger_processar_tiny_order() IS 
 'Trigger que processa automaticamente pedidos do Tiny ERP para criar/atualizar vendas. 
 Executa em INSERT e UPDATE, mas apenas quando colaboradora_id, store_id e valor_total são válidos.';
+
+-- 2. GARANTIR QUE O TRIGGER ESTÁ CRIADO
+-- ============================================================================
+-- Remover trigger antigo se existir
+DROP TRIGGER IF EXISTS trigger_auto_processar_tiny_order ON sistemaretiradas.tiny_orders;
+
+-- Criar trigger
+CREATE TRIGGER trigger_auto_processar_tiny_order
+AFTER INSERT OR UPDATE ON sistemaretiradas.tiny_orders
+FOR EACH ROW
+WHEN (NEW.colaboradora_id IS NOT NULL AND NEW.store_id IS NOT NULL AND NEW.valor_total > 0)
+EXECUTE FUNCTION sistemaretiradas.trigger_processar_tiny_order();
 
 -- 3. FUNÇÃO AUXILIAR PARA PROCESSAR TODOS OS PEDIDOS PENDENTES DE UMA LOJA
 -- ============================================================================
