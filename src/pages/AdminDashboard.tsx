@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw, AlertTriangle, Plus, Link2, Target, Send, Globe, CheckSquare } from "lucide-react";
+import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw, AlertTriangle, Plus, Link2, Target, Send, Globe, CheckSquare2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -579,7 +579,7 @@ const AdminDashboard = () => {
               <BillingAccessGuard allowReadOnly>
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <CheckSquare className="h-5 w-5 text-primary" />
+                    <CheckSquare2 className="h-5 w-5 text-primary" />
                     <h2 className="text-lg font-semibold">Tarefas do Dia</h2>
                   </div>
                   <p className="text-sm text-muted-foreground mb-4">
