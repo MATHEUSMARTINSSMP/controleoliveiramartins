@@ -19,17 +19,19 @@ HAVING COUNT(*) > 1
 ORDER BY total_registros DESC;
 
 -- 2. Verificar todos os registros de uma sessão específica (substitua o session_id)
--- SELECT 
---     id,
---     session_id,
---     profile_id,
---     status,
---     position,
---     check_in_at,
---     updated_at
--- FROM sistemaretiradas.queue_members
--- WHERE session_id = 'd0d1b4e0-7e17-40bd-a46f-6a08a2fea95c'  -- Substitua pelo session_id do erro
--- ORDER BY profile_id, status;
+SELECT 
+    id,
+    session_id,
+    profile_id,
+    status,
+    position,
+    check_in_at,
+    updated_at,
+    p.name as colaboradora_nome
+FROM sistemaretiradas.queue_members qm
+LEFT JOIN sistemaretiradas.profiles p ON p.id = qm.profile_id
+WHERE session_id = 'd0d1b4e0-7e17-40bd-a46f-6a08a2fea95c'  -- Substitua pelo session_id do erro
+ORDER BY profile_id, status;
 
 -- 3. Verificar atendimentos em andamento sem queue_member correspondente
 SELECT 
@@ -48,19 +50,19 @@ WHERE a.status = 'em_andamento'
 ORDER BY a.started_at DESC;
 
 -- 4. Verificar colaboradora específica que está dando erro (substitua o profile_id)
--- SELECT 
---     qm.id,
---     qm.session_id,
---     qm.profile_id,
---     qm.status,
---     qm.position,
---     qm.check_in_at,
---     qm.updated_at,
---     p.name as colaboradora_nome
--- FROM sistemaretiradas.queue_members qm
--- JOIN sistemaretiradas.profiles p ON p.id = qm.profile_id
--- WHERE qm.profile_id = '07d97621-6744-4eb7-a09e-fd59c0e31f08'  -- Substitua pelo profile_id do erro
--- ORDER BY qm.session_id, qm.status;
+SELECT 
+    qm.id,
+    qm.session_id,
+    qm.profile_id,
+    qm.status,
+    qm.position,
+    qm.check_in_at,
+    qm.updated_at,
+    p.name as colaboradora_nome
+FROM sistemaretiradas.queue_members qm
+LEFT JOIN sistemaretiradas.profiles p ON p.id = qm.profile_id
+WHERE qm.profile_id = '07d97621-6744-4eb7-a09e-fd59c0e31f08'  -- Substitua pelo profile_id do erro
+ORDER BY qm.session_id, qm.status;
 
 -- 5. Limpar registros duplicados (CUIDADO: Execute apenas se tiver certeza!)
 -- Esta query mantém apenas o registro mais recente para cada (session_id, profile_id)
