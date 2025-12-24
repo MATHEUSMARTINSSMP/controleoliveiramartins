@@ -463,6 +463,11 @@ export const ModulesStoreConfig = () => {
                         <span className="font-medium">Lista da Vez</span>
                         {store.lista_da_vez_ativo ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                       </div>
+                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded ${store.tasks_ativo ? 'bg-success/10 text-success' : 'text-muted-foreground'}`}>
+                        <CheckSquare className="h-3.5 w-3.5" />
+                        <span className="font-medium">Tarefas</span>
+                        {store.tasks_ativo ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                      </div>
                     </div>
                   )}
                 </CardContent>
