@@ -7,12 +7,13 @@
 
 -- 1. IDENTIFICAR ID DA LOJA SACADA
 -- ============================================================================
+-- ID da loja: cee7d359-0240-4131-87a2-21ae44bd1bb4
 SELECT 
     id,
     name,
     admin_id
 FROM sistemaretiradas.stores
-WHERE name ILIKE '%sacada%'
+WHERE id = 'cee7d359-0240-4131-87a2-21ae44bd1bb4' -- Sacada | Oh, Boy
 ORDER BY name;
 
 -- 2. VENDAS RECEBIDAS PELO ERP (TINY_ORDERS) - ÚLTIMOS 7 DIAS
@@ -38,7 +39,7 @@ SELECT
 FROM sistemaretiradas.tiny_orders t_order
 LEFT JOIN sistemaretiradas.profiles c ON c.id = t_order.colaboradora_id
 LEFT JOIN sistemaretiradas.stores st ON st.id = t_order.store_id
-WHERE st.name ILIKE '%sacada%'
+WHERE t_order.store_id = 'cee7d359-0240-4131-87a2-21ae44bd1bb4' -- Sacada | Oh, Boy
     AND (
         t_order.created_at >= NOW() - INTERVAL '7 days'
         OR t_order.updated_at >= NOW() - INTERVAL '7 days'
@@ -63,7 +64,7 @@ SELECT
 FROM sistemaretiradas.sales s
 LEFT JOIN sistemaretiradas.profiles c ON c.id = s.colaboradora_id
 LEFT JOIN sistemaretiradas.stores st ON st.id = s.store_id
-WHERE st.name ILIKE '%sacada%'
+WHERE s.store_id = 'cee7d359-0240-4131-87a2-21ae44bd1bb4' -- Sacada | Oh, Boy
     AND s.created_at >= NOW() - INTERVAL '7 days'
 ORDER BY s.created_at DESC;
 
@@ -91,7 +92,7 @@ FROM sistemaretiradas.tiny_orders t_order
 LEFT JOIN sistemaretiradas.profiles c ON c.id = t_order.colaboradora_id
 LEFT JOIN sistemaretiradas.stores st ON st.id = t_order.store_id
 LEFT JOIN sistemaretiradas.sales s ON s.tiny_order_id = t_order.id
-WHERE st.name ILIKE '%sacada%'
+WHERE t_order.store_id = 'cee7d359-0240-4131-87a2-21ae44bd1bb4' -- Sacada | Oh, Boy
     AND s.id IS NULL -- Não tem venda correspondente
     AND (
         t_order.created_at >= NOW() - INTERVAL '7 days'
@@ -108,7 +109,7 @@ SELECT
     SUM(t_order.valor_total) as valor_total
 FROM sistemaretiradas.tiny_orders t_order
 LEFT JOIN sistemaretiradas.stores st ON st.id = t_order.store_id
-WHERE st.name ILIKE '%sacada%'
+WHERE t_order.store_id = 'cee7d359-0240-4131-87a2-21ae44bd1bb4' -- Sacada | Oh, Boy
     AND (
         t_order.created_at >= NOW() - INTERVAL '7 days'
         OR t_order.updated_at >= NOW() - INTERVAL '7 days'
@@ -123,7 +124,7 @@ SELECT
     SUM(s.valor) as valor_total
 FROM sistemaretiradas.sales s
 LEFT JOIN sistemaretiradas.stores st ON st.id = s.store_id
-WHERE st.name ILIKE '%sacada%'
+WHERE s.store_id = 'cee7d359-0240-4131-87a2-21ae44bd1bb4' -- Sacada | Oh, Boy
     AND s.created_at >= NOW() - INTERVAL '7 days'
 
 UNION ALL
@@ -157,7 +158,7 @@ SELECT
 FROM sistemaretiradas.tiny_orders t_order
 LEFT JOIN sistemaretiradas.stores st ON st.id = t_order.store_id
 LEFT JOIN sistemaretiradas.sales s ON s.tiny_order_id = t_order.id
-WHERE st.name ILIKE '%sacada%'
+WHERE t_order.store_id = 'cee7d359-0240-4131-87a2-21ae44bd1bb4' -- Sacada | Oh, Boy
     AND s.id IS NULL -- Não tem venda
     AND (
         t_order.created_at >= NOW() - INTERVAL '7 days'
