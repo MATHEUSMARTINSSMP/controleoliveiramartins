@@ -5,14 +5,7 @@
 -- Descrição: Processa todos os pedidos do Tiny da Sacada que não foram convertidos em vendas
 -- ============================================================================
 
--- ID da loja Sacada | Oh, Boy
-DO $$
-DECLARE
-    v_sacada_store_id UUID := 'cee7d359-0240-4131-87a2-21ae44bd1bb4';
-BEGIN
-    -- Este bloco apenas define a variável, mas não é necessário
-    -- O ID está hardcoded nas queries abaixo
-END $$;
+-- ID da loja Sacada | Oh, Boy: cee7d359-0240-4131-87a2-21ae44bd1bb4
 
 -- 1. VERIFICAR QUANTOS PEDIDOS ESTÃO PENDENTES DA SACADA
 -- ============================================================================
