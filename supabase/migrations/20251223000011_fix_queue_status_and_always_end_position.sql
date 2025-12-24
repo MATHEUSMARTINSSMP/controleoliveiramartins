@@ -93,6 +93,7 @@ DECLARE
     v_session_id UUID;
     v_store_id UUID;
     v_new_position INTEGER;
+    v_existing_member_id UUID;
 BEGIN
     -- Buscar dados do atendimento
     SELECT a.*, qs.store_id as store_id, a.session_id
