@@ -197,7 +197,7 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-5xl h-[95vh] max-h-[95vh] overflow-y-auto">
+                <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader className="flex flex-row items-center justify-between pb-3 border-b">
                         <DialogTitle className="flex items-center gap-2.5 text-lg font-semibold">
                             <div className="p-1.5 rounded-lg bg-primary/10">
