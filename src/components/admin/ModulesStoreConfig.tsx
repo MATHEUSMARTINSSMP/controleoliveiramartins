@@ -214,11 +214,16 @@ export const ModulesStoreConfig = () => {
       console.log('[ModulesStoreConfig] Atualização bem-sucedida:', data);
 
       setStores(prev =>
-        prev.map(store =>
-          store.id === storeId
+        prev.map(store => {
+          const updated = store.id === storeId
             ? { ...store, [module.field]: newValue }
-            : store
-        )
+            : store;
+          // Garantir que tasks_ativo existe mesmo se não veio do banco
+          if (!('tasks_ativo' in updated)) {
+            (updated as any).tasks_ativo = false;
+          }
+          return updated;
+        })
       );
 
       toast.success(`${module.name} ${newValue ? 'ativado' : 'desativado'} para ${stores.find(s => s.id === storeId)?.name}`);
