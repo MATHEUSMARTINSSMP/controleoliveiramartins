@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Plus, Edit, Trash2, CheckSquare, Clock } from "lucide-react";
+import { Loader2, Plus, Edit, Trash2, CheckSquare2, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -282,7 +282,7 @@ export function AdminDailyTasksConfig() {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <CheckSquare className="h-5 w-5" />
+                        <CheckSquare2 className="h-5 w-5" />
                         Configuração de Tarefas do Dia
                     </CardTitle>
                     <CardDescription>
@@ -324,7 +324,7 @@ export function AdminDailyTasksConfig() {
                                 </div>
                             ) : tasks.length === 0 ? (
                                 <div className="text-center py-8 text-muted-foreground">
-                                    <CheckSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                                    <CheckSquare2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
                                     <p>Nenhuma tarefa configurada para esta loja.</p>
                                     <p className="text-sm mt-2">Clique em "Nova Tarefa" para começar.</p>
                                 </div>
