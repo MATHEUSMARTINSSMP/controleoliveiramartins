@@ -189,19 +189,32 @@ exports.handler = async (event, context) => {
         const result = await response.json();
 
         if (!response.ok || !result.success) {
-          // Erro ao enviar
+          // Erro ao enviar - verificar se deve fazer retry
+          const newRetryCount = (queueItem.retry_count || 0) + 1;
+          const maxRetries = queueItem.max_retries || 3; // Padrão: 3 tentativas
+          
+          // Se ainda não atingiu o limite de tentativas, marcar como PENDING para retry
+          // Se atingiu, marcar como FAILED
+          const newStatus = newRetryCount >= maxRetries ? 'FAILED' : 'PENDING';
+          
           await supabase
             .schema('sistemaretiradas')
             .from('whatsapp_message_queue')
             .update({ 
-              status: 'FAILED',
+              status: newStatus,
               error_message: result.error || result.message || 'Erro desconhecido',
-              retry_count: (queueItem.retry_count || 0) + 1
+              retry_count: newRetryCount,
+              updated_at: new Date().toISOString()
             })
             .eq('id', item.queue_id);
 
-          console.error(`[ProcessWhatsAppQueue] ❌ Falha ao enviar mensagem ${item.queue_id}:`, result.error || result.message);
-          failed++;
+          if (newStatus === 'FAILED') {
+            console.error(`[ProcessWhatsAppQueue] ❌ Falha ao enviar mensagem ${item.queue_id} após ${newRetryCount} tentativas:`, result.error || result.message);
+            failed++;
+          } else {
+            console.warn(`[ProcessWhatsAppQueue] ⚠️ Falha ao enviar mensagem ${item.queue_id} (tentativa ${newRetryCount}/${maxRetries}), será reprocessada:`, result.error || result.message);
+            // Não incrementar failed, pois será reprocessada
+          }
         } else {
           // Sucesso
           await supabase
@@ -232,17 +245,32 @@ exports.handler = async (event, context) => {
       } catch (itemError) {
         console.error(`[ProcessWhatsAppQueue] ❌ Erro ao processar item ${item.queue_id}:`, itemError);
         
+        // Verificar se deve fazer retry
+        const newRetryCount = (queueItem?.retry_count || 0) + 1;
+        const maxRetries = queueItem?.max_retries || 3; // Padrão: 3 tentativas
+        
+        // Se ainda não atingiu o limite de tentativas, marcar como PENDING para retry
+        // Se atingiu, marcar como FAILED
+        const newStatus = newRetryCount >= maxRetries ? 'FAILED' : 'PENDING';
+        
         await supabase
           .schema('sistemaretiradas')
           .from('whatsapp_message_queue')
           .update({ 
-            status: 'FAILED',
-            error_message: itemError.message,
-            retry_count: (queueItem?.retry_count || 0) + 1
+            status: newStatus,
+            error_message: itemError.message || String(itemError),
+            retry_count: newRetryCount,
+            updated_at: new Date().toISOString()
           })
           .eq('id', item.queue_id);
 
-        failed++;
+        if (newStatus === 'FAILED') {
+          console.error(`[ProcessWhatsAppQueue] ❌ Erro ao processar mensagem ${item.queue_id} após ${newRetryCount} tentativas`);
+          failed++;
+        } else {
+          console.warn(`[ProcessWhatsAppQueue] ⚠️ Erro ao processar mensagem ${item.queue_id} (tentativa ${newRetryCount}/${maxRetries}), será reprocessada`);
+          // Não incrementar failed, pois será reprocessada
+        }
       }
     }
 
