@@ -9,7 +9,7 @@ import { useTaskStatistics } from "@/hooks/useTaskStatistics";
 import { TaskSection } from "./lista-da-vez/TaskSection";
 import { TaskStatistics } from "./lista-da-vez/TaskStatistics";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, CheckSquare } from "lucide-react";
+import { Loader2, CheckSquare2 } from "lucide-react";
 import { DailyTask } from "@/hooks/useDailyTasks";
 
 interface LojaTasksTabProps {
@@ -87,7 +87,7 @@ export function LojaTasksTab({ storeId }: LojaTasksTabProps) {
         return (
             <Card className="border-2 shadow-sm">
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                    <CheckSquare className="h-12 w-12 text-muted-foreground mb-4" />
+                    <CheckSquare2 className="h-12 w-12 text-muted-foreground mb-4" />
                     <p className="text-lg font-semibold text-muted-foreground mb-2">
                         Nenhuma tarefa configurada
                     </p>

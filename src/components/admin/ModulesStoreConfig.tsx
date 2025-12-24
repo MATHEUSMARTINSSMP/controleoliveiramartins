@@ -121,7 +121,7 @@ const modules: ModuleInfo[] = [
     id: 'tasks',
     name: 'Tarefas do Dia',
     description: 'Sistema de gerenciamento de tarefas diárias por turno. Permite configurar tarefas organizadas por horário/turno e acompanhar a execução pelas colaboradoras com relatórios de desempenho.',
-    icon: <CheckSquare className="h-5 w-5" />,
+    icon: <CheckSquare2 className="h-5 w-5" />,
     field: 'tasks_ativo',
     color: 'text-violet-600 dark:text-violet-400',
     hasConfig: false
@@ -464,7 +464,7 @@ export const ModulesStoreConfig = () => {
                         {store.lista_da_vez_ativo ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                       </div>
                       <div className={`flex items-center gap-1.5 px-2 py-1 rounded ${store.tasks_ativo ? 'bg-success/10 text-success' : 'text-muted-foreground'}`}>
-                        <CheckSquare className="h-3.5 w-3.5" />
+                        <CheckSquare2 className="h-3.5 w-3.5" />
                         <span className="font-medium">Tarefas</span>
                         {store.tasks_ativo ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                       </div>
