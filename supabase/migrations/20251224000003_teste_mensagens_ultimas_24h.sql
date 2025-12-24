@@ -245,3 +245,34 @@ WHERE q.status = 'SENDING'
 AND q.updated_at < NOW() - INTERVAL '5 minutes'
 ORDER BY q.updated_at ASC;
 
+-- 11. VERIFICAR RESPOSTAS DO N8N SALVAS NO METADATA (ÚLTIMAS 24H)
+-- ============================================================================
+-- Esta query mostra o que o N8N realmente retornou para cada mensagem
+SELECT 
+    q.id,
+    q.phone,
+    q.status,
+    q.created_at,
+    q.sent_at,
+    s.name as store_name,
+    q.metadata->>'n8n_response_received_at' as n8n_response_time,
+    q.metadata->'n8n_response' as n8n_response_full,
+    q.metadata->'n8n_response'->>'success' as n8n_success,
+    q.metadata->'n8n_response'->>'error' as n8n_error,
+    q.metadata->'n8n_response'->>'message' as n8n_message,
+    q.metadata->'n8n_response'->>'status' as n8n_status,
+    CASE 
+        WHEN q.metadata->'n8n_response'->>'success' = 'false' THEN '❌ N8N RETORNOU FALHA'
+        WHEN q.metadata->'n8n_response'->>'error' IS NOT NULL THEN '❌ N8N RETORNOU ERRO'
+        WHEN q.metadata->'n8n_response'->>'status' IN ('error', 'failed') THEN '❌ N8N STATUS DE ERRO'
+        WHEN q.status = 'SENT' AND q.metadata->'n8n_response' IS NULL THEN '⚠️ SEM RESPOSTA DO N8N SALVA'
+        WHEN q.status = 'SENT' THEN '✅ RESPOSTA DO N8N SALVA'
+        ELSE '❓ STATUS DESCONHECIDO'
+    END as validacao_resposta
+FROM sistemaretiradas.whatsapp_message_queue q
+LEFT JOIN sistemaretiradas.stores s ON s.id = q.store_id
+WHERE q.created_at >= NOW() - INTERVAL '24 hours'
+AND q.status = 'SENT'
+ORDER BY q.sent_at DESC
+LIMIT 50;
+
