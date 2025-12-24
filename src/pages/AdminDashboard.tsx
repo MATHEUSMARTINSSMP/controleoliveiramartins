@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw, AlertTriangle, Plus, Link2, Target, Send, Globe } from "lucide-react";
+import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw, AlertTriangle, Plus, Link2, Target, Send, Globe, CheckSquare } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +32,7 @@ import { ConditionalsAdjustmentsManager } from "@/components/admin/ConditionalsA
 import GestaoMetasTab from "@/components/admin/GestaoMetasTab";
 import { AdminSiteManager } from "@/components/admin/AdminSiteManager";
 import { BillingManagement } from "@/components/admin/BillingManagement";
+import { AdminDailyTasksConfig } from "@/components/admin/AdminDailyTasksConfig";
 import { BillingAccessGuard } from "@/components/BillingAccessGuard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -568,6 +569,23 @@ const AdminDashboard = () => {
                     Ative ou desative os módulos disponíveis para cada loja. Cada módulo oferece funcionalidades específicas.
                   </p>
                   <ModulesStoreConfig />
+                </div>
+              </BillingAccessGuard>
+
+              {/* Separador */}
+              <div className="border-t border-border my-6" />
+
+              {/* Seção: Tarefas do Dia */}
+              <BillingAccessGuard allowReadOnly>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckSquare className="h-5 w-5 text-primary" />
+                    <h2 className="text-lg font-semibold">Tarefas do Dia</h2>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Configure tarefas diárias organizadas por turno para cada loja. As colaboradoras poderão marcar as tarefas como concluídas no dashboard da loja.
+                  </p>
+                  <AdminDailyTasksConfig />
                 </div>
               </BillingAccessGuard>
 
