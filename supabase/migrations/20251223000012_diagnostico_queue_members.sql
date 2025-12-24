@@ -12,11 +12,12 @@ SELECT
     STRING_AGG(id::text, ', ') as ids,
     STRING_AGG(status, ', ') as status_list,
     STRING_AGG(position::text, ', ') as positions,
-    STRING_AGG(updated_at::text, ', ') as updated_dates
+    STRING_AGG(updated_at::text, ', ') as updated_dates,
+    COUNT(*) FILTER (WHERE status = 'finalizado') as total_finalizado
 FROM sistemaretiradas.queue_members
 WHERE status IN ('disponivel', 'em_atendimento', 'pausado', 'finalizado')
 GROUP BY session_id, profile_id
-HAVING COUNT(*) > 1 OR COUNT(*) FILTER (WHERE status = 'finalizado') > 0
+HAVING COUNT(*) > 1 OR SUM(CASE WHEN status = 'finalizado' THEN 1 ELSE 0 END) > 0
 ORDER BY total_registros DESC;
 
 -- 2. Verificar todos os registros de uma sessão específica (substitua o session_id)
