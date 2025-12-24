@@ -8,6 +8,7 @@ import { useDailyTasks } from "@/hooks/useDailyTasks";
 import { useTaskStatistics } from "@/hooks/useTaskStatistics";
 import { TaskSection } from "./lista-da-vez/TaskSection";
 import { TaskStatistics } from "./lista-da-vez/TaskStatistics";
+import { TaskHistory } from "./lista-da-vez/TaskHistory";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, CheckSquare2 } from "lucide-react";
 import { DailyTask } from "@/hooks/useDailyTasks";
@@ -117,8 +118,15 @@ export function LojaTasksTab({ storeId }: LojaTasksTabProps) {
                 ))}
             </div>
 
-            {/* Estatísticas no final */}
+            {/* Estatísticas */}
             <TaskStatistics statistics={statistics} loading={statsLoading} />
+
+            {/* Histórico de Tarefas Completas */}
+            <TaskHistory 
+                storeId={storeId} 
+                date={selectedDate}
+                enabled={!!storeId}
+            />
         </div>
     );
 }
