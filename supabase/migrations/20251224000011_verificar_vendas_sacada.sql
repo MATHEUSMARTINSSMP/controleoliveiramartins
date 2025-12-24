@@ -137,7 +137,7 @@ SELECT
 FROM sistemaretiradas.tiny_orders t_order
 LEFT JOIN sistemaretiradas.stores st ON st.id = t_order.store_id
 LEFT JOIN sistemaretiradas.sales s ON s.tiny_order_id = t_order.id
-WHERE st.name ILIKE '%sacada%'
+WHERE t_order.store_id = 'cee7d359-0240-4131-87a2-21ae44bd1bb4' -- Sacada | Oh, Boy
     AND s.id IS NULL
     AND (
         t_order.created_at >= NOW() - INTERVAL '7 days'
