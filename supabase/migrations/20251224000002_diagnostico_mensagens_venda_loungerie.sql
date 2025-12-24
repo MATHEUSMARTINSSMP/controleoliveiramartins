@@ -231,7 +231,7 @@ SELECT
 FROM sistemaretiradas.whatsapp_message_queue q
 WHERE q.store_id IN (
     SELECT id FROM sistemaretiradas.stores 
-    WHERE LOWER(name) LIKE '%loungerie%' OR LOWER(s.name) LIKE '%loung%'
+    WHERE LOWER(name) LIKE '%loungerie%' OR LOWER(name) LIKE '%loung%'
 )
 AND q.metadata->>'notification_type' = 'VENDA'
 AND q.created_at >= NOW() - INTERVAL '24 hours'

@@ -3047,21 +3047,104 @@ export default function LojaDashboard() {
                             console.log(`📱 [4/4] Enviando WhatsApp para ${adminPhones.length} destinatário(s)...`);
 
                             Promise.all(
-                                adminPhones.map(phone =>
-                                    sendWhatsAppMessage({
-                                        phone,
-                                        message,
-                                        store_id: storeId, // ✅ Multi-tenancy: usar WhatsApp da loja se configurado
-                                    }).then(result => {
+                                adminPhones.map(async (phone) => {
+                                    try {
+                                        const result = await sendWhatsAppMessage({
+                                            phone,
+                                            message,
+                                            store_id: storeId, // ✅ Multi-tenancy: usar WhatsApp da loja se configurado
+                                        });
+
                                         if (result.success) {
                                             console.log(`✅ WhatsApp enviado com sucesso para ${phone}`);
                                         } else {
                                             console.warn(`⚠️ Falha ao enviar WhatsApp para ${phone}:`, result.error);
+                                            
+                                            // ✅ CORREÇÃO: Se falhou, enfileirar na fila para processamento posterior
+                                            // Isso garante que mensagens não sejam perdidas quando WhatsApp está desconectado
+                                            const errorMessage = result.error || 'Erro desconhecido';
+                                            const isConnectionError = errorMessage.toLowerCase().includes('disconnected') ||
+                                                                      errorMessage.toLowerCase().includes('conexão') ||
+                                                                      errorMessage.toLowerCase().includes('connection') ||
+                                                                      errorMessage.toLowerCase().includes('qr') ||
+                                                                      errorMessage.toLowerCase().includes('não conectado');
+
+                                            if (isConnectionError) {
+                                                console.log(`📥 [FALLBACK] Enfileirando mensagem para ${phone} na fila (WhatsApp desconectado)...`);
+                                                
+                                                const { error: queueError } = await supabase
+                                                    .schema('sistemaretiradas')
+                                                    .from('whatsapp_message_queue')
+                                                    .insert({
+                                                        phone: phone.trim(),
+                                                        message: message,
+                                                        store_id: storeId,
+                                                        priority: 1, // Prioridade crítica
+                                                        message_type: 'NOTIFICATION',
+                                                        status: 'PENDING',
+                                                        metadata: {
+                                                            source: 'loja-dashboard',
+                                                            notification_type: 'VENDA',
+                                                            sale_id: insertedSale?.id,
+                                                            colaboradora: colaboradoraName,
+                                                            original_error: errorMessage,
+                                                            fallback_reason: 'whatsapp_disconnected'
+                                                        }
+                                                    });
+
+                                                if (queueError) {
+                                                    console.error(`❌ Erro ao enfileirar mensagem para ${phone}:`, queueError);
+                                                } else {
+                                                    console.log(`✅ Mensagem enfileirada com sucesso para ${phone}`);
+                                                }
+                                            }
                                         }
-                                    }).catch(err => {
+                                    } catch (err: any) {
                                         console.error(`❌ Erro ao enviar WhatsApp para ${phone}:`, err);
-                                    })
-                                )
+                                        
+                                        // ✅ CORREÇÃO: Se deu exceção, também tentar enfileirar
+                                        const errorMessage = err?.message || String(err);
+                                        const isConnectionError = errorMessage.toLowerCase().includes('disconnected') ||
+                                                                  errorMessage.toLowerCase().includes('conexão') ||
+                                                                  errorMessage.toLowerCase().includes('connection') ||
+                                                                  errorMessage.toLowerCase().includes('qr') ||
+                                                                  errorMessage.toLowerCase().includes('não conectado');
+
+                                        if (isConnectionError) {
+                                            console.log(`📥 [FALLBACK] Enfileirando mensagem para ${phone} na fila (exceção de conexão)...`);
+                                            
+                                            try {
+                                                const { error: queueError } = await supabase
+                                                    .schema('sistemaretiradas')
+                                                    .from('whatsapp_message_queue')
+                                                    .insert({
+                                                        phone: phone.trim(),
+                                                        message: message,
+                                                        store_id: storeId,
+                                                        priority: 1, // Prioridade crítica
+                                                        message_type: 'NOTIFICATION',
+                                                        status: 'PENDING',
+                                                        metadata: {
+                                                            source: 'loja-dashboard',
+                                                            notification_type: 'VENDA',
+                                                            sale_id: insertedSale?.id,
+                                                            colaboradora: colaboradoraName,
+                                                            original_error: errorMessage,
+                                                            fallback_reason: 'whatsapp_disconnected_exception'
+                                                        }
+                                                    });
+
+                                                if (queueError) {
+                                                    console.error(`❌ Erro ao enfileirar mensagem para ${phone}:`, queueError);
+                                                } else {
+                                                    console.log(`✅ Mensagem enfileirada com sucesso para ${phone}`);
+                                                }
+                                            } catch (queueErr) {
+                                                console.error(`❌ Erro crítico ao enfileirar mensagem para ${phone}:`, queueErr);
+                                            }
+                                        }
+                                    }
+                                })
                             ).then(() => {
                                 console.log('📱 Processo de envio de WhatsApp concluído');
                             }).catch(err => {
