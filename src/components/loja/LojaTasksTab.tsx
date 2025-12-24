@@ -3,22 +3,28 @@
  * Mostra tarefas agrupadas por turno com visual moderno
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { useDailyTasks } from "@/hooks/useDailyTasks";
 import { useTaskStatistics } from "@/hooks/useTaskStatistics";
 import { TaskSection } from "./lista-da-vez/TaskSection";
 import { TaskStatistics } from "./lista-da-vez/TaskStatistics";
 import { TaskHistory } from "./lista-da-vez/TaskHistory";
-import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, CheckSquare2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Loader2, CheckSquare2, Calendar } from "lucide-react";
 import { DailyTask } from "@/hooks/useDailyTasks";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface LojaTasksTabProps {
     storeId: string | null;
 }
 
 export function LojaTasksTab({ storeId }: LojaTasksTabProps) {
-    const [selectedDate] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState(new Date());
     
     const { tasks, loading, completeTask, uncompleteTask } = useDailyTasks({
         storeId,
@@ -39,6 +45,42 @@ export function LojaTasksTab({ storeId }: LojaTasksTabProps) {
             await uncompleteTask(taskId);
         }
     };
+
+    // Verificar tarefas próximas do horário limite e notificar
+    useEffect(() => {
+        if (!storeId || tasks.length === 0) return;
+
+        const checkDeadlines = () => {
+            const now = new Date();
+            const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            
+            tasks.forEach(task => {
+                if (task.completed_by || !task.due_time) return;
+                
+                const [dueHours, dueMinutes] = task.due_time.split(':').map(Number);
+                const [currentHours, currentMinutes] = currentTime.split(':').map(Number);
+                
+                const dueDate = new Date(2000, 0, 1, dueHours, dueMinutes);
+                const currentDate = new Date(2000, 0, 1, currentHours, currentMinutes);
+                
+                const diffMinutes = (dueDate.getTime() - currentDate.getTime()) / (1000 * 60);
+                
+                // Notificar se está entre 10 e 15 minutos antes do prazo
+                if (diffMinutes >= 10 && diffMinutes <= 15) {
+                    toast.warning(`⏰ Tarefa próxima do prazo: ${task.title}`, {
+                        description: `Prazo: ${task.due_time}`,
+                        duration: 5000,
+                    });
+                }
+            });
+        };
+
+        // Verificar a cada minuto
+        const interval = setInterval(checkDeadlines, 60000);
+        checkDeadlines(); // Verificar imediatamente
+
+        return () => clearInterval(interval);
+    }, [tasks, storeId]);
 
     // Agrupar tarefas por turno
     const tasksByShift = tasks.reduce((acc, task) => {
@@ -100,8 +142,57 @@ export function LojaTasksTab({ storeId }: LojaTasksTabProps) {
         );
     }
 
+    const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newDate = new Date(e.target.value);
+        if (!isNaN(newDate.getTime())) {
+            setSelectedDate(newDate);
+        }
+    };
+
+    const goToToday = () => {
+        setSelectedDate(new Date());
+    };
+
+    const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+
     return (
         <div className="space-y-6">
+            {/* Filtro de Data */}
+            <Card className="border-2 shadow-sm">
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <Calendar className="h-5 w-5 text-primary" />
+                        Selecionar Data
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-end gap-3">
+                        <div className="flex-1">
+                            <Label htmlFor="task-date">Data</Label>
+                            <Input
+                                id="task-date"
+                                type="date"
+                                value={format(selectedDate, 'yyyy-MM-dd')}
+                                onChange={handleDateChange}
+                                className="mt-1"
+                            />
+                        </div>
+                        {!isToday && (
+                            <Button
+                                variant="outline"
+                                onClick={goToToday}
+                                className="mb-0"
+                            >
+                                Hoje
+                            </Button>
+                        )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                        Visualizando tarefas de {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                    </p>
+                </CardContent>
+            </Card>
+
             {/* Tarefas agrupadas por turno */}
             <div className="space-y-4">
                 {sortedShifts.map((shift) => (
@@ -119,7 +210,12 @@ export function LojaTasksTab({ storeId }: LojaTasksTabProps) {
             </div>
 
             {/* Estatísticas */}
-            <TaskStatistics statistics={statistics} loading={statsLoading} />
+            <TaskStatistics 
+                statistics={statistics} 
+                loading={statsLoading}
+                storeId={storeId}
+                date={selectedDate}
+            />
 
             {/* Histórico de Tarefas Completas */}
             <TaskHistory 

@@ -1,16 +1,27 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import { TaskStatistics as TaskStatisticsType } from "@/hooks/useTaskStatistics";
-import { Trophy, CheckCircle2, Clock, TrendingUp } from "lucide-react";
+import { Trophy, CheckCircle2, Clock, TrendingUp, Download, FileSpreadsheet, FileText } from "lucide-react";
 import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface TaskStatisticsProps {
     statistics: TaskStatisticsType | null;
     loading: boolean;
+    storeId: string | null;
+    date: Date;
 }
 
-export function TaskStatistics({ statistics, loading }: TaskStatisticsProps) {
+export function TaskStatistics({ statistics, loading, storeId, date }: TaskStatisticsProps) {
+    const [exporting, setExporting] = useState(false);
     if (loading && !statistics) {
         return (
             <Card className="border-2 shadow-sm">
@@ -32,13 +43,208 @@ export function TaskStatistics({ statistics, loading }: TaskStatisticsProps) {
         ? (statistics.completed_tasks / statistics.total_tasks) * 100 
         : 0;
 
+    const handleExportExcel = async () => {
+        if (!storeId || !statistics) return;
+        
+        try {
+            setExporting(true);
+            const dateStr = format(date, 'yyyy-MM-dd');
+            
+            // Buscar dados completos
+            const { data: completions } = await supabase
+                .schema('sistemaretiradas')
+                .from('task_completions')
+                .select(`
+                    *,
+                    daily_tasks!inner (
+                        title,
+                        description,
+                        due_time
+                    ),
+                    profiles!inner (
+                        name
+                    )
+                `)
+                .eq('completion_date', dateStr)
+                .eq('daily_tasks.store_id', storeId)
+                .order('completed_at', { ascending: false });
+
+            const { data: tasks } = await supabase
+                .schema('sistemaretiradas')
+                .from('daily_tasks')
+                .select('*')
+                .eq('store_id', storeId)
+                .eq('is_active', true)
+                .order('display_order');
+
+            // Preparar dados para Excel
+            const excelData = [
+                ['Relatório de Tarefas do Dia', format(date, "dd/MM/yyyy", { locale: ptBR })],
+                [],
+                ['Estatísticas Gerais'],
+                ['Total de Tarefas', statistics.total_tasks],
+                ['Tarefas Concluídas', statistics.completed_tasks],
+                ['Tarefas Pendentes', statistics.pending_tasks],
+                ['Taxa de Conclusão', `${completionRate.toFixed(1)}%`],
+                [],
+                ['Histórico de Completas'],
+                ['Tarefa', 'Colaboradora', 'Completada em', 'Observações']
+            ];
+
+            (completions || []).forEach((comp: any) => {
+                excelData.push([
+                    comp.daily_tasks?.title || '',
+                    comp.profiles?.name || '',
+                    format(new Date(comp.completed_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
+                    comp.notes || ''
+                ]);
+            });
+
+            excelData.push([]);
+            excelData.push(['Tarefas Configuradas']);
+            excelData.push(['Título', 'Descrição', 'Horário Limite', 'Recorrente']);
+
+            (tasks || []).forEach((task: any) => {
+                excelData.push([
+                    task.title,
+                    task.description || '',
+                    task.due_time || '',
+                    task.is_recurring ? 'Sim' : 'Não'
+                ]);
+            });
+
+            // Criar workbook
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(excelData);
+            XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
+            XLSX.writeFile(wb, `tarefas_${format(date, 'yyyy-MM-dd')}.xlsx`);
+            
+            toast.success('Relatório exportado com sucesso!');
+        } catch (error: any) {
+            console.error('[TaskStatistics] Erro ao exportar Excel:', error);
+            toast.error('Erro ao exportar relatório');
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    const handleExportPDF = async () => {
+        if (!storeId || !statistics) return;
+        
+        try {
+            setExporting(true);
+            const dateStr = format(date, 'yyyy-MM-dd');
+            
+            // Buscar dados completos
+            const { data: completions } = await supabase
+                .schema('sistemaretiradas')
+                .from('task_completions')
+                .select(`
+                    *,
+                    daily_tasks!inner (
+                        title,
+                        description
+                    ),
+                    profiles!inner (
+                        name
+                    )
+                `)
+                .eq('completion_date', dateStr)
+                .eq('daily_tasks.store_id', storeId)
+                .order('completed_at', { ascending: false });
+
+            const doc = new jsPDF();
+            
+            // Título
+            doc.setFontSize(18);
+            doc.text('Relatório de Tarefas do Dia', 14, 20);
+            doc.setFontSize(12);
+            doc.text(format(date, "dd/MM/yyyy", { locale: ptBR }), 14, 30);
+
+            // Estatísticas
+            doc.setFontSize(14);
+            doc.text('Estatísticas Gerais', 14, 45);
+            doc.setFontSize(10);
+            let yPos = 55;
+            doc.text(`Total de Tarefas: ${statistics.total_tasks}`, 14, yPos);
+            yPos += 7;
+            doc.text(`Tarefas Concluídas: ${statistics.completed_tasks}`, 14, yPos);
+            yPos += 7;
+            doc.text(`Tarefas Pendentes: ${statistics.pending_tasks}`, 14, yPos);
+            yPos += 7;
+            doc.text(`Taxa de Conclusão: ${completionRate.toFixed(1)}%`, 14, yPos);
+
+            // Tabela de completas
+            if (completions && completions.length > 0) {
+                yPos += 15;
+                doc.setFontSize(14);
+                doc.text('Histórico de Completas', 14, yPos);
+                yPos += 10;
+
+                const tableData = completions.map((comp: any) => [
+                    comp.daily_tasks?.title || '',
+                    comp.profiles?.name || '',
+                    format(new Date(comp.completed_at), "dd/MM/yyyy HH:mm", { locale: ptBR })
+                ]);
+
+                autoTable(doc, {
+                    startY: yPos,
+                    head: [['Tarefa', 'Colaboradora', 'Completada em']],
+                    body: tableData,
+                    theme: 'striped',
+                    headStyles: { fillColor: [66, 139, 202] }
+                });
+            }
+
+            doc.save(`tarefas_${format(date, 'yyyy-MM-dd')}.pdf`);
+            toast.success('Relatório PDF exportado com sucesso!');
+        } catch (error: any) {
+            console.error('[TaskStatistics] Erro ao exportar PDF:', error);
+            toast.error('Erro ao exportar relatório');
+        } finally {
+            setExporting(false);
+        }
+    };
+
     return (
         <Card className="border-2 shadow-sm bg-gradient-to-br from-background to-muted/20">
             <CardHeader className="pb-3 border-b">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                    Relatório do Dia
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-primary" />
+                        Relatório do Dia
+                    </CardTitle>
+                    <div className="flex gap-2">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleExportExcel}
+                            disabled={exporting || !statistics}
+                            className="h-8"
+                        >
+                            {exporting ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            ) : (
+                                <FileSpreadsheet className="h-3 w-3 mr-1" />
+                            )}
+                            Excel
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleExportPDF}
+                            disabled={exporting || !statistics}
+                            className="h-8"
+                        >
+                            {exporting ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            ) : (
+                                <FileText className="h-3 w-3 mr-1" />
+                            )}
+                            PDF
+                        </Button>
+                    </div>
+                </div>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
                 {/* Métricas principais */}

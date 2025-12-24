@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Plus, Edit, Trash2, CheckSquare2, Clock } from "lucide-react";
+import { Loader2, Plus, Edit, Trash2, CheckSquare2, Clock, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -61,6 +61,7 @@ export function AdminDailyTasksConfig() {
         is_recurring: false,
         display_order: 0
     });
+    const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
         fetchStores();
@@ -280,8 +281,19 @@ export function AdminDailyTasksConfig() {
         }
     };
 
+    // Filtrar tarefas por busca
+    const filteredTasks = tasks.filter(task => {
+        if (!searchQuery.trim()) return true;
+        const query = searchQuery.toLowerCase();
+        return (
+            task.title.toLowerCase().includes(query) ||
+            (task.description && task.description.toLowerCase().includes(query)) ||
+            (task.shift_name && task.shift_name.toLowerCase().includes(query))
+        );
+    });
+
     // Agrupar tarefas por turno
-    const tasksByShift = tasks.reduce((acc, task) => {
+    const tasksByShift = filteredTasks.reduce((acc, task) => {
         const shiftKey = task.shift_id || 'sem-turno';
         const shiftName = task.shift_name || 'Sem Turno';
 
@@ -327,12 +339,23 @@ export function AdminDailyTasksConfig() {
                         </Select>
                     </div>
 
-                    {/* Botão Criar Tarefa */}
+                    {/* Busca e Botão Criar Tarefa */}
                     {selectedStoreId && (
-                        <Button onClick={() => handleOpenDialog()} className="w-full sm:w-auto">
-                            <Plus className="h-4 w-4 mr-2" />
-                            Nova Tarefa
-                        </Button>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="flex-1 relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Buscar tarefas por título ou descrição..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-9"
+                                />
+                            </div>
+                            <Button onClick={() => handleOpenDialog()} className="w-full sm:w-auto">
+                                <Plus className="h-4 w-4 mr-2" />
+                                Nova Tarefa
+                            </Button>
+                        </div>
                     )}
 
                     {/* Lista de Tarefas */}
@@ -342,11 +365,20 @@ export function AdminDailyTasksConfig() {
                                 <div className="flex items-center justify-center py-8">
                                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                                 </div>
-                            ) : tasks.length === 0 ? (
+                            ) : filteredTasks.length === 0 ? (
                                 <div className="text-center py-8 text-muted-foreground">
                                     <CheckSquare2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                                    <p>Nenhuma tarefa configurada para esta loja.</p>
-                                    <p className="text-sm mt-2">Clique em "Nova Tarefa" para começar.</p>
+                                    {searchQuery ? (
+                                        <>
+                                            <p>Nenhuma tarefa encontrada para "{searchQuery}".</p>
+                                            <p className="text-sm mt-2">Tente uma busca diferente.</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p>Nenhuma tarefa configurada para esta loja.</p>
+                                            <p className="text-sm mt-2">Clique em "Nova Tarefa" para começar.</p>
+                                        </>
+                                    )}
                                 </div>
                             ) : (
                                 Object.values(tasksByShift).map(({ shiftName, tasks: shiftTasks }) => (

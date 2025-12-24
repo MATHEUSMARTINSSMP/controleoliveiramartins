@@ -15,7 +15,27 @@ interface TaskCardProps {
 
 export function TaskCard({ task, onToggleComplete, loading = false }: TaskCardProps) {
     const isCompleted = task.completed_by !== null;
-    const isOverdue = task.due_time && !isCompleted && new Date(`2000-01-01T${task.due_time}`) < new Date();
+    
+    // Verificar se está próximo do horário limite (15 minutos antes)
+    const now = new Date();
+    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    
+    let isOverdue = false;
+    let isNearDeadline = false;
+    
+    if (task.due_time && !isCompleted) {
+        const dueTime = task.due_time;
+        const [dueHours, dueMinutes] = dueTime.split(':').map(Number);
+        const [currentHours, currentMinutes] = currentTime.split(':').map(Number);
+        
+        const dueDate = new Date(2000, 0, 1, dueHours, dueMinutes);
+        const currentDate = new Date(2000, 0, 1, currentHours, currentMinutes);
+        
+        const diffMinutes = (dueDate.getTime() - currentDate.getTime()) / (1000 * 60);
+        
+        isOverdue = diffMinutes < 0;
+        isNearDeadline = diffMinutes >= 0 && diffMinutes <= 15; // 15 minutos antes
+    }
 
     const formatTime = (time: string | null) => {
         if (!time) return '';
@@ -29,12 +49,14 @@ export function TaskCard({ task, onToggleComplete, loading = false }: TaskCardPr
 
     return (
         <div
-            className={cn(
+                className={cn(
                 "p-4 border-2 rounded-xl transition-all hover:shadow-md",
                 isCompleted
                     ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800"
                     : isOverdue
-                    ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800"
+                    ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800 animate-pulse"
+                    : isNearDeadline
+                    ? "bg-amber-50/50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800"
                     : "bg-card border-border hover:border-primary/30"
             )}
         >
@@ -51,7 +73,8 @@ export function TaskCard({ task, onToggleComplete, loading = false }: TaskCardPr
                             className={cn(
                                 "text-sm font-semibold",
                                 isCompleted && "line-through text-muted-foreground",
-                                isOverdue && !isCompleted && "text-rose-700 dark:text-rose-300"
+                                isOverdue && !isCompleted && "text-rose-700 dark:text-rose-300",
+                                isNearDeadline && !isCompleted && "text-amber-700 dark:text-amber-300"
                             )}
                         >
                             {task.title}
@@ -79,11 +102,13 @@ export function TaskCard({ task, onToggleComplete, loading = false }: TaskCardPr
                                 variant="outline"
                                 className={cn(
                                     "text-xs",
-                                    isOverdue && !isCompleted && "border-rose-500 text-rose-700 dark:text-rose-300"
+                                    isOverdue && !isCompleted && "border-rose-500 text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950",
+                                    isNearDeadline && !isCompleted && "border-amber-500 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950"
                                 )}
                             >
                                 <Clock className="h-3 w-3 mr-1" />
                                 Até {formatTime(task.due_time)}
+                                {isNearDeadline && !isCompleted && " ⚠️"}
                             </Badge>
                         )}
                         {task.is_recurring && (
