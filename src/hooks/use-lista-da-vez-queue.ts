@@ -97,6 +97,12 @@ export function useListaDaVezQueue(sessionId: string | null, storeId: string | n
     const addToQueue = async (profileId: string) => {
         if (!sessionId || !profileId) return;
 
+        // Prevenir chamadas duplicadas
+        if (loading) {
+            console.warn('[useListaDaVezQueue] Tentativa de adicionar na fila enquanto já está processando');
+            return;
+        }
+
         try {
             setLoading(true);
             const { data: memberId, error } = await supabase.rpc('add_to_queue', {
@@ -107,11 +113,18 @@ export function useListaDaVezQueue(sessionId: string | null, storeId: string | n
 
             if (error) throw error;
             toast.success('Habilitada para entrar na vez!');
+            // Pequeno delay para garantir que o banco processou
+            await new Promise(resolve => setTimeout(resolve, 100));
             await fetchQueueMembers();
             return memberId;
         } catch (error: any) {
             console.error('[useListaDaVezQueue] Erro ao adicionar na fila:', error);
-            toast.error('Erro: ' + (error.message || 'Erro desconhecido'));
+            // Se for erro de constraint única, a função já tratou, apenas avisar
+            if (error.code === '23505') {
+                toast.info('Já está na fila!');
+            } else {
+                toast.error('Erro: ' + (error.message || 'Erro desconhecido'));
+            }
             throw error;
         } finally {
             setLoading(false);

@@ -64,6 +64,12 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
     }, [storeId]);
 
     const handleToggleEnable = async (colaboradoraId: string, enabled: boolean) => {
+        // Prevenir múltiplas chamadas simultâneas
+        if (loading) {
+            console.warn('[ListaDaVez] Tentativa de toggle enquanto já está processando');
+            return;
+        }
+
         try {
             if (enabled) {
                 await addToQueue(colaboradoraId);
@@ -79,6 +85,12 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
     };
 
     const handleStartAttendance = async (memberId: string) => {
+        // Prevenir múltiplas chamadas simultâneas
+        if (loading) {
+            console.warn('[ListaDaVez] Tentativa de iniciar atendimento enquanto já está processando');
+            return;
+        }
+
         try {
             // Iniciar sem nome do cliente (será preenchido depois se necessário)
             await startAttendance(memberId, "");
@@ -95,6 +107,12 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
     };
 
     const handleMoveToTop = async (memberId: string) => {
+        // Prevenir múltiplas chamadas simultâneas
+        if (loading) {
+            console.warn('[ListaDaVez] Tentativa de mover para topo enquanto já está processando');
+            return;
+        }
+
         try {
             const { data, error } = await supabase.rpc('move_member_to_top', {
                 p_member_id: memberId
@@ -117,6 +135,12 @@ export function ListaDaVez({ storeId, open, onOpenChange, onOpenNewSale }: Lista
     };
 
     const handleMoveToEnd = async (memberId: string) => {
+        // Prevenir múltiplas chamadas simultâneas
+        if (loading) {
+            console.warn('[ListaDaVez] Tentativa de mover para final enquanto já está processando');
+            return;
+        }
+
         try {
             const { data, error } = await supabase.rpc('move_member_to_end', {
                 p_member_id: memberId

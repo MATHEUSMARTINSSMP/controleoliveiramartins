@@ -97,6 +97,12 @@ export function useListaDaVezAttendances(sessionId: string | null, storeId: stri
             return;
         }
 
+        // Prevenir chamadas duplicadas
+        if (loading) {
+            console.warn('[useListaDaVezAttendances] Tentativa de iniciar atendimento enquanto já está processando');
+            return;
+        }
+
         try {
             setLoading(true);
             const { data: attendanceId, error } = await supabase.rpc('start_attendance', {
@@ -108,12 +114,10 @@ export function useListaDaVezAttendances(sessionId: string | null, storeId: stri
 
             if (error) throw error;
             toast.success('Atendimento iniciado!');
+            // Pequeno delay para garantir que o banco processou
+            await new Promise(resolve => setTimeout(resolve, 150));
             // Forçar atualização imediata de ambas as listas
             await fetchAttendances();
-            // Pequeno delay para garantir que o status foi atualizado no banco
-            setTimeout(() => {
-                // A subscription realtime deve detectar, mas forçamos atualização também
-            }, 200);
             return attendanceId;
         } catch (error: any) {
             console.error('[useListaDaVezAttendances] Erro ao iniciar atendimento:', error);
@@ -135,6 +139,12 @@ export function useListaDaVezAttendances(sessionId: string | null, storeId: stri
             return;
         }
 
+        // Prevenir chamadas duplicadas
+        if (loading) {
+            console.warn('[useListaDaVezAttendances] Tentativa de finalizar atendimento enquanto já está processando');
+            return;
+        }
+
         try {
             setLoading(true);
             const { error } = await supabase.rpc('end_attendance', {
@@ -148,14 +158,22 @@ export function useListaDaVezAttendances(sessionId: string | null, storeId: stri
                 p_notes: null
             });
 
-            if (error) throw error;
-            toast.success('Atendimento finalizado!');
+            if (error) {
+                // Se for erro de constraint única, a função já tratou, apenas avisar
+                if (error.code === '23505') {
+                    console.warn('[useListaDaVezAttendances] Erro de constraint única (já tratado pela função):', error);
+                    toast.info('Atendimento finalizado!');
+                } else {
+                    throw error;
+                }
+            } else {
+                toast.success('Atendimento finalizado!');
+            }
+            
+            // Pequeno delay para garantir que o banco processou
+            await new Promise(resolve => setTimeout(resolve, 200));
             // Forçar atualização imediata
             await fetchAttendances();
-            // Pequeno delay para garantir que o status foi atualizado no banco
-            setTimeout(() => {
-                // A subscription realtime deve detectar, mas forçamos atualização também
-            }, 200);
         } catch (error: any) {
             console.error('[useListaDaVezAttendances] Erro ao finalizar atendimento:', error);
             toast.error('Erro: ' + (error.message || 'Erro desconhecido'));
