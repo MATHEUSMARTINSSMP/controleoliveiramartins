@@ -870,20 +870,38 @@ export function useSiteData(options: UseSiteDataOptions = {}) {
           color_secondary: site.color_secondary,
           color_accent: site.color_accent,
           
-          logo_url: localAssets 
-            ? (localAssets.find(a => a.type === 'logo')?.base64 || localAssets.find(a => a.type === 'logo')?.url || site.logo_url)
-            : site.logo_url,
-          hero_image_url: localAssets
-            ? (localAssets.find(a => a.type === 'hero')?.base64 || localAssets.find(a => a.type === 'hero')?.url || site.hero_image_url)
-            : site.hero_image_url,
+          logo_url: (() => {
+            const logoAsset = localAssets?.find(a => a.type === 'logo');
+            const logoValue = logoAsset?.base64 || 
+              (logoAsset?.url && !logoAsset.url.startsWith('blob:') ? logoAsset.url : null) ||
+              site.logo_url;
+            console.log('[EditSite] Logo asset:', logoAsset);
+            console.log('[EditSite] Logo URL enviada:', logoValue?.substring(0, 100));
+            return logoValue;
+          })(),
+          hero_image_url: (() => {
+            const heroAsset = localAssets?.find(a => a.type === 'hero');
+            const heroValue = heroAsset?.base64 || 
+              (heroAsset?.url && !heroAsset.url.startsWith('blob:') ? heroAsset.url : null) ||
+              site.hero_image_url;
+            console.log('[EditSite] Hero asset:', heroAsset);
+            console.log('[EditSite] Hero URL enviada:', heroValue?.substring(0, 100));
+            return heroValue;
+          })(),
           gallery_images: localAssets
-            ? localAssets.filter(a => a.type === 'gallery').map(a => a.base64 || a.url).filter(Boolean)
+            ? localAssets.filter(a => a.type === 'gallery')
+                .map(a => a.base64 || (a.url && !a.url.startsWith('blob:') ? a.url : null))
+                .filter(Boolean)
             : site.gallery_images,
           product_images: localAssets
-            ? localAssets.filter(a => a.type === 'product').map(a => a.base64 || a.url).filter(Boolean)
+            ? localAssets.filter(a => a.type === 'product')
+                .map(a => a.base64 || (a.url && !a.url.startsWith('blob:') ? a.url : null))
+                .filter(Boolean)
             : site.product_images,
           ambient_images: localAssets
-            ? localAssets.filter(a => a.type === 'ambient').map(a => a.base64 || a.url).filter(Boolean)
+            ? localAssets.filter(a => a.type === 'ambient')
+                .map(a => a.base64 || (a.url && !a.url.startsWith('blob:') ? a.url : null))
+                .filter(Boolean)
             : site.ambient_images,
           assets: localAssets || site.assets,
           
