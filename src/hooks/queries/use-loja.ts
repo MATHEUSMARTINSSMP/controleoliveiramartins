@@ -93,7 +93,7 @@ export function useStoreSettings(storeId: string | null | undefined) {
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name, cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, tasks_ativo, meta_compensar_deficit, meta_bonus_frente')
+        .select('id, name, cashback_ativo, crm_ativo, ponto_ativo, wishlist_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, meta_compensar_deficit, meta_bonus_frente')
         .eq('id', storeId)
         .maybeSingle();
 
@@ -105,6 +105,11 @@ export function useStoreSettings(storeId: string | null | undefined) {
       if (!data) {
         console.warn('[useStoreSettings] Loja não encontrada para storeId:', storeId);
         return null;
+      }
+      
+      // Adicionar fallback para tasks_ativo se a coluna não existir
+      if (!('tasks_ativo' in data)) {
+        (data as any).tasks_ativo = false;
       }
       
       return data;
