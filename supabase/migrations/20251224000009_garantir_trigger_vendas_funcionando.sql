@@ -75,23 +75,23 @@ BEGIN
     -- Buscar todos os pedidos válidos que não têm vendas
     FOR v_pedido IN
         SELECT 
-            to.id,
-            to.numero_pedido,
-            to.valor_total,
-            to.colaboradora_id,
-            to.store_id
-        FROM sistemaretiradas.tiny_orders to
-        LEFT JOIN sistemaretiradas.sales s ON s.tiny_order_id = to.id
-        WHERE to.store_id = p_store_id
+            t_order.id,
+            t_order.numero_pedido,
+            t_order.valor_total,
+            t_order.colaboradora_id,
+            t_order.store_id
+        FROM sistemaretiradas.tiny_orders t_order
+        LEFT JOIN sistemaretiradas.sales s ON s.tiny_order_id = t_order.id
+        WHERE t_order.store_id = p_store_id
             AND s.id IS NULL -- Não tem venda
-            AND to.colaboradora_id IS NOT NULL
-            AND to.store_id IS NOT NULL
-            AND to.valor_total > 0
+            AND t_order.colaboradora_id IS NOT NULL
+            AND t_order.store_id IS NOT NULL
+            AND t_order.valor_total > 0
             AND (
-                to.created_at >= NOW() - (p_dias_retrocesso || ' days')::INTERVAL
-                OR to.updated_at >= NOW() - (p_dias_retrocesso || ' days')::INTERVAL
+                t_order.created_at >= NOW() - (p_dias_retrocesso || ' days')::INTERVAL
+                OR t_order.updated_at >= NOW() - (p_dias_retrocesso || ' days')::INTERVAL
             )
-        ORDER BY to.created_at ASC
+        ORDER BY t_order.created_at ASC
     LOOP
         BEGIN
             v_processados := v_processados + 1;
@@ -148,17 +148,17 @@ SELECT * FROM sistemaretiradas.processar_pedidos_pendentes_loja(
 -- ============================================================================
 SELECT 
     COUNT(*) as total_pedidos_pendentes,
-    COUNT(DISTINCT to.numero_pedido) as pedidos_unicos_pendentes
-FROM sistemaretiradas.tiny_orders to
-LEFT JOIN sistemaretiradas.sales s ON s.tiny_order_id = to.id
-WHERE to.store_id = '5a87e0c2-66ab-4c71-aaae-e3ee85f1cf5b' -- Loungerie
+    COUNT(DISTINCT t_order.numero_pedido) as pedidos_unicos_pendentes
+FROM sistemaretiradas.tiny_orders t_order
+LEFT JOIN sistemaretiradas.sales s ON s.tiny_order_id = t_order.id
+WHERE t_order.store_id = '5a87e0c2-66ab-4c71-aaae-e3ee85f1cf5b' -- Loungerie
     AND s.id IS NULL
-    AND to.colaboradora_id IS NOT NULL
-    AND to.store_id IS NOT NULL
-    AND to.valor_total > 0
+    AND t_order.colaboradora_id IS NOT NULL
+    AND t_order.store_id IS NOT NULL
+    AND t_order.valor_total > 0
     AND (
-        to.created_at >= NOW() - INTERVAL '7 days'
-        OR to.updated_at >= NOW() - INTERVAL '7 days'
+        t_order.created_at >= NOW() - INTERVAL '7 days'
+        OR t_order.updated_at >= NOW() - INTERVAL '7 days'
     );
 
 -- ============================================================================
