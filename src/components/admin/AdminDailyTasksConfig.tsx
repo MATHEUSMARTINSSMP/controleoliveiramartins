@@ -136,7 +136,15 @@ export function AdminDailyTasksConfig() {
                 .order('display_order')
                 .order('created_at');
 
-            if (error) throw error;
+            if (error) {
+                // Se a tabela não existir, apenas logar e continuar com array vazio
+                if (error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+                    console.warn('[AdminDailyTasksConfig] Tabela daily_tasks não existe ainda. Execute a migration primeiro.');
+                    setTasks([]);
+                    return;
+                }
+                throw error;
+            }
 
             const tasksData = (data || []).map((task: any) => ({
                 ...task,
@@ -146,7 +154,8 @@ export function AdminDailyTasksConfig() {
             setTasks(tasksData);
         } catch (error: any) {
             console.error('[AdminDailyTasksConfig] Erro ao buscar tarefas:', error);
-            toast.error('Erro ao carregar tarefas');
+            toast.error('Erro ao carregar tarefas. Execute a migration SQL primeiro.');
+            setTasks([]);
         } finally {
             setLoading(false);
         }
