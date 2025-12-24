@@ -542,6 +542,14 @@ export function TimeClockRegister({
       setPendingAction(null);
       setPin('');
 
+      // Confirmação visual melhorada
+      const actionLabel = getButtonConfig(registeredAction).label;
+      toast.success(`✅ Ponto registrado!`, {
+        description: `${actionLabel} às ${format(new Date(), 'HH:mm', { locale: ptBR })}`,
+        duration: 5000,
+        icon: <CheckCircle className="h-5 w-5 text-emerald-600" />,
+      });
+
       // Atualizar registros localmente primeiro
       await fetchRecords();
 
@@ -549,8 +557,6 @@ export function TimeClockRegister({
       if (onRecordSuccess) {
         onRecordSuccess();
       }
-
-      toast.success('Ponto registrado com assinatura digital');
 
       if (registeredAction === 'SAIDA') {
         const result = await calculateDailyBalance(colaboradoraId, storeId, new Date());
@@ -749,13 +755,19 @@ export function TimeClockRegister({
                   key={tipo}
                   onClick={() => handleRegisterClick(tipo)}
                   disabled={isDisabled}
-                  className={`${config.color} ${isNext ? 'ring-2 ring-offset-2 ring-primary' : 'opacity-70'} h-auto py-3`}
+                  className={`${config.color} ${isNext ? 'ring-2 ring-offset-2 ring-primary' : 'opacity-70'} h-auto py-3 relative`}
                   data-testid={`button-registro-${tipo.toLowerCase()}`}
                 >
                   <div className="flex items-center gap-3 w-full">
-                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    {processingSignature && pendingAction === tipo ? (
+                      <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin" />
+                    ) : (
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                    )}
                     <div className="text-left">
-                      <div className="font-semibold text-sm">{config.label}</div>
+                      <div className="font-semibold text-sm">
+                        {processingSignature && pendingAction === tipo ? 'Processando...' : config.label}
+                      </div>
                       <div className="text-xs opacity-80">{config.description}</div>
                     </div>
                   </div>
@@ -844,6 +856,13 @@ export function TimeClockRegister({
               <div className="flex items-center gap-2 text-destructive text-sm p-2 rounded-lg bg-destructive/10">
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                 {signatureError}
+              </div>
+            )}
+
+            {processingSignature && (
+              <div className="flex items-center gap-2 text-primary text-sm p-2 rounded-lg bg-primary/10">
+                <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
+                <span>Processando registro de ponto...</span>
               </div>
             )}
           </div>

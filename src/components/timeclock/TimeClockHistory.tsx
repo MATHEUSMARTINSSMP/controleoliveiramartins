@@ -3,7 +3,7 @@
  * Visualização de todos os registros da colaboradora
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTimeClock } from '@/hooks/useTimeClock';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -20,8 +20,6 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 
 interface TimeClockHistoryProps {
@@ -51,18 +49,50 @@ export function TimeClockHistory({ storeId, colaboradoraId, showOnlyToday = fals
   const [motivo, setMotivo] = useState<string>('');
   const [submittingRequest, setSubmittingRequest] = useState(false);
 
-  useEffect(() => {
+  // Função para buscar registros
+  const loadRecords = useCallback(() => {
     if (storeId && colaboradoraId) {
       const start = new Date(startDate);
       const end = new Date(endDate);
       fetchRecords(start, end);
       fetchHoursBalance();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storeId, colaboradoraId, startDate, endDate]); // Removidas dependências para evitar refresh constante
+  }, [storeId, colaboradoraId, startDate, endDate, fetchRecords, fetchHoursBalance]);
 
-  // Removido refetch automático - atualização deve ser em background via trigger no banco
-  // O banco de horas será atualizado automaticamente quando novos registros forem criados
+  useEffect(() => {
+    loadRecords();
+  }, [loadRecords]);
+
+  // ✅ ATUALIZAÇÃO EM TEMPO REAL - Sem precisar dar F5
+  useEffect(() => {
+    if (!storeId || !colaboradoraId) return;
+
+    const channel = supabase
+      .channel(`time-clock-realtime-${storeId}-${colaboradoraId}-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'sistemaretiradas',
+          table: 'time_clock_records',
+          filter: `colaboradora_id=eq.${colaboradoraId}`,
+        },
+        (payload) => {
+          console.log('[TimeClockHistory] 📥 Mudança detectada em tempo real:', payload.eventType);
+          // Atualizar lista automaticamente quando houver mudanças
+          loadRecords();
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[TimeClockHistory] ✅ Conectado ao realtime');
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [storeId, colaboradoraId, loadRecords]);
 
   const getRecordTypeLabel = (tipo: string) => {
     const labels: Record<string, string> = {

@@ -368,6 +368,69 @@ export function useTimeClock({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoFetch, storeId, colaboradoraId]); // Removidas dependências das funções para evitar refresh constante
 
+  // ✅ ATUALIZAÇÃO EM TEMPO REAL - Atualizar lista automaticamente quando novos registros são criados
+  useEffect(() => {
+    if (!storeId || !colaboradoraId || !autoFetch) return;
+
+    const channel = supabase
+      .channel(`time-clock-hook-${storeId}-${colaboradoraId}-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'sistemaretiradas',
+          table: 'time_clock_records',
+          filter: `colaboradora_id=eq.${colaboradoraId}`,
+        },
+        (payload) => {
+          console.log('[useTimeClock] 📥 Novo registro detectado em tempo real:', payload.new);
+          // Adicionar novo registro à lista imediatamente
+          setRecords(prev => {
+            // Verificar se já existe (evitar duplicatas)
+            const exists = prev.some(r => r.id === payload.new.id);
+            if (exists) return prev;
+            // Adicionar no início da lista
+            return [payload.new as TimeClockRecord, ...prev];
+          });
+          // Atualizar último registro se for o mais recente
+          if (payload.new.horario) {
+            const newRecord = payload.new as TimeClockRecord;
+            setLastRecord(prev => {
+              if (!prev || new Date(newRecord.horario) > new Date(prev.horario)) {
+                return newRecord;
+              }
+              return prev;
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'sistemaretiradas',
+          table: 'time_clock_records',
+          filter: `colaboradora_id=eq.${colaboradoraId}`,
+        },
+        (payload) => {
+          console.log('[useTimeClock] 📝 Registro atualizado em tempo real:', payload.new);
+          // Atualizar registro na lista
+          setRecords(prev => 
+            prev.map(r => r.id === payload.new.id ? payload.new as TimeClockRecord : r)
+          );
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[useTimeClock] ✅ Conectado ao realtime');
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [storeId, colaboradoraId, autoFetch]);
+
   return {
     records,
     loading,
