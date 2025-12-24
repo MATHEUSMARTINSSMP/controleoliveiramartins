@@ -228,13 +228,21 @@ exports.handler = async (event, context) => {
             // Não incrementar failed, pois será reprocessada
           }
         } else {
-          // Sucesso
+          // Sucesso - salvar resposta do N8N no metadata para debug
+          const currentMetadata = queueItem.metadata || {};
+          const updatedMetadata = {
+            ...currentMetadata,
+            n8n_response: result,
+            n8n_response_received_at: new Date().toISOString()
+          };
+          
           await supabase
             .schema('sistemaretiradas')
             .from('whatsapp_message_queue')
             .update({ 
               status: 'SENT',
-              sent_at: new Date().toISOString()
+              sent_at: new Date().toISOString(),
+              metadata: updatedMetadata
             })
             .eq('id', item.queue_id);
 
