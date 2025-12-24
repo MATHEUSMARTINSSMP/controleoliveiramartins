@@ -2702,9 +2702,11 @@ export default function LojaDashboard() {
                 .filter((fp): fp is FormaPagamentoType => fp.tipo !== undefined && fp.valor !== undefined);
 
             // Se a venda foi linkada a um atendimento, atualizar attendance_outcome
+            // Nota: O atendimento já foi finalizado quando o usuário selecionou "Venda Realizada"
+            // Aqui apenas linkamos a venda ao atendimento
             if (formData.attendance_id && insertedSale?.id) {
                 try {
-                    // Atualizar attendance_outcome com sale_id e finalizar
+                    // Atualizar attendance_outcome com sale_id e sale_value
                     const { error: outcomeError } = await supabase
                         .schema('sistemaretiradas')
                         .from('attendance_outcomes')

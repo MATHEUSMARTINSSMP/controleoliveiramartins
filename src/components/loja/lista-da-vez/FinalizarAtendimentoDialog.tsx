@@ -43,19 +43,35 @@ export function FinalizarAtendimentoDialog({
     const [saleValue, setSaleValue] = useState('');
     const [lossReasonId, setLossReasonId] = useState('');
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
         if (!result) return;
         if (result === 'perda' && !lossReasonId) return;
 
-        // Se for venda, abrir dialog de Nova Venda SEM pedir valor aqui
-        if (result === 'venda' && onOpenNewSale) {
-            // Passar 0 como valor inicial, será preenchido no formulário de Nova Venda
-            onOpenNewSale(attendanceId, colaboradoraId, 0);
+        // Se for venda, finalizar o atendimento PRIMEIRO (sem venda linkada ainda)
+        // Depois abrir dialog de Nova Venda
+        if (result === 'venda') {
+            // Finalizar atendimento com resultado "venda" mas sem saleValue ainda
+            // Isso garante que o atendimento seja finalizado mesmo se o usuário não preencher a venda
+            onConfirm(
+                attendanceId,
+                'venda',
+                null, // saleValue será null por enquanto
+                null  // lossReasonId será null para venda
+            );
+            
             // Limpar formulário
             setResult('');
             setSaleValue('');
             setLossReasonId('');
             onOpenChange(false);
+            
+            // Depois abrir dialog de Nova Venda (se fornecido)
+            if (onOpenNewSale) {
+                // Pequeno delay para garantir que o atendimento foi finalizado
+                setTimeout(() => {
+                    onOpenNewSale(attendanceId, colaboradoraId, 0);
+                }, 100);
+            }
             return;
         }
 
