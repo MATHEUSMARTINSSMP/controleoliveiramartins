@@ -88,7 +88,7 @@ export function PromptTemplates({ type, provider, onSelectTemplate }: PromptTemp
   };
 
   const handleSaveTemplate = async () => {
-    if (!profile?.store_id) {
+    if (!storeId) {
       toast.error("Loja não identificada");
       return;
     }
