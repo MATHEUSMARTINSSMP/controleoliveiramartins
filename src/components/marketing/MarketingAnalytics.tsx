@@ -120,7 +120,7 @@ export function MarketingAnalytics() {
         .schema("sistemaretiradas")
         .from("marketing_usage")
         .select("count, cost_estimate, type")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", storeId)
         .eq("period_type", "daily")
         .gte("period_start", today.toISOString())
         .lte("period_start", endOfDay(today).toISOString());
@@ -129,7 +129,7 @@ export function MarketingAnalytics() {
         .schema("sistemaretiradas")
         .from("marketing_usage")
         .select("count, cost_estimate, type")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", storeId)
         .eq("period_type", "monthly")
         .gte("period_start", monthStart.toISOString())
         .lte("period_start", endOfMonth(monthStart).toISOString());
