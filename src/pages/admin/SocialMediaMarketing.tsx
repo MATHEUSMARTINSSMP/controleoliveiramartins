@@ -3,7 +3,8 @@ import { useMarketingJobStatus } from "@/hooks/use-marketing-job-status";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Image, Video, Sparkles, ImageIcon, VideoIcon, Loader2, X, CheckCircle2, XCircle, Clock, Download } from "lucide-react";
+import { Image, Video, Sparkles, ImageIcon, VideoIcon, Loader2, X, CheckCircle2, XCircle, Clock, Download, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -24,13 +25,43 @@ import { PROVIDER_CONFIG, getDefaultModel, getAllowedModels } from "@/lib/config
 import { fileToBase64 } from "@/lib/ai-providers/image-utils";
 
 export default function SocialMediaMarketing() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const [selectedTab, setSelectedTab] = useState("generate");
   const [newlyCompletedJobId, setNewlyCompletedJobId] = useState<string | null>(null);
   const [highlightAssetId, setHighlightAssetId] = useState<string | null>(null);
 
+  // Verificar se store_id está disponível
+  const hasStoreId = !!profile?.store_id;
+
   return (
     <div className="space-y-6">
+      {/* Alerta se loja não identificada */}
+      {!authLoading && !hasStoreId && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Loja não identificada</AlertTitle>
+          <AlertDescription>
+            Não foi possível identificar a loja associada ao seu perfil. 
+            Por favor, verifique se seu perfil possui uma loja associada ou entre em contato com o suporte.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Mostrar conteúdo apenas se loja estiver identificada ou ainda carregando */}
+      {!hasStoreId && !authLoading ? (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-12 text-muted-foreground">
+              <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg font-medium">Loja não identificada</p>
+              <p className="text-sm mt-2">
+                É necessário ter uma loja associada ao seu perfil para usar o módulo de marketing.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
       {/* Header */}
       <Card>
         <CardHeader>
@@ -109,6 +140,8 @@ export default function SocialMediaMarketing() {
           />
         </TabsContent>
       </Tabs>
+        </>
+      )}
     </div>
   );
 }
@@ -389,7 +422,7 @@ function GenerateContentTab({ onJobCreated }: { onJobCreated?: (jobId: string) =
           )}
           <Button
             onClick={handleGenerate}
-            disabled={isGenerating || !prompt.trim()}
+            disabled={isGenerating || !prompt.trim() || !hasStoreId}
             className={prompt.trim() ? "w-full" : "flex-1"}
           >
             {isGenerating ? (
@@ -414,6 +447,17 @@ function GenerateContentTab({ onJobCreated }: { onJobCreated?: (jobId: string) =
             para gerar 5 alternativas profissionais automaticamente com IA.
           </p>
         </div>
+
+        {/* Alerta se não tiver store_id */}
+        {!hasStoreId && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Loja não identificada</AlertTitle>
+            <AlertDescription>
+              Não é possível gerar conteúdo sem uma loja associada ao seu perfil.
+            </AlertDescription>
+          </Alert>
+        )}
             </CardContent>
           </Card>
         </TabsContent>
