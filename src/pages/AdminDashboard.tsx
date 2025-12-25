@@ -285,8 +285,8 @@ const AdminDashboard = () => {
               </TabsTrigger>
               <TabsTrigger value="campanhas" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[50px] justify-center">
                 <MessageSquare className="h-3 w-3 mr-1" />
-                <span className="hidden sm:inline">Campanhas</span>
-                <span className="sm:hidden">Camp.</span>
+                <span className="hidden sm:inline">Gestão de Marketing</span>
+                <span className="sm:hidden">Marketing</span>
               </TabsTrigger>
             </TabsList>
 
@@ -521,10 +521,10 @@ const AdminDashboard = () => {
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
                       <MessageSquare className="h-5 w-5" />
-                      Campanhas WhatsApp
+                      Gestão de Marketing
                     </CardTitle>
                     <CardDescription>
-                      Sistema completo de campanhas de envio em massa com filtros avançados, analytics e controle total
+                      Gerencie campanhas WhatsApp, seu site e conteúdos para redes sociais com IA
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -534,7 +534,7 @@ const AdminDashboard = () => {
                       size="lg"
                     >
                       <MessageSquare className="h-4 w-4 mr-2" />
-                      Abrir Gerenciador de Campanhas
+                      Abrir Gestão de Marketing
                     </Button>
                   </CardContent>
                 </Card>

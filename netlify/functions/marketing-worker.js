@@ -1,0 +1,760 @@
+/**
+ * Netlify Scheduled Function: Worker de Processamento
+ * 
+ * Processa jobs assíncronos de geração de mídia
+ * Executa a cada 1 minuto (configurar no netlify.toml)
+ * 
+ * netlify.toml:
+ * [[plugins]]
+ * package = "@netlify/plugin-scheduled-functions"
+ * 
+ * [functions.marketing-worker]
+ * schedule = "cron(*/1 * * * *)"
+ */
+
+const { createClient } = require('@supabase/supabase-js');
+const { v4: uuidv4 } = require('uuid');
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+const MAX_JOBS_PER_RUN = 5;
+const MAX_RETRIES = 3;
+
+exports.handler = async (event, context) => {
+  console.log('[marketing-worker] Iniciando processamento...');
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    db: { schema: 'sistemaretiradas' },
+  });
+
+  try {
+    // Buscar jobs queued (limitado)
+    const { data: jobs, error: fetchError } = await supabase
+      .from('marketing_jobs')
+      .select('*')
+      .eq('status', 'queued')
+      .order('created_at', { ascending: true })
+      .limit(MAX_JOBS_PER_RUN);
+
+    if (fetchError) {
+      console.error('[marketing-worker] Erro ao buscar jobs:', fetchError);
+      return { statusCode: 500, body: 'Erro ao buscar jobs' };
+    }
+
+    if (!jobs || jobs.length === 0) {
+      console.log('[marketing-worker] Nenhum job pendente');
+      return { statusCode: 200, body: 'Nenhum job para processar' };
+    }
+
+    console.log(`[marketing-worker] Processando ${jobs.length} jobs`);
+
+    // Processar cada job
+    const results = await Promise.allSettled(
+      jobs.map((job) => processJob(supabase, job))
+    );
+
+    const successful = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.filter((r) => r.status === 'rejected').length;
+
+    console.log(`[marketing-worker] Concluído: ${successful} sucesso, ${failed} falhas`);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        processed: jobs.length,
+        successful,
+        failed,
+      }),
+    };
+  } catch (error) {
+    console.error('[marketing-worker] Erro crítico:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: error.message }),
+    };
+  }
+};
+
+/**
+ * Processar um job
+ */
+async function processJob(supabase, job) {
+  const jobId = job.id;
+  const startTime = Date.now();
+
+  try {
+    // Verificar idempotência (se já foi processado)
+    if (job.status !== 'queued') {
+      console.log(`[marketing-worker] Job ${jobId} já foi processado (status: ${job.status})`);
+      return;
+    }
+
+    // Atualizar status para processing
+    await supabase
+      .from('marketing_jobs')
+      .update({
+        status: 'processing',
+        started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', jobId);
+
+    console.log(`[marketing-worker] Processando job ${jobId} (${job.type}, ${job.provider})`);
+
+    // Processar baseado no tipo
+    if (job.type === 'image') {
+      await processImageJob(supabase, job);
+    } else if (job.type === 'video') {
+      await processVideoJob(supabase, job);
+    } else {
+      throw new Error(`Tipo de job não suportado: ${job.type}`);
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`[marketing-worker] Job ${jobId} concluído em ${duration}ms`);
+  } catch (error) {
+    console.error(`[marketing-worker] Erro ao processar job ${jobId}:`, error);
+
+    // Marcar como failed
+    await supabase
+      .from('marketing_jobs')
+      .update({
+        status: 'failed',
+        error_message: error.message,
+        error_code: 'PROVIDER_ERROR',
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', jobId);
+
+    throw error;
+  }
+}
+
+/**
+ * Processar job de imagem
+ */
+async function processImageJob(supabase, job) {
+  const jobId = job.id;
+  const input = job.input;
+
+  // Preparar input para adapter
+  const adapterInput = {
+    type: 'image',
+    provider: job.provider,
+    model: job.provider_model,
+    prompt: input.prompt || job.prompt_final,
+    output: input.output || {},
+    inputImages: input.inputImages || [],
+    mask: input.mask,
+  };
+
+  // Gerar imagem com retry
+  let imageResult;
+  let lastError;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      console.log(`[marketing-worker] Tentativa ${attempt}/${MAX_RETRIES} para gerar imagem (job ${jobId})`);
+
+      imageResult = await generateImageWithRetry(adapterInput);
+      break; // Sucesso
+    } catch (error) {
+      lastError = error;
+      console.warn(`[marketing-worker] Tentativa ${attempt} falhou:`, error.message);
+
+      if (attempt < MAX_RETRIES) {
+        // Backoff exponencial
+        const delay = Math.pow(2, attempt) * 1000;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  if (!imageResult) {
+    throw lastError || new Error('Falha ao gerar imagem após todas as tentativas');
+  }
+
+  // Upload para storage
+  const assetId = uuidv4();
+  const uploadResult = await uploadMediaToSupabase(
+    supabase,
+    imageResult.imageData,
+    imageResult.mimeType,
+    job.store_id,
+    job.user_id,
+    assetId,
+    'image'
+  );
+
+  // Criar registro de asset
+  const { data: asset, error: assetError } = await supabase
+    .from('marketing_assets')
+    .insert({
+      id: assetId,
+      store_id: job.store_id,
+      user_id: job.user_id,
+      type: 'image',
+      provider: job.provider,
+      provider_model: job.provider_model,
+      prompt: adapterInput.prompt,
+      storage_path: uploadResult.path,
+      public_url: uploadResult.publicUrl,
+      signed_url: uploadResult.signedUrl,
+      signed_expires_at: uploadResult.signedExpiresAt?.toISOString(),
+      meta: {
+        width: imageResult.width,
+        height: imageResult.height,
+        mimeType: imageResult.mimeType,
+      },
+      job_id: jobId,
+    })
+    .select()
+    .single();
+
+  if (assetError) {
+    throw new Error(`Erro ao criar asset: ${assetError.message}`);
+  }
+
+  // Atualizar job como done
+  await supabase
+    .from('marketing_jobs')
+    .update({
+      status: 'done',
+      progress: 100,
+      result: {
+        assetId: asset.id,
+        mediaUrl: uploadResult.publicUrl || uploadResult.signedUrl,
+        meta: {
+          width: imageResult.width,
+          height: imageResult.height,
+        },
+      },
+      completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', jobId);
+
+  console.log(`[marketing-worker] Imagem gerada e salva: ${assetId}`);
+}
+
+/**
+ * Processar job de vídeo
+ */
+async function processVideoJob(supabase, job) {
+  const jobId = job.id;
+  const input = job.input;
+
+  // Se não tem provider_ref, iniciar geração
+  if (!job.provider_ref) {
+    // Iniciar geração de vídeo
+    const adapterInput = {
+      type: 'video',
+      provider: job.provider,
+      model: job.provider_model,
+      prompt: input.prompt || job.prompt_final,
+      output: input.output || {},
+      inputImages: input.inputImages || [],
+    };
+
+    const operation = await startVideoGenerationWithRetry(adapterInput);
+
+    // Salvar provider_ref e continuar polling depois
+    await supabase
+      .from('marketing_jobs')
+      .update({
+        provider_ref: operation.operationId,
+        progress: 10,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', jobId);
+
+    console.log(`[marketing-worker] Iniciada geração de vídeo (operation: ${operation.operationId})`);
+    return; // Volta no próximo ciclo para polling
+  }
+
+  // Fazer polling do status
+  const status = await pollVideoStatusWithRetry(job.provider_ref, job.provider);
+
+  if (!status.done) {
+    // Ainda processando, atualizar progresso estimado
+    const progress = Math.min(90, 10 + Math.floor((Date.now() - new Date(job.started_at).getTime()) / 1000 / 10));
+    await supabase
+      .from('marketing_jobs')
+      .update({
+        progress,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', jobId);
+    return;
+  }
+
+  if (status.error) {
+    throw new Error(status.error);
+  }
+
+  // Download do vídeo
+  let videoBuffer;
+  if (job.provider === 'gemini' && status.videoUri) {
+    videoBuffer = await downloadVideoFromGemini(status.videoUri);
+  } else if (job.provider === 'openai') {
+    videoBuffer = await downloadVideoFromOpenAI(job.provider_ref);
+  } else {
+    throw new Error('Método de download não implementado para este provider');
+  }
+
+  // Upload para storage
+  const assetId = uuidv4();
+  const uploadResult = await uploadMediaToSupabase(
+    supabase,
+    videoBuffer,
+    'video/mp4',
+    job.store_id,
+    job.user_id,
+    assetId,
+    'video'
+  );
+
+  // Criar registro de asset
+  const { data: asset, error: assetError } = await supabase
+    .from('marketing_assets')
+    .insert({
+      id: assetId,
+      store_id: job.store_id,
+      user_id: job.user_id,
+      type: 'video',
+      provider: job.provider,
+      provider_model: job.provider_model,
+      prompt: input.prompt || job.prompt_final,
+      storage_path: uploadResult.path,
+      signed_url: uploadResult.signedUrl,
+      signed_expires_at: uploadResult.signedExpiresAt?.toISOString(),
+      meta: {
+        mimeType: 'video/mp4',
+      },
+      job_id: jobId,
+    })
+    .select()
+    .single();
+
+  if (assetError) {
+    throw new Error(`Erro ao criar asset: ${assetError.message}`);
+  }
+
+  // Atualizar job como done
+  await supabase
+    .from('marketing_jobs')
+    .update({
+      status: 'done',
+      progress: 100,
+      result: {
+        assetId: asset.id,
+        mediaUrl: uploadResult.signedUrl,
+        meta: {},
+      },
+      completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', jobId);
+
+  console.log(`[marketing-worker] Vídeo gerado e salvo: ${assetId}`);
+}
+
+/**
+ * Wrappers com retry (simplificados)
+ * Nota: Como estamos em Node.js puro, vamos fazer as chamadas diretas às APIs
+ */
+async function generateImageWithRetry(input) {
+  if (input.provider === 'gemini') {
+    return await generateImageWithGeminiDirect(input);
+  } else {
+    return await generateImageWithOpenAIDirect(input);
+  }
+}
+
+/**
+ * Gerar imagem com Gemini (chamada direta)
+ */
+async function generateImageWithGeminiDirect(input) {
+  const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+  const MODEL = 'gemini-2.5-flash-image';
+
+  // Construir parts
+  const parts = [{ text: input.prompt }];
+
+  // Adicionar imagens se houver
+  if (input.inputImages && input.inputImages.length > 0) {
+    for (const imgBase64 of input.inputImages) {
+      const normalized = imgBase64.includes(',') ? imgBase64.split(',')[1] : imgBase64;
+      parts.push({
+        inlineData: {
+          mimeType: 'image/png',
+          data: normalized,
+        },
+      });
+    }
+  }
+
+  const response = await fetch(
+    `${BASE_URL}/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts }],
+        generationConfig: { responseModalities: ['IMAGE'] },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  const imagePart = data.candidates[0]?.content?.parts?.find((p) => p.inlineData);
+  
+  if (!imagePart?.inlineData) {
+    throw new Error('Resposta do Gemini não contém imagem');
+  }
+
+  const imageBase64 = imagePart.inlineData.data;
+  const imageBuffer = Buffer.from(imageBase64, 'base64');
+
+  return {
+    imageData: imageBuffer,
+    width: 1024,
+    height: 1024,
+    mimeType: 'image/png',
+  };
+}
+
+/**
+ * Gerar imagem com OpenAI (chamada direta)
+ * Suporta: texto apenas, inpainting com máscara
+ */
+async function generateImageWithOpenAIDirect(input) {
+  const BASE_URL = 'https://api.openai.com/v1';
+  const MODEL = input.model || 'gpt-image-001';
+
+  // Se tem máscara e imagem de entrada, usar inpainting
+  if (input.mask && input.inputImages && input.inputImages.length > 0) {
+    // Para inpainting, usar multipart/form-data (Web API FormData)
+    const formData = new FormData();
+    
+    // Converter base64 para Buffer
+    const imageBase64 = input.inputImages[0].includes(',') 
+      ? input.inputImages[0].split(',')[1] 
+      : input.inputImages[0];
+    const maskBase64 = input.mask.includes(',') 
+      ? input.mask.split(',')[1] 
+      : input.mask;
+
+    const imageBuffer = Buffer.from(imageBase64, 'base64');
+    const maskBuffer = Buffer.from(maskBase64, 'base64');
+
+    // Criar Blob objects (Node.js 18+ tem FormData global)
+    const imageBlob = new Blob([imageBuffer], { type: 'image/png' });
+    const maskBlob = new Blob([maskBuffer], { type: 'image/png' });
+
+    formData.append('image', imageBlob, 'image.png');
+    formData.append('mask', maskBlob, 'mask.png');
+    formData.append('prompt', input.prompt);
+    formData.append('size', input.output?.size || '1024x1024');
+    formData.append('n', '1');
+    formData.append('response_format', 'b64_json');
+
+    const response = await fetch(`${BASE_URL}/images/edits`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        // Não definir Content-Type, deixar fetch definir com boundary
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OpenAI Inpainting API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const imageBase64Result = data.data[0].b64_json;
+    const imageBufferResult = Buffer.from(imageBase64Result, 'base64');
+
+    const [width, height] = (input.output?.size || '1024x1024').split('x').map(Number);
+
+    return {
+      imageData: imageBufferResult,
+      width,
+      height,
+      mimeType: 'image/png',
+    };
+  }
+
+  // Geração normal (texto apenas)
+  const payload = {
+    model: MODEL,
+    prompt: input.prompt,
+    size: input.output?.size || '1024x1024',
+    n: 1,
+    response_format: 'b64_json',
+  };
+
+  const response = await fetch(`${BASE_URL}/images/generations`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  const imageBase64 = data.data[0].b64_json;
+  const imageBuffer = Buffer.from(imageBase64, 'base64');
+
+  const [width, height] = (payload.size || '1024x1024').split('x').map(Number);
+
+  return {
+    imageData: imageBuffer,
+    width,
+    height,
+    mimeType: 'image/png',
+  };
+}
+
+async function startVideoGenerationWithRetry(input) {
+  if (input.provider === 'gemini') {
+    return await startVideoGenerationWithGeminiDirect(input);
+  } else {
+    return await startVideoGenerationWithOpenAIDirect(input);
+  }
+}
+
+async function pollVideoStatusWithRetry(operationId, provider) {
+  if (provider === 'gemini') {
+    return await pollVideoStatusGeminiDirect(operationId);
+  } else {
+    return await pollVideoStatusOpenAIDirect(operationId);
+  }
+}
+
+/**
+ * Iniciar geração de vídeo Gemini (chamada direta)
+ */
+async function startVideoGenerationWithGeminiDirect(input) {
+  const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+  const MODEL = input.model || 'veo-2.0-generate-001';
+
+  const response = await fetch(
+    `${BASE_URL}/models/${MODEL}:predictLongRunning?key=${GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        instances: [{ prompt: input.prompt }],
+        parameters: {
+          durationSeconds: input.output?.seconds || 8,
+          aspectRatio: input.output?.aspectRatio || '16:9',
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini Video API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  return { operationId: data.name };
+}
+
+/**
+ * Polling Gemini Video
+ */
+async function pollVideoStatusGeminiDirect(operationId) {
+  const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+
+  const response = await fetch(
+    `${BASE_URL}/${operationId}?key=${GEMINI_API_KEY}`,
+    { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Polling error: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  if (data.done) {
+    if (data.error) {
+      return { done: true, error: data.error.message };
+    }
+
+    const videoUri = data.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri;
+    if (videoUri) {
+      return { done: true, videoUri };
+    }
+  }
+
+  return { done: false };
+}
+
+/**
+ * Iniciar geração de vídeo OpenAI (chamada direta)
+ */
+async function startVideoGenerationWithOpenAIDirect(input) {
+  const BASE_URL = 'https://api.openai.com/v1';
+  const MODEL = input.model || 'sora-2-pro';
+
+  const formData = new FormData();
+  formData.append('prompt', input.prompt);
+  formData.append('model', MODEL);
+  formData.append('size', input.output?.size || '1280x720');
+  formData.append('seconds', (input.output?.seconds || 8).toString());
+
+  const response = await fetch(`${BASE_URL}/videos`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI Video API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  return { operationId: data.id };
+}
+
+/**
+ * Polling OpenAI Video
+ */
+async function pollVideoStatusOpenAIDirect(videoId) {
+  const BASE_URL = 'https://api.openai.com/v1';
+
+  const response = await fetch(`${BASE_URL}/videos/${videoId}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Polling error: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  if (data.status === 'completed') {
+    return { done: true, ready: true };
+  }
+
+  if (data.status === 'failed') {
+    return { done: true, error: data.error?.message || 'Erro desconhecido' };
+  }
+
+  return { done: false };
+}
+
+async function downloadVideoFromGemini(videoUri) {
+  const response = await fetch(videoUri, {
+    method: 'GET',
+    headers: {
+      'x-goog-api-key': GEMINI_API_KEY,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Erro ao baixar vídeo: ${response.status}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+/**
+ * Download vídeo OpenAI
+ */
+async function downloadVideoFromOpenAI(videoId) {
+  const BASE_URL = 'https://api.openai.com/v1';
+
+  const response = await fetch(`${BASE_URL}/videos/${videoId}/content`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Erro ao baixar vídeo: ${response.status}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+/**
+ * Upload de mídia para Supabase Storage (inline para evitar imports complexos)
+ */
+async function uploadMediaToSupabase(supabase, buffer, mimeType, storeId, userId, assetId, type) {
+  // Determinar extensão
+  const extension = mimeType.includes('png') ? 'png' : mimeType.includes('jpg') || mimeType.includes('jpeg') ? 'jpg' : type === 'video' ? 'mp4' : 'png';
+
+  // Gerar path estruturado
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const path = `marketing/${storeId}/${userId}/${type}/${year}/${month}/${assetId}.${extension}`;
+
+  // Upload
+  const { data, error } = await supabase.storage.from('marketing').upload(path, buffer, {
+    contentType: mimeType,
+    upsert: false,
+    cacheControl: type === 'video' ? '3600' : '31536000',
+  });
+
+  if (error) {
+    throw new Error(`Erro ao fazer upload: ${error.message}`);
+  }
+
+  // Gerar URLs
+  const { data: publicUrlData } = supabase.storage.from('marketing').getPublicUrl(path);
+  const publicUrl = publicUrlData.publicUrl;
+
+  let signedUrl;
+  let signedExpiresAt;
+
+  if (type === 'video') {
+    const expiresIn = 24 * 60 * 60;
+    const { data: signedData, error: signedError } = await supabase.storage
+      .from('marketing')
+      .createSignedUrl(path, expiresIn);
+
+    if (!signedError && signedData) {
+      signedUrl = signedData.signedUrl;
+      signedExpiresAt = new Date(Date.now() + expiresIn * 1000);
+    }
+  }
+
+  return {
+    path,
+    publicUrl: type === 'image' ? publicUrl : undefined,
+    signedUrl: type === 'video' ? signedUrl : undefined,
+    signedExpiresAt,
+  };
+}
+

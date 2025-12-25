@@ -69,7 +69,7 @@ const ERPVendorMapping = lazyWithRetry(() => import("./pages/ERPVendorMapping"))
 const WhatsAppBulkSend = lazyWithRetry(() => import("./pages/admin/WhatsAppBulkSend"));
 const WhatsAppCampaigns = lazyWithRetry(() => import("./pages/admin/WhatsAppCampaigns"));
 const WhatsAppAnalytics = lazyWithRetry(() => import("./pages/admin/WhatsAppAnalytics"));
-const Campanhas = lazyWithRetry(() => import("./pages/admin/Campanhas"));
+const GestaoMarketing = lazyWithRetry(() => import("./pages/admin/GestaoMarketing"));
 const SiteBuilder = lazyWithRetry(() => import("./pages/admin/SiteBuilder"));
 
 const queryClient = new QueryClient({
@@ -127,7 +127,8 @@ const App = () => (
                 <Route path="/admin/dre" element={<Suspense fallback={<PageLoader />}><GestaoDRE /></Suspense>} />
                 <Route path="/admin/erp-integrations" element={<Suspense fallback={<PageLoader />}><ERPIntegrationsConfig /></Suspense>} />
                 <Route path="/admin/erp-mapping" element={<Suspense fallback={<PageLoader />}><ERPVendorMapping /></Suspense>} />
-                <Route path="/admin/campanhas" element={<Suspense fallback={<PageLoader />}><Campanhas /></Suspense>} />
+                <Route path="/admin/campanhas" element={<Suspense fallback={<PageLoader />}><GestaoMarketing /></Suspense>} />
+                <Route path="/admin/marketing" element={<Suspense fallback={<PageLoader />}><GestaoMarketing /></Suspense>} />
                 <Route path="/admin/whatsapp-bulk-send" element={<Suspense fallback={<PageLoader />}><WhatsAppBulkSend /></Suspense>} />
                 <Route path="/admin/whatsapp-campaigns" element={<Suspense fallback={<PageLoader />}><WhatsAppCampaigns /></Suspense>} />
                 <Route path="/admin/whatsapp-analytics" element={<Suspense fallback={<PageLoader />}><WhatsAppAnalytics /></Suspense>} />

@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://controleoliveiramartins.com/promptspec.schema.json",
+  "title": "PromptSpec v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["specVersion", "tenant", "asset", "format", "content", "creative", "outputs"],
+  "properties": {
+    "specVersion": { "type": "string", "enum": ["1.0"] },
+    "id": { "type": "string", "description": "UUID do spec (gerado pelo backend)" },
+    "tenant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storeId", "userId"],
+      "properties": {
+        "storeId": { "type": "string", "format": "uuid" },
+        "userId": { "type": "string", "format": "uuid" },
+        "siteSlug": { "type": "string" }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "purpose", "locale"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["image", "video", "carousel", "image_edit", "video_edit"]
+        },
+        "subtype": {
+          "type": "string",
+          "enum": ["feed_post", "story", "reel", "ad", "thumbnail", "banner", "generic"]
+        },
+        "purpose": {
+          "type": "string",
+          "enum": ["awareness", "education", "conversion", "retention", "branding", "announcement"]
+        },
+        "locale": { "type": "string", "default": "pt-BR" }
+      }
+    },
+    "format": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aspectRatio"],
+      "properties": {
+        "aspectRatio": { "type": "string", "enum": ["1:1", "4:5", "9:16", "16:9"] },
+        "width": { "type": "integer", "minimum": 256 },
+        "height": { "type": "integer", "minimum": 256 },
+        "durationSeconds": { "type": "integer", "minimum": 1, "maximum": 120 },
+        "safeAreas": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "topPx": { "type": "integer", "minimum": 0 },
+            "bottomPx": { "type": "integer", "minimum": 0 },
+            "leftPx": { "type": "integer", "minimum": 0 },
+            "rightPx": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "brand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "palette": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "primary": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+            "secondary": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+            "accent": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+            "background": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
+          }
+        },
+        "fonts": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "heading": { "type": "string" },
+            "body": { "type": "string" }
+          }
+        },
+        "logo": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "url": { "type": "string", "format": "uri" },
+            "placement": {
+              "type": "string",
+              "enum": ["none", "top_left", "top_right", "bottom_left", "bottom_right"]
+            },
+            "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1.0 }
+          }
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["role", "source"],
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": ["product", "model", "reference", "background", "style_ref", "logo"]
+              },
+              "source": { "type": "string", "enum": ["url", "supabase_path", "base64"] },
+              "value": { "type": "string" },
+              "mimeType": { "type": "string" }
+            }
+          }
+        },
+        "mask": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source": { "type": "string", "enum": ["url", "supabase_path", "base64"] },
+            "value": { "type": "string" },
+            "mimeType": { "type": "string", "default": "image/png" }
+          }
+        }
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["brief"],
+      "properties": {
+        "brief": { "type": "string", "minLength": 1 },
+        "text": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "headline": { "type": "string" },
+            "subheadline": { "type": "string" },
+            "body": { "type": "string" },
+            "cta": { "type": "string" }
+          }
+        },
+        "carousel": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "slides": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 12,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["role", "headline"],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": ["cover", "concept", "explain", "example", "proof", "steps", "closing", "cta"]
+                  },
+                  "headline": { "type": "string" },
+                  "body": { "type": "string" },
+                  "notes": { "type": "string" },
+                  "visualDirection": { "type": "string" },
+                  "layoutNotes": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "video": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "script": { "type": "string" },
+            "shotList": {
+              "type": "array",
+              "maxItems": 12,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["scene"],
+                "properties": {
+                  "scene": { "type": "string" },
+                  "camera": { "type": "string" },
+                  "lighting": { "type": "string" },
+                  "motion": { "type": "string" },
+                  "audio": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "edit": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "preserve": { "type": "array", "items": { "type": "string" } },
+            "change": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "creative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["style"],
+      "properties": {
+        "style": { "type": "string", "description": "Ex: editorial minimalista premium" },
+        "mood": { "type": "string" },
+        "references": { "type": "array", "items": { "type": "string" } },
+        "negative": { "type": "array", "items": { "type": "string" } },
+        "textRules": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxWordsHeadline": { "type": "integer", "minimum": 1, "maximum": 30 },
+            "maxWordsBody": { "type": "integer", "minimum": 0, "maximum": 120 },
+            "avoid": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "variants": { "type": "integer", "minimum": 1, "maximum": 4, "default": 1 },
+        "quality": { "type": "string", "enum": ["auto", "low", "medium", "high"], "default": "high" }
+      }
+    },
+    "providerHints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preferredProvider": { "type": "string", "enum": ["gemini", "openai"] },
+        "fallbackProvider": { "type": "string", "enum": ["gemini", "openai"] },
+        "model": { "type": "string" }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storage"],
+      "properties": {
+        "storage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bucket", "pathPrefix"],
+          "properties": {
+            "bucket": { "type": "string", "default": "marketing" },
+            "pathPrefix": { "type": "string" },
+            "makePublic": { "type": "boolean", "default": false },
+            "signedUrlExpiresSeconds": {
+              "type": "integer",
+              "minimum": 60,
+              "maximum": 604800,
+              "default": 86400
+            }
+          }
+        },
+        "return": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "includeThumbnail": { "type": "boolean", "default": true }
+          }
+        }
+      }
+    }
+  }
+}
+
