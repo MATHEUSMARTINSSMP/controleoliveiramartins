@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BarChart3, TrendingUp, DollarSign, Image as ImageIcon, Video, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { getStoreIdFromProfile } from "@/lib/storeLogo";
 import { format, subDays, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -31,19 +32,20 @@ interface QuotaInfo {
  */
 export function MarketingAnalytics() {
   const { profile } = useAuth();
+  const storeId = profile ? getStoreIdFromProfile(profile) : null;
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("monthly");
   const [usageData, setUsageData] = useState<UsageData[]>([]);
   const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (profile?.store_id) {
+    if (storeId) {
       loadAnalytics();
     }
-  }, [profile?.store_id, period]);
+  }, [storeId, period]);
 
   const loadAnalytics = async () => {
-    if (!profile?.store_id) return;
+    if (!storeId) return;
 
     try {
       setLoading(true);

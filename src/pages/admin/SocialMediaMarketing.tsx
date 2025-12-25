@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PROVIDER_CONFIG, getDefaultModel, getAllowedModels } from "@/lib/config/provider-config";
 import { fileToBase64 } from "@/lib/ai-providers/image-utils";
+import { getStoreIdFromProfile } from "@/lib/storeLogo";
 
 export default function SocialMediaMarketing() {
   const { profile, loading: authLoading } = useAuth();
@@ -30,8 +31,9 @@ export default function SocialMediaMarketing() {
   const [newlyCompletedJobId, setNewlyCompletedJobId] = useState<string | null>(null);
   const [highlightAssetId, setHighlightAssetId] = useState<string | null>(null);
 
-  // Verificar se store_id está disponível
-  const hasStoreId = !!profile?.store_id;
+  // Obter store_id usando função que lida com diferentes roles
+  const storeId = profile ? getStoreIdFromProfile(profile) : null;
+  const hasStoreId = !!storeId;
 
   return (
     <div className="space-y-6">
@@ -160,7 +162,9 @@ function GenerateContentTab({ onJobCreated }: { onJobCreated?: (jobId: string) =
   const [showPromptExpander, setShowPromptExpander] = useState(false);
   const { profile } = useAuth();
   
-  const hasStoreId = !!profile?.store_id;
+  // Obter store_id usando função que lida com diferentes roles
+  const storeId = profile ? getStoreIdFromProfile(profile) : null;
+  const hasStoreId = !!storeId;
 
   // Atualizar modelo quando provider ou type mudar
   useEffect(() => {
@@ -186,7 +190,7 @@ function GenerateContentTab({ onJobCreated }: { onJobCreated?: (jobId: string) =
       return;
     }
 
-    if (!profile?.store_id) {
+    if (!storeId) {
       toast.error("Loja não identificada");
       return;
     }
@@ -241,7 +245,7 @@ function GenerateContentTab({ onJobCreated }: { onJobCreated?: (jobId: string) =
           provider,
           model: model || (type === "image" ? "gemini-2.5-flash-image" : "veo-2.0-generate-001"),
           prompt: prompt.trim(),
-          storeId: profile.store_id,
+          storeId: storeId,
           inputImages: inputImagesBase64,
           mask: maskBase64,
           output: {
@@ -288,7 +292,7 @@ function GenerateContentTab({ onJobCreated }: { onJobCreated?: (jobId: string) =
         originalPrompt={prompt}
         onSelectPrompt={handlePromptSelected}
         onCancel={() => setShowPromptExpander(false)}
-        storeId={profile?.store_id}
+        storeId={storeId}
       />
     );
   }
@@ -490,9 +494,10 @@ function GenerateContentTab({ onJobCreated }: { onJobCreated?: (jobId: string) =
  */
 function GalleryTab({ highlightAssetId }: { highlightAssetId?: string | null }) {
   const { profile } = useAuth();
+  const storeId = profile ? getStoreIdFromProfile(profile) : null;
   const [filterType, setFilterType] = useState<"image" | "video" | undefined>(undefined);
   const [filterProvider, setFilterProvider] = useState<"gemini" | "openai" | undefined>(undefined);
-  const { assets, loading, error, refetch } = useMarketingAssets(profile?.store_id, filterType);
+  const { assets, loading, error, refetch } = useMarketingAssets(storeId || undefined, filterType);
 
   if (loading) {
     return (
@@ -666,7 +671,7 @@ function AssetCard({ asset, isHighlighted = false }: { asset: any; isHighlighted
  */
 function JobsTab({ onJobCompleted }: { onJobCompleted?: (jobId: string, assetId: string | null) => void }) {
   const { profile } = useAuth();
-  const { jobs, loading, error, refetch } = useMarketingJobs(profile?.store_id);
+  const { jobs, loading, error, refetch } = useMarketingJobs(storeId || undefined);
   const previousJobsRef = useRef<any[]>([]);
 
   // Detectar quando um job muda de status para done

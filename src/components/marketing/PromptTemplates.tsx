@@ -36,6 +36,7 @@ interface PromptTemplatesProps {
  */
 export function PromptTemplates({ type, provider, onSelectTemplate }: PromptTemplatesProps) {
   const { profile } = useAuth();
+  const storeId = profile ? getStoreIdFromProfile(profile) : null;
   const [templates, setTemplates] = useState<PromptTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -50,13 +51,13 @@ export function PromptTemplates({ type, provider, onSelectTemplate }: PromptTemp
 
   // Carregar templates
   useEffect(() => {
-    if (profile?.store_id) {
+    if (storeId) {
       loadTemplates();
     }
-  }, [profile?.store_id, type, provider]);
+  }, [storeId, type, provider]);
 
   const loadTemplates = async () => {
-    if (!profile?.store_id) return;
+    if (!storeId) return;
 
     try {
       setLoading(true);
