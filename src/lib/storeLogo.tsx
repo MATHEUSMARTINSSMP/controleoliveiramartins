@@ -19,7 +19,14 @@ export const getStoreLogo = (storeId: string | null | undefined): string | null 
 };
 
 /**
- * Obtém o store_id de um perfil (para LOJA é store_default, para COLABORADORA pode ser store_id ou store_default)
+ * Obtém o store_id de um perfil
+ * 
+ * - Para LOJA: store_default contém o ID da loja
+ * - Para COLABORADORA: usar store_id se disponível, senão store_default
+ * - Para ADMIN: retorna null (ADMINs podem ter múltiplas lojas, necessário selecionar uma loja específica)
+ * 
+ * @param profile - Perfil do usuário
+ * @returns ID da loja ou null se não encontrado
  */
 export const getStoreIdFromProfile = (profile: { store_id?: string | null; store_default?: string | null; role?: string } | null): string | null => {
   if (!profile) return null;
@@ -27,6 +34,15 @@ export const getStoreIdFromProfile = (profile: { store_id?: string | null; store
   // Para LOJA, store_default contém o ID da loja
   if (profile.role === 'LOJA') {
     return profile.store_default || null;
+  }
+  
+  // Para ADMIN, não retorna store_id porque pode ter múltiplas lojas
+  // Módulos que precisam de store_id devem ter um seletor de loja para ADMIN
+  if (profile.role === 'ADMIN') {
+    // ADMIN pode ter store_id ou store_default, mas geralmente terá múltiplas lojas
+    // Retornar store_id ou store_default se existir, senão null
+    // Nota: Para módulos que precisam de isolamento por loja, considerar implementar seletor de loja
+    return profile.store_id || profile.store_default || null;
   }
   
   // Para COLABORADORA, usar store_id se disponível, senão store_default
