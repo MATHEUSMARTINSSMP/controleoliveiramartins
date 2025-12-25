@@ -73,7 +73,7 @@ export function MarketingAnalytics() {
         .schema("sistemaretiradas")
         .from("marketing_usage")
         .select("*")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", storeId)
         .gte("period_start", startDate.toISOString())
         .lte("period_start", endDate.toISOString())
         .order("period_start", { ascending: true });

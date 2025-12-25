@@ -108,7 +108,7 @@ export function PromptTemplates({ type, provider, onSelectTemplate }: PromptTemp
         .schema("sistemaretiradas")
         .from("marketing_templates")
         .insert({
-          store_id: profile.store_id,
+          store_id: storeId,
           user_id: profile.id,
           name: newTemplate.name.trim(),
           description: newTemplate.description.trim() || null,
