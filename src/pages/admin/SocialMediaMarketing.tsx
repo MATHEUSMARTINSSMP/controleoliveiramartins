@@ -159,6 +159,8 @@ function GenerateContentTab({ onJobCreated }: { onJobCreated?: (jobId: string) =
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPromptExpander, setShowPromptExpander] = useState(false);
   const { profile } = useAuth();
+  
+  const hasStoreId = !!profile?.store_id;
 
   // Atualizar modelo quando provider ou type mudar
   useEffect(() => {
