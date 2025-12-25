@@ -65,7 +65,7 @@ export function PromptTemplates({ type, provider, onSelectTemplate }: PromptTemp
         .schema("sistemaretiradas")
         .from("marketing_templates")
         .select("*")
-        .eq("store_id", profile.store_id)
+        .eq("store_id", storeId)
         .eq("type", type)
         .order("is_favorite", { ascending: false })
         .order("usage_count", { ascending: false })
