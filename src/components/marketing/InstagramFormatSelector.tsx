@@ -105,14 +105,14 @@ export function InstagramFormatSelector({ type, selectedFormat, onFormatSelect }
   const currentFormat = selectedFormat || defaultFormat;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <div>
-        <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-          <Instagram className="h-5 w-5" />
+        <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
+          <Instagram className="h-4 w-4" />
           Formatos do Instagram {type === 'image' ? '(Imagens)' : '(Vídeos)'}
         </h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Escolha o formato ideal para seu conteúdo. Cada formato tem características específicas de tamanho e uso.
+        <p className="text-xs text-muted-foreground">
+          Escolha o formato ideal para seu conteúdo
         </p>
       </div>
 
