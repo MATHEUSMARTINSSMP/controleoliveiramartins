@@ -1,10 +1,11 @@
 /**
  * Upload de Mídia para Supabase Storage
  * 
- * Path estruturado: marketing/{store_id}/{user_id}/{type}/{yyyy}/{mm}/{asset_id}.{ext}
+ * Path estruturado: marketing/{site_slug ou store_id}/{user_id}/{type}/{yyyy}/{mm}/{asset_id}.{ext}
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { ensureMarketingBucket, getStoreIdentifier } from './ensure-bucket';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -36,17 +37,23 @@ export async function uploadMedia(options: UploadMediaOptions): Promise<UploadRe
     db: { schema: 'sistemaretiradas' },
   });
 
+  // Garantir que o bucket existe (criação automática)
+  await ensureMarketingBucket(supabase);
+
+  // Obter identificador da loja (site_slug se disponível, senão store_id)
+  const storeIdentifier = await getStoreIdentifier(supabase, storeId);
+
   // Determinar extensão do arquivo
   const extension = getExtensionFromMimeType(mimeType);
 
-  // Gerar path estruturado
+  // Gerar path estruturado usando site_slug quando disponível
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
-  const path = `marketing/${storeId}/${userId}/${type}/${year}/${month}/${assetId}.${extension}`;
+  const path = `marketing/${storeIdentifier}/${userId}/${type}/${year}/${month}/${assetId}.${extension}`;
 
-  // Upload para Supabase Storage
-  const { data, error } = await supabase.storage
+  // Upload para Supabase Storage (com retry se bucket não encontrado)
+  let uploadResult = await supabase.storage
     .from('marketing')
     .upload(path, buffer, {
       contentType: mimeType,
@@ -54,8 +61,23 @@ export async function uploadMedia(options: UploadMediaOptions): Promise<UploadRe
       cacheControl: type === 'video' ? '3600' : '31536000', // 1h para vídeo, 1 ano para imagem
     });
 
-  if (error) {
-    throw new Error(`Erro ao fazer upload: ${error.message}`);
+  // Se o erro for "Bucket not found", tentar criar bucket novamente e fazer retry
+  if (uploadResult.error && uploadResult.error.message && uploadResult.error.message.includes('Bucket not found')) {
+    console.log('[uploadMedia] Bucket não encontrado, tentando criar novamente...');
+    await ensureMarketingBucket(supabase);
+    
+    // Retry do upload
+    uploadResult = await supabase.storage
+      .from('marketing')
+      .upload(path, buffer, {
+        contentType: mimeType,
+        upsert: false,
+        cacheControl: type === 'video' ? '3600' : '31536000',
+      });
+  }
+
+  if (uploadResult.error) {
+    throw new Error(`Erro ao fazer upload: ${uploadResult.error.message}`);
   }
 
   // Gerar URL pública (se bucket for público)
@@ -105,11 +127,17 @@ export async function uploadThumbnail(
     db: { schema: 'sistemaretiradas' },
   });
 
+  // Garantir que o bucket existe (criação automática)
+  await ensureMarketingBucket(supabase);
+
+  // Obter identificador da loja (site_slug se disponível, senão store_id)
+  const storeIdentifier = await getStoreIdentifier(supabase, storeId);
+
   const extension = getExtensionFromMimeType(mimeType);
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
-  const path = `marketing/${storeId}/${userId}/thumbs/${year}/${month}/${assetId}.${extension}`;
+  const path = `marketing/${storeIdentifier}/${userId}/thumbs/${year}/${month}/${assetId}.${extension}`;
 
   const { error } = await supabase.storage.from('marketing').upload(path, buffer, {
     contentType: mimeType,
