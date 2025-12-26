@@ -42,12 +42,14 @@ export function useMarketingJobs(storeId: string | undefined) {
 
   const fetchJobs = async () => {
     if (!storeId) {
+      console.log("[useMarketingJobs] storeId não fornecido, limpando jobs");
       setJobs([]);
       setLoading(false);
       return;
     }
 
     try {
+      console.log("[useMarketingJobs] Buscando jobs para storeId:", storeId);
       setError(null);
 
       const { data, error: fetchError } = await supabase
@@ -58,7 +60,12 @@ export function useMarketingJobs(storeId: string | undefined) {
         .order("created_at", { ascending: false })
         .limit(50);
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error("[useMarketingJobs] Erro na query:", fetchError);
+        throw fetchError;
+      }
+
+      console.log("[useMarketingJobs] Jobs encontrados:", data?.length || 0, data);
 
       // Mapear dados do banco para a interface
       const mappedJobs = (data || []).map((job: any) => ({
@@ -67,9 +74,16 @@ export function useMarketingJobs(storeId: string | undefined) {
         result_asset_id: job.result?.assetId || job.result?.assetIds?.[0] || null,
       }));
 
+      console.log("[useMarketingJobs] Jobs mapeados:", mappedJobs.length);
       setJobs(mappedJobs as MarketingJob[]);
     } catch (err: any) {
-      console.error("Erro ao buscar jobs:", err);
+      console.error("[useMarketingJobs] Erro ao buscar jobs:", err);
+      console.error("[useMarketingJobs] Detalhes do erro:", {
+        message: err.message,
+        code: err.code,
+        details: err.details,
+        hint: err.hint,
+      });
       setError(err.message || "Erro ao carregar jobs");
       setJobs([]);
     } finally {

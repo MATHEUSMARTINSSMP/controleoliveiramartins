@@ -828,7 +828,14 @@ function AssetCard({
  */
 function JobsTab({ storeId: propStoreId, onJobCompleted }: { storeId?: string | null; onJobCompleted?: (jobId: string, assetId: string | null) => void }) {
   const { profile } = useAuth();
-  const storeId = propStoreId || (profile ? getStoreIdFromProfile(profile) : null);
+  const storeId = propStoreId || (profile ? getStoreIdFromProfile(profile) : null;
+  
+  // Log para debug
+  useEffect(() => {
+    console.log("[JobsTab] storeId:", storeId);
+    console.log("[JobsTab] profile:", profile);
+  }, [storeId, profile]);
+  
   const { jobs, loading, error, refetch } = useMarketingJobs(storeId || undefined);
   const previousJobsRef = useRef<any[]>([]);
 
