@@ -19,7 +19,7 @@ import { ImageUploadInput, ImageFile } from "@/components/marketing/ImageUploadI
 import { MaskUploadInput, MaskFile } from "@/components/marketing/MaskUploadInput";
 import { PromptTemplates, PromptTemplate } from "@/components/marketing/PromptTemplates";
 import { MarketingAnalytics } from "@/components/marketing/MarketingAnalytics";
-import { InstagramFormatSelector, INSTAGRAM_FORMATS, InstagramFormat } from "@/components/marketing/InstagramFormatSelector";
+import { InstagramFormatSelector, getInstagramFormats, InstagramFormat } from "@/components/marketing/InstagramFormatSelector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { PROVIDER_CONFIG, getDefaultModel, getAllowedModels } from "@/lib/config/provider-config";
@@ -259,6 +259,14 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
   // Usar hook de jobs para monitoramento em tempo real
   const { jobs } = useMarketingJobs(storeId || undefined);
   
+  // Resetar formato quando o tipo mudar
+  useEffect(() => {
+    const formats = getInstagramFormats(type);
+    if (formats.length > 0 && !formats.find(f => f.id === selectedFormat)) {
+      setSelectedFormat(formats[0].id);
+    }
+  }, [type, selectedFormat]);
+  
   // Monitorar jobs concluídos em tempo real e atualizar imagens geradas
   useEffect(() => {
     if (!processingJobId) return;
@@ -405,19 +413,29 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
           mask: maskBase64,
           variations: type === "image" ? 3 : 1, // Gerar 3 alternativas para imagens
           output: {
-            size: type === "image" 
-              ? (() => {
+            size: (() => {
+                if (type === "image") {
                   // Ajustar tamanho baseado no formato do Instagram selecionado
-                  const format = INSTAGRAM_FORMATS.find(f => f.id === selectedFormat);
-                  if (format?.id === "story" || format?.id === "reel") {
+                  const formats = getInstagramFormats("image");
+                  const format = formats.find(f => f.id === selectedFormat);
+                  if (format?.id === "story") {
                     return "1080x1920"; // Vertical 9:16
                   } else if (format?.id === "landscape") {
                     return "1080x566"; // Horizontal 1.91:1
                   } else {
                     return "1080x1080"; // Quadrado 1:1 (post, carousel)
                   }
-                })()
-              : "1280x720",
+                } else {
+                  // Para vídeos, ajustar baseado no formato selecionado
+                  const formats = getInstagramFormats("video");
+                  const format = formats.find(f => f.id === selectedFormat);
+                  if (format?.id === "reel" || format?.id === "story") {
+                    return "1080x1920"; // Vertical 9:16
+                  } else {
+                    return "1280x720"; // Padrão 16:9
+                  }
+                }
+              })(),
             seconds: type === "video" ? 8 : undefined,
           },
         }),
@@ -732,15 +750,14 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
           </Button>
         </div>
 
-        {/* Instagram Format Selector (apenas para imagens) */}
-        {type === "image" && (
-          <div className="space-y-2">
-            <InstagramFormatSelector
-              selectedFormat={selectedFormat}
-              onFormatSelect={setSelectedFormat}
-            />
-          </div>
-        )}
+        {/* Instagram Format Selector */}
+        <div className="space-y-2">
+          <InstagramFormatSelector
+            type={type}
+            selectedFormat={selectedFormat}
+            onFormatSelect={setSelectedFormat}
+          />
+        </div>
 
         {/* Provider & Model Selector */}
         <div className="grid grid-cols-2 gap-2">

@@ -18,7 +18,8 @@ export interface InstagramFormat {
   examples: string[];
 }
 
-export const INSTAGRAM_FORMATS: InstagramFormat[] = [
+// Formatos para IMAGENS
+export const INSTAGRAM_IMAGE_FORMATS: InstagramFormat[] = [
   {
     id: 'post',
     name: 'Post Quadrado',
@@ -38,16 +39,6 @@ export const INSTAGRAM_FORMATS: InstagramFormat[] = [
     icon: <RectangleVertical className="h-6 w-6" />,
     color: 'bg-primary',
     examples: ['24 horas de duração', 'Ideal para promoções', 'Alta interação'],
-  },
-  {
-    id: 'reel',
-    name: 'Reels',
-    description: 'Vídeos curtos verticais',
-    dimensions: '1080 x 1920 px',
-    aspectRatio: '9:16',
-    icon: <RectangleVertical className="h-6 w-6" />,
-    color: 'bg-primary',
-    examples: ['Até 90 segundos', 'Algoritmo prioriza', 'Máximo engajamento'],
   },
   {
     id: 'carousel',
@@ -71,18 +62,54 @@ export const INSTAGRAM_FORMATS: InstagramFormat[] = [
   },
 ];
 
+// Formatos para VÍDEOS
+export const INSTAGRAM_VIDEO_FORMATS: InstagramFormat[] = [
+  {
+    id: 'reel',
+    name: 'Reels',
+    description: 'Vídeos curtos verticais',
+    dimensions: '1080 x 1920 px',
+    aspectRatio: '9:16',
+    icon: <RectangleVertical className="h-6 w-6" />,
+    color: 'bg-primary',
+    examples: ['Até 90 segundos', 'Algoritmo prioriza', 'Máximo engajamento'],
+  },
+  {
+    id: 'story',
+    name: 'Stories',
+    description: 'Vídeos verticais temporários',
+    dimensions: '1080 x 1920 px',
+    aspectRatio: '9:16',
+    icon: <RectangleVertical className="h-6 w-6" />,
+    color: 'bg-primary',
+    examples: ['24 horas de duração', 'Ideal para promoções', 'Alta interação'],
+  },
+];
+
+// Helper para obter formatos baseado no tipo
+export function getInstagramFormats(type: 'image' | 'video'): InstagramFormat[] {
+  return type === 'image' ? INSTAGRAM_IMAGE_FORMATS : INSTAGRAM_VIDEO_FORMATS;
+}
+
 interface InstagramFormatSelectorProps {
+  type: 'image' | 'video';
   selectedFormat?: string;
   onFormatSelect: (formatId: string) => void;
 }
 
-export function InstagramFormatSelector({ selectedFormat, onFormatSelect }: InstagramFormatSelectorProps) {
+export function InstagramFormatSelector({ type, selectedFormat, onFormatSelect }: InstagramFormatSelectorProps) {
+  const formats = getInstagramFormats(type);
+  
+  // Definir formato padrão se não houver seleção
+  const defaultFormat = formats[0]?.id;
+  const currentFormat = selectedFormat || defaultFormat;
+
   return (
     <div className="space-y-4">
       <div>
         <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
           <Instagram className="h-5 w-5" />
-          Formatos do Instagram
+          Formatos do Instagram {type === 'image' ? '(Imagens)' : '(Vídeos)'}
         </h3>
         <p className="text-sm text-muted-foreground mb-4">
           Escolha o formato ideal para seu conteúdo. Cada formato tem características específicas de tamanho e uso.
@@ -90,7 +117,7 @@ export function InstagramFormatSelector({ selectedFormat, onFormatSelect }: Inst
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {INSTAGRAM_FORMATS.map((format) => (
+        {formats.map((format) => (
           <Card
             key={format.id}
             className={`cursor-pointer transition-all hover:shadow-lg ${
