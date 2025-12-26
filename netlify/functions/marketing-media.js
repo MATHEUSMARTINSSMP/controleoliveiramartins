@@ -95,6 +95,18 @@ exports.handler = async (event) => {
     }
 
     // Criar cliente Supabase
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('[marketing-media] Variáveis de ambiente não configuradas');
+      return {
+        statusCode: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          error: 'Configuração do servidor incompleta',
+          code: 'CONFIG_ERROR',
+        }),
+      };
+    }
+
     const supabaseAdmin = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -145,33 +157,43 @@ exports.handler = async (event) => {
       };
     }
 
-    // Verificar rate limit
-    const rateLimitCheck = await checkRateLimit(supabaseAdmin, storeId);
-    if (!rateLimitCheck.allowed) {
-      return {
-        statusCode: 429,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          error: 'Rate limit excedido',
-          code: 'RATE_LIMIT',
-          resetAt: rateLimitCheck.resetAt,
-        }),
-      };
+    // Verificar rate limit (não bloquear se falhar, apenas logar)
+    try {
+      const rateLimitCheck = await checkRateLimit(supabaseAdmin, storeId);
+      if (!rateLimitCheck.allowed) {
+        return {
+          statusCode: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            error: 'Rate limit excedido',
+            code: 'RATE_LIMIT',
+            resetAt: rateLimitCheck.resetAt,
+          }),
+        };
+      }
+    } catch (error) {
+      console.warn('[marketing-media] Erro ao verificar rate limit:', error);
+      // Continuar mesmo se falhar a verificação
     }
 
-    // Verificar quotas
-    const quotaCheck = await checkQuota(supabaseAdmin, storeId, type);
-    if (!quotaCheck.canProceed) {
-      return {
-        statusCode: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          error: 'Quota excedida',
-          code: 'QUOTA_EXCEEDED',
-          daily: quotaCheck.daily,
-          monthly: quotaCheck.monthly,
-        }),
-      };
+    // Verificar quotas (não bloquear se falhar, apenas logar)
+    try {
+      const quotaCheck = await checkQuota(supabaseAdmin, storeId, type);
+      if (!quotaCheck.canProceed) {
+        return {
+          statusCode: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            error: 'Quota excedida',
+            code: 'QUOTA_EXCEEDED',
+            daily: quotaCheck.daily,
+            monthly: quotaCheck.monthly,
+          }),
+        };
+      }
+    } catch (error) {
+      console.warn('[marketing-media] Erro ao verificar quota:', error);
+      // Continuar mesmo se falhar a verificação
     }
 
     // Validar prompt (básico)
@@ -302,9 +324,11 @@ async function checkRateLimit(supabase, storeId) {
 async function checkQuota(supabase, storeId, type) {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  todayStart.setHours(0, 0, 0, 0);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  monthStart.setHours(0, 0, 0, 0);
 
-  // Buscar uso diário e mensal
+  // Buscar uso diário e mensal (usar maybeSingle para não falhar se não existir)
   const [dailyData, monthlyData] = await Promise.all([
     supabase
       .schema('sistemaretiradas')
@@ -314,7 +338,7 @@ async function checkQuota(supabase, storeId, type) {
       .eq('period_start', todayStart.toISOString())
       .eq('period_type', 'daily')
       .eq('type', type)
-      .single(),
+      .maybeSingle(),
     supabase
       .schema('sistemaretiradas')
       .from('marketing_usage')
@@ -323,22 +347,25 @@ async function checkQuota(supabase, storeId, type) {
       .eq('period_start', monthStart.toISOString())
       .eq('period_type', 'monthly')
       .eq('type', type)
-      .single(),
+      .maybeSingle(),
   ]);
 
   const dailyLimit = 100;
   const monthlyLimit = 2000;
 
+  const dailyCount = dailyData.data?.count || 0;
+  const monthlyCount = monthlyData.data?.count || 0;
+
   const daily = {
-    currentCount: dailyData.data?.count || 0,
+    currentCount: dailyCount,
     limitCount: dailyLimit,
-    withinLimit: (dailyData.data?.count || 0) < dailyLimit,
+    withinLimit: dailyCount < dailyLimit,
   };
 
   const monthly = {
-    currentCount: monthlyData.data?.count || 0,
+    currentCount: monthlyCount,
     limitCount: monthlyLimit,
-    withinLimit: (monthlyData.data?.count || 0) < monthlyLimit,
+    withinLimit: monthlyCount < monthlyLimit,
   };
 
   return {
