@@ -459,7 +459,21 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
         // Iniciar polling (não bloquear - deixar o useEffect monitorar)
         pollJobUntilComplete(data.jobId, session.access_token).catch((err) => {
           console.error("[GenerateContentTab] Erro no polling:", err);
-          // Não mostrar erro - o useEffect vai detectar quando o job estiver pronto
+          const errorMsg = err?.message || String(err);
+          
+          // Se for erro relacionado a bucket ou upload, mostrar mensagem mais clara
+          if (errorMsg.includes("Bucket") || errorMsg.includes("upload") || errorMsg.includes("falhou")) {
+            toast.error(
+              errorMsg.includes("Bucket") 
+                ? "Erro ao criar bucket de armazenamento. O sistema tentará criar automaticamente. Tente novamente em alguns segundos."
+                : errorMsg,
+              { 
+                id: "generating",
+                duration: 8000,
+              }
+            );
+          }
+          // Não mostrar erro genérico - o useEffect vai detectar quando o job estiver pronto
         });
       } catch (processError: any) {
         console.error("[GenerateContentTab] Erro ao processar job:", processError);
@@ -534,19 +548,51 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
           return;
         } else if (jobData.status === "failed") {
           setProcessingJobId(null);
-          throw new Error(jobData.error_message || "Job falhou");
+          const errorMessage = jobData.error_message || jobData.error || "Job falhou sem mensagem de erro";
+          console.error("[GenerateContentTab] Job falhou:", {
+            jobId,
+            status: jobData.status,
+            error_message: jobData.error_message,
+            error: jobData.error,
+            progress: jobData.progress,
+            result: jobData.result,
+          });
+          throw new Error(errorMessage);
         }
 
         // Aguardar 3 segundos antes da próxima verificação (mais rápido)
         await new Promise((resolve) => setTimeout(resolve, 3000));
         attempts++;
       } catch (error: any) {
-        if (error.message.includes("Job falhou")) {
+        const errorMsg = error.message || String(error);
+        
+        // Se o job falhou, parar polling e mostrar erro
+        if (errorMsg.includes("Job falhou") || errorMsg.includes("failed") || errorMsg.includes("Bucket") || errorMsg.includes("upload")) {
           setProcessingJobId(null);
-          toast.error(error.message, { id: "generating" });
+          console.error("[GenerateContentTab] Erro fatal no polling:", {
+            jobId,
+            error: errorMsg,
+            attempts,
+            stack: error.stack,
+          });
+          
+          // Mostrar mensagem de erro mais detalhada
+          let userMessage = errorMsg;
+          if (errorMsg.includes("Bucket not found") || errorMsg.includes("Bucket")) {
+            userMessage = "Erro ao criar bucket de armazenamento. O sistema tentará criar automaticamente. Tente novamente em alguns segundos.";
+          } else if (errorMsg.includes("upload")) {
+            userMessage = `Erro ao fazer upload: ${errorMsg}`;
+          }
+          
+          toast.error(userMessage, { 
+            id: "generating",
+            duration: 8000,
+          });
           throw error;
         }
-        // Continuar tentando em caso de erro de rede
+        
+        // Continuar tentando em caso de erro de rede ou timeout
+        console.warn(`[GenerateContentTab] Erro temporário no polling (tentativa ${attempts}/${maxAttempts}):`, errorMsg);
         await new Promise((resolve) => setTimeout(resolve, 3000));
         attempts++;
       }
