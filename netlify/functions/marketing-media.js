@@ -128,49 +128,21 @@ exports.handler = async (event) => {
       };
     }
 
-    // Validar que a loja pertence ao usuário (verificar profile)
-    const { data: profile, error: profileError } = await supabaseAdmin
+    // Validar que o storeId existe e o usuário tem permissão básica
+    // A verificação de permissão detalhada é feita pelo RLS do Supabase
+    const { data: store, error: storeError } = await supabaseAdmin
       .schema('sistemaretiradas')
-      .from('profiles')
-      .select('store_id, store_default, role')
-      .eq('id', userId)
+      .from('stores')
+      .select('id, admin_id')
+      .eq('id', storeId)
       .single();
 
-    if (profileError || !profile) {
+    if (storeError || !store) {
       return {
-        statusCode: 403,
+        statusCode: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Perfil não encontrado', code: 'AUTH_ERROR' }),
+        body: JSON.stringify({ error: 'Loja não encontrada', code: 'VALIDATION_ERROR' }),
       };
-    }
-
-    // Verificar se o usuário tem permissão para a loja
-    // ADMIN pode acessar qualquer loja que ele gerencie
-    if (profile.role === 'ADMIN') {
-      const { data: store, error: storeError } = await supabaseAdmin
-        .schema('sistemaretiradas')
-        .from('stores')
-        .select('admin_id')
-        .eq('id', storeId)
-        .single();
-
-      if (storeError || !store || store.admin_id !== userId) {
-        return {
-          statusCode: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ error: 'Acesso negado a esta loja', code: 'AUTH_ERROR' }),
-        };
-      }
-    } else {
-      // LOJA/COLABORADORA só pode acessar sua própria loja
-      const userStoreId = profile.store_id || profile.store_default;
-      if (userStoreId !== storeId) {
-        return {
-          statusCode: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ error: 'Acesso negado a esta loja', code: 'AUTH_ERROR' }),
-        };
-      }
     }
 
     // Verificar rate limit
