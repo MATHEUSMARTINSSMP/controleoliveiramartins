@@ -1685,7 +1685,7 @@ function GalleryTab({ storeId: propStoreId, highlightAssetId, onEditAsset }: { s
                     key={asset.id}
                     asset={asset}
                     isHighlighted={asset.id === highlightAssetId}
-                    onEdit={handleEditAsset}
+                    onEdit={onEditAsset}
                   />
                 ))}
               </div>
@@ -1705,12 +1705,14 @@ function AssetCard({
   asset, 
   isHighlighted = false,
   showVariationBadge = false,
-  variationNumber = null
+  variationNumber = null,
+  onEdit
 }: { 
   asset: any; 
   isHighlighted?: boolean;
   showVariationBadge?: boolean;
   variationNumber?: number | null;
+  onEdit?: (asset: any) => void;
 }) {
   const mediaUrl = asset.public_url || asset.signed_url;
 

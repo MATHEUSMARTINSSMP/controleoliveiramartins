@@ -598,7 +598,7 @@ async function generateImageWithGeminiDirect(input) {
   }
 
   // Construir generationConfig com aspectRatio se disponível
-  const generationConfig: any = {
+  const generationConfig = {
     responseModalities: ['IMAGE'],
   };
 
