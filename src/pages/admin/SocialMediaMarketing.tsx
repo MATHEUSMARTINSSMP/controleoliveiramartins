@@ -548,14 +548,31 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
           return;
         } else if (jobData.status === "failed") {
           setProcessingJobId(null);
-          const errorMessage = jobData.error_message || jobData.error || "Job falhou sem mensagem de erro";
+          
+          // Extrair mensagem de erro (pode estar em diferentes campos)
+          let errorMessage = "Job falhou sem mensagem de erro";
+          if (jobData.error_message) {
+            errorMessage = jobData.error_message;
+          } else if (jobData.error) {
+            // error pode ser string ou objeto
+            if (typeof jobData.error === 'string') {
+              errorMessage = jobData.error;
+            } else if (jobData.error?.message) {
+              errorMessage = jobData.error.message;
+            } else if (typeof jobData.error === 'object') {
+              errorMessage = JSON.stringify(jobData.error);
+            }
+          }
+          
           console.error("[GenerateContentTab] Job falhou:", {
             jobId,
             status: jobData.status,
             error_message: jobData.error_message,
             error: jobData.error,
+            errorString: typeof jobData.error === 'object' ? JSON.stringify(jobData.error) : jobData.error,
             progress: jobData.progress,
             result: jobData.result,
+            extractedErrorMessage: errorMessage,
           });
           throw new Error(errorMessage);
         }
