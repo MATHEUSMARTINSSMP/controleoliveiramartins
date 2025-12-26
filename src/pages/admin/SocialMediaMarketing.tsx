@@ -801,7 +801,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
                 Descreva o que você quer criar e nossa IA irá gerar para você
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3">
         {/* Type Selector */}
         <div className="flex gap-2">
           <Button
@@ -823,16 +823,14 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
         </div>
 
         {/* Instagram Format Selector */}
-        <div className="space-y-2">
-          <InstagramFormatSelector
-            type={type}
-            selectedFormat={selectedFormat}
-            onFormatSelect={setSelectedFormat}
-          />
-        </div>
+        <InstagramFormatSelector
+          type={type}
+          selectedFormat={selectedFormat}
+          onFormatSelect={setSelectedFormat}
+        />
 
         {/* Provider & Model Selector */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <label className="text-sm font-medium">Provider</label>
             <Select value={provider} onValueChange={(value: "gemini" | "openai") => setProvider(value)}>
