@@ -807,8 +807,10 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
       });
 
       // Combinar prompt original com edição
+      // IMPORTANTE: Sem máscara, a IA vai gerar uma NOVA imagem inspirada na original,
+      // não uma edição precisa. Para edição precisa, seria necessário máscara.
       const originalPrompt = editingAsset.prompt || "";
-      const combinedPrompt = `${originalPrompt}. ${editPrompt.trim()}`;
+      const combinedPrompt = `MANTENHA TUDO EXATAMENTE IGUAL na imagem original, incluindo composição, cores, elementos visuais, layout, estilo e todos os detalhes. APENAS faça esta alteração específica: ${editPrompt.trim()}. A imagem resultante deve ser idêntica à original, exceto pela alteração solicitada.`;
 
       // Usar o mesmo provider e modelo da imagem original
       const assetProvider = editingAsset.provider || "gemini";
@@ -1432,7 +1434,10 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
           <DialogHeader>
             <DialogTitle>Editar Imagem</DialogTitle>
             <DialogDescription>
-              Descreva o que deseja alterar na imagem. A IA manterá tudo igual e fará apenas as alterações solicitadas.
+              Descreva o que deseja alterar na imagem. 
+              <span className="text-amber-600 dark:text-amber-400 font-medium">
+                {" "}⚠️ Nota: Esta funcionalidade gera uma nova imagem inspirada na original. Para edição precisa de áreas específicas, use a ferramenta de máscara na aba "Gerar Conteúdo".
+              </span>
             </DialogDescription>
           </DialogHeader>
           {editingAsset && (
