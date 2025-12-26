@@ -20,6 +20,7 @@ import { MaskUploadInput, MaskFile } from "@/components/marketing/MaskUploadInpu
 import { PromptTemplates, PromptTemplate } from "@/components/marketing/PromptTemplates";
 import { MarketingAnalytics } from "@/components/marketing/MarketingAnalytics";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { PROVIDER_CONFIG, getDefaultModel, getAllowedModels } from "@/lib/config/provider-config";
 import { fileToBase64 } from "@/lib/ai-providers/image-utils";
 import { getStoreIdFromProfile } from "@/lib/storeLogo";
