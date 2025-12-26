@@ -337,7 +337,7 @@ export default function LojaDashboard() {
             const vendidoHojeColab = perf.vendidoHoje || 0;
             const vendidoAteOntemColab = vendidoMesColab - vendidoHojeColab;
             const diferencaIndividual = vendidoAteOntemColab - metaEsperadaAteOntem;
-            
+
             let metaDinamica: number;
             let situacao: 'afrente' | 'atras' | 'neutro';
 
@@ -1041,12 +1041,12 @@ export default function LojaDashboard() {
             console.error('[calculateDynamicDailyGoal] ⚠️ daysInMonth inválido:', daysInMonth, { today, metaMensal });
             return 0;
         }
-        
+
         if (metaMensal <= 0) {
             console.warn('[calculateDynamicDailyGoal] ⚠️ metaMensal é zero ou negativa:', metaMensal, { today });
             return 0;
         }
-        
+
         let metaBaseDoDia = metaMensal / daysInMonth;
         if (dailyWeights && Object.keys(dailyWeights).length > 0) {
             const hojePeso = dailyWeights[today] || 0;
@@ -1073,22 +1073,22 @@ export default function LojaDashboard() {
         // CRÍTICO: Usar vendidoAteOntem (não inclui vendas de hoje) para garantir que a meta seja fixa durante o dia
         // A diferença compara: VENDIDO ATÉ ONTEM - META ESPERADA ATÉ ONTEM
         const diferenca = vendidoAteOntem - metaEsperadaAteOntem;
-        
+
         // CRÍTICO: Dividir déficit apenas pelos dias RESTANTES (SEM incluir hoje)
         // O dia atual tem sua meta fixa (metaBaseDoDia) e não deve ser incluído na distribuição do déficit
         // Isso garante que a meta dinâmica seja fixa no início do dia e não mude conforme as vendas do dia aumentam
         const diasRestantesSemHoje = diasRestantes; // SEM incluir hoje na distribuição do déficit
-        
+
         let metaDinamica: number = metaBaseDoDia;
 
         if (diferenca >= 0) {
             // CENÁRIO: À FRENTE DA META
             if (bonusFrente) {
-                const percentualAFrente = metaEsperadaAteOntem > 0 
-                    ? (diferenca / metaEsperadaAteOntem) 
+                const percentualAFrente = metaEsperadaAteOntem > 0
+                    ? (diferenca / metaEsperadaAteOntem)
                     : 0;
                 metaDinamica = metaBaseDoDia * (1 + percentualAFrente);
-                
+
                 console.log('[calculateDynamicDailyGoal] À FRENTE da meta (bonus ATIVO):', {
                     today,
                     metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
@@ -1121,7 +1121,7 @@ export default function LojaDashboard() {
                     metaAdicionalPorDia = deficit / diasRestantesSemHoje;
                 }
                 metaDinamica = metaBaseDoDia + metaAdicionalPorDia;
-                
+
                 console.log('[calculateDynamicDailyGoal] ATRÁS da meta (compensacao ATIVA):', {
                     today,
                     metaEsperadaAteOntem: metaEsperadaAteOntem.toFixed(2),
@@ -1317,7 +1317,7 @@ export default function LojaDashboard() {
             // Calcular meta diária DINÂMICA (usando vendidoHoje para excluir do cálculo do déficit)
             const daysInMonth = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
             const dailyWeights = data.daily_weights || {};
-            
+
             // Calcular peso acumulado até ONTEM para log (nova lógica corrigida)
             let pesoAcumuladoAteOntem = 0;
             const diaAtual = hoje.getDate();
@@ -1329,7 +1329,7 @@ export default function LojaDashboard() {
             const metaEsperadaAteOntem = (Number(data.meta_valor) * pesoAcumuladoAteOntem) / 100;
             const vendidoAteOntem = totalMes - totalHoje;
             const deficit = Math.max(0, metaEsperadaAteOntem - vendidoAteOntem);
-            
+
             console.log('[LojaDashboard] 📊 CÁLCULO META DIÁRIA (CORRIGIDO - EXCLUINDO HOJE):');
             console.log('[LojaDashboard]   Meta mensal:', Number(data.meta_valor));
             console.log('[LojaDashboard]   Vendido no mês (total):', totalMes);
@@ -1341,7 +1341,7 @@ export default function LojaDashboard() {
             console.log('[LojaDashboard]   DÉFICIT (atraso):', deficit.toFixed(2));
             console.log('[LojaDashboard]   Dias restantes (SEM hoje, para distribuição déficit):', diasRestantes);
             console.log('[LojaDashboard]   Daily weights keys:', Object.keys(dailyWeights).length);
-            
+
             console.log('[LojaDashboard] 🔍 Antes de calcular meta diária dinâmica:', {
                 metaMensal: Number(data.meta_valor),
                 totalMes,
@@ -1372,7 +1372,7 @@ export default function LojaDashboard() {
 
             setDailyGoal(daily);
             setDailyProgress((totalHoje / daily) * 100);
-            
+
             if (salesErr) {
                 console.error('[LojaDashboard] ❌ Erro ao buscar vendas de hoje:', salesErr);
             }
@@ -2114,23 +2114,23 @@ export default function LojaDashboard() {
             // 1. Performance COM meta > 0 → para Planejamento do Dia (gerentes sem meta não aparecem)
             // 2. Performance COMPLETA → para Caixa (todas que venderam aparecem)
             const performanceComMeta = performance.filter(p => p.meta > 0);
-            
+
             console.log('[LojaDashboard] 📊 Performance COM meta (Planejamento):', performanceComMeta.length, 'colaboradoras');
             performanceComMeta.forEach((p, idx) => {
                 console.log(`[LojaDashboard]   ${idx + 1}. ${p.name}: meta=R$ ${p.meta}, metaDiaria=R$ ${p.metaDiaria}, vendido hoje=R$ ${p.vendidoHoje}, vendido mês=R$ ${p.vendidoMes}`);
             });
-            
+
             console.log('[LojaDashboard] 📊 Performance COMPLETA (Caixa):', performance.length, 'colaboradoras');
             performance.forEach((p, idx) => {
                 console.log(`[LojaDashboard]   ${idx + 1}. ${p.name}: vendido hoje=R$ ${p.vendidoHoje}`);
             });
-            
+
             // Marcar que estamos usando dados locais (do fetchDataWithStoreId)
             useLocalPerformanceRef.current = true;
-            
+
             // ✅ Planejamento usa apenas colaboradoras COM meta
             setColaboradorasPerformance(performanceComMeta);
-            
+
             // ✅ Caixa usa lista completa - salvar em estado separado
             setColaboradorasPerformanceCaixa(performance);
         } else {
@@ -2333,17 +2333,17 @@ export default function LojaDashboard() {
                         // ✅ NOVO: Se for INSERT e vier do ERP, verificar linkagem e CRM
                         if (payload.eventType === 'INSERT' && payload.new) {
                             const newSale = payload.new as any;
-                            
+
                             // Verificar se é venda do ERP
                             const isErpSale = newSale.external_order_id || newSale.order_source || newSale.tiny_order_id;
-                            
+
                             // Se for venda do ERP e já foi linkada automaticamente, não abrir dialog de Nova Venda
                             // (já tem todas as informações do ERP)
                             if (isErpSale && newSale.attendance_id) {
                                 console.log('[LojaDashboard] ✅ Venda do ERP linkada automaticamente com atendimento');
                                 // Não abrir dialog de Nova Venda - já está tudo linkado
                             }
-                            
+
                             // Se for venda do ERP e CRM estiver ativo, abrir dialog de pós-venda
                             if (isErpSale) {
                                 const { data: storeData } = await supabase
@@ -2698,14 +2698,14 @@ export default function LojaDashboard() {
                 setSubmitSuccess(false);
                 setSubmitting(false);
             }, 1500);
-            
+
             // ✅ ATUALIZAR DADOS AUTOMATICAMENTE SEM PRECISAR REFRESH
             // Invalidar queries relacionadas para atualizar automaticamente
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales, 'store', storeId] });
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales, 'metrics', storeId] });
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.goals, storeId] });
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.profiles, 'colaboradoras', storeId] });
-            
+
             // Refetch imediato para atualização instantânea
             refetchSales();
             // PRIORIDADE 1: Salvar venda (já salvo acima)
@@ -2980,77 +2980,64 @@ export default function LojaDashboard() {
                             // e então recalcular o total incluindo a venda recém-criada
                             await new Promise(resolve => setTimeout(resolve, 500)); // 500ms de delay
 
-                            // Buscar total do dia (todas as vendas do dia da loja) - AGORA incluindo a venda recém-salva
+                            // Buscar total do dia (todas as vendas do dia da loja) - EXCLUINDO a venda atual
                             const hoje = new Date();
                             const hojeStr = format(hoje, 'yyyy-MM-dd');
                             const valorVendaAtual = parseFloat(vendaData.valor) || 0;
                             const saleIdAtual = insertedSale?.id;
 
+                            // ✅ SOLUÇÃO DEFINITIVA: Buscar vendas EXCLUINDO a venda atual
                             const { data: vendasHoje, error: vendasHojeError } = await supabase
                                 .schema('sistemaretiradas')
                                 .from('sales')
                                 .select('id, valor')
                                 .eq('store_id', storeId)
                                 .gte('data_venda', `${hojeStr}T00:00:00`)
-                                .lte('data_venda', `${hojeStr}T23:59:59`);
+                                .lte('data_venda', `${hojeStr}T23:59:59`)
+                                .neq('id', saleIdAtual); // ✅ EXCLUIR a venda atual
 
-                            // ✅ CORREÇÃO: Calcular total do dia e verificar se a venda atual já está incluída
-                            let totalDia = 0;
-                            let vendaAtualJaIncluida = false;
+                            // Calcular total do dia SEM a venda atual
+                            let totalDiaSemVendaAtual = 0;
                             if (!vendasHojeError && vendasHoje) {
-                                totalDia = vendasHoje.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
-                                // Verificar se a venda atual já está na lista pelo ID
-                                vendaAtualJaIncluida = vendasHoje.some((v: any) => v.id === saleIdAtual);
-                            }
-                            // ✅ Só adicionar a venda atual se ela NÃO estiver na query ainda
-                            if (!vendaAtualJaIncluida) {
-                                console.log('📱 [4/4] Venda atual NÃO estava na query, adicionando ao total...');
-                                totalDia = totalDia + valorVendaAtual;
-                            } else {
-                                console.log('📱 [4/4] Venda atual JÁ estava na query, não duplicando.');
+                                totalDiaSemVendaAtual = vendasHoje.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
                             }
 
-                            // ✅ CORREÇÃO: Recalcular total do mês também, verificando duplicatas
+                            // ✅ SEMPRE adicionar a venda atual (garantia de não duplicar)
+                            const totalDia = totalDiaSemVendaAtual + valorVendaAtual;
+                            console.log('📱 [4/4] Total do dia SEM venda atual:', totalDiaSemVendaAtual.toFixed(2));
+                            console.log('📱 [4/4] Venda atual:', valorVendaAtual.toFixed(2));
+                            console.log('📱 [4/4] Total do dia FINAL:', totalDia.toFixed(2));
+
+                            // ✅ CORREÇÃO: Recalcular total do mês também, EXCLUINDO a venda atual
                             // Reutilizar a variável 'hoje' já declarada acima
                             const mesAtualISO = hoje.toISOString().slice(0, 7); // Formato: yyyy-MM
                             const primeiroDiaMes = `${mesAtualISO}-01T00:00:00`;
                             const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
                             const ultimoDiaMesISO = format(ultimoDiaMes, 'yyyy-MM-dd');
 
+                            // ✅ SOLUÇÃO DEFINITIVA: Buscar vendas do mês EXCLUINDO a venda atual
                             const { data: vendasMes, error: vendasMesError } = await supabase
                                 .schema('sistemaretiradas')
                                 .from('sales')
                                 .select('id, valor')
                                 .eq('store_id', storeId)
                                 .gte('data_venda', primeiroDiaMes)
-                                .lte('data_venda', `${ultimoDiaMesISO}T23:59:59`);
+                                .lte('data_venda', `${ultimoDiaMesISO}T23:59:59`)
+                                .neq('id', saleIdAtual); // ✅ EXCLUIR a venda atual
 
-                            // ✅ CORREÇÃO: Calcular total do mês e verificar se a venda atual já está incluída
-                            let totalMesAtualizado = 0;
-                            let vendaAtualJaIncluidaMes = false;
+                            // Calcular total do mês SEM a venda atual
+                            let totalMesSemVendaAtual = 0;
                             if (!vendasMesError && vendasMes) {
-                                totalMesAtualizado = vendasMes.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
-                                // Verificar se a venda atual já está na lista pelo ID
-                                vendaAtualJaIncluidaMes = vendasMes.some((v: any) => v.id === saleIdAtual);
-
-                                // ✅ Só adicionar a venda atual se ela NÃO estiver na query ainda
-                                if (!vendaAtualJaIncluidaMes) {
-                                    console.log('📱 [4/4] Venda atual NÃO estava na query mensal, adicionando ao total...');
-                                    totalMesAtualizado = totalMesAtualizado + valorVendaAtual;
-                                } else {
-                                    console.log('📱 [4/4] Venda atual JÁ estava na query mensal, não duplicando.');
-                                }
-                            } else {
-                                // Se houver erro, usar o maior entre monthlyRealizado + venda atual OU total do dia
-                                totalMesAtualizado = Math.max((monthlyRealizado || 0) + valorVendaAtual, totalDia);
+                                totalMesSemVendaAtual = vendasMes.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
                             }
+
+                            // ✅ SEMPRE adicionar a venda atual (garantia de não duplicar)
+                            const totalMesAtualizado = totalMesSemVendaAtual + valorVendaAtual;
+                            console.log('📱 [4/4] Total do mês SEM venda atual:', totalMesSemVendaAtual.toFixed(2));
+                            console.log('📱 [4/4] Total do mês FINAL:', totalMesAtualizado.toFixed(2));
 
                             console.log('📱 [4/4] === TOTAIS CALCULADOS ===');
                             console.log('📱 [4/4] Valor da venda atual:', valorVendaAtual.toFixed(2));
-                            console.log('📱 [4/4] Venda já incluída na query diária:', vendaAtualJaIncluida);
-                            console.log('📱 [4/4] Venda já incluída na query mensal:', vendaAtualJaIncluidaMes);
-                            console.log('📱 [4/4] Total do dia FINAL:', totalDia.toFixed(2));
-                            console.log('📱 [4/4] Total do mês FINAL:', totalMesAtualizado.toFixed(2));
 
                             console.log('📱 [4/4] Formatando mensagem...');
                             const { formatVendaMessage, sendWhatsAppMessage } = await import('@/lib/whatsapp');
@@ -3083,12 +3070,12 @@ export default function LojaDashboard() {
                             // Ao invés de Promise.all, processar uma por vez com intervalo de 500ms
                             for (let i = 0; i < adminPhones.length; i++) {
                                 const phone = adminPhones[i];
-                                
+
                                 // Adicionar delay entre mensagens (exceto a primeira)
                                 if (i > 0) {
                                     await new Promise(resolve => setTimeout(resolve, 500)); // 500ms de delay
                                 }
-                                
+
                                 await (async () => {
                                     try {
                                         const result = await sendWhatsAppMessage({
@@ -3101,13 +3088,13 @@ export default function LojaDashboard() {
                                             console.log(`✅ WhatsApp enviado com sucesso para ${phone}`);
                                         } else {
                                             console.warn(`⚠️ Falha ao enviar WhatsApp para ${phone}:`, result.error);
-                                            
+
                                             // ✅ CORREÇÃO: Se falhou, SEMPRE enfileirar na fila para processamento posterior
                                             // Isso garante que mensagens não sejam perdidas por qualquer tipo de erro
                                             const errorMessage = result.error || 'Erro desconhecido';
-                                            
+
                                             console.log(`📥 [FALLBACK] Enfileirando mensagem para ${phone} na fila (envio direto falhou)...`);
-                                            
+
                                             const { error: queueError } = await supabase
                                                 .schema('sistemaretiradas')
                                                 .from('whatsapp_message_queue')
@@ -3137,12 +3124,12 @@ export default function LojaDashboard() {
                                         }
                                     } catch (err: any) {
                                         console.error(`❌ Erro ao enviar WhatsApp para ${phone}:`, err);
-                                        
+
                                         // ✅ CORREÇÃO: Se deu exceção, SEMPRE tentar enfileirar
                                         const errorMessage = err?.message || String(err);
-                                        
+
                                         console.log(`📥 [FALLBACK] Enfileirando mensagem para ${phone} na fila (exceção no envio)...`);
-                                        
+
                                         try {
                                             const { error: queueError } = await supabase
                                                 .schema('sistemaretiradas')
@@ -3176,7 +3163,7 @@ export default function LojaDashboard() {
                                     }
                                 })();
                             }
-                            
+
                             console.log('📱 Processo de envio de WhatsApp concluído');
                         } else {
                             console.warn('⚠️ Nenhum destinatário WhatsApp ativo encontrado. Mensagem não será enviada.');
@@ -3391,7 +3378,7 @@ export default function LojaDashboard() {
     const handleEdit = (sale: Sale) => {
         const motivoPerda = (sale as any).motivo_perda_venda || "";
         const vendaPerdida = (sale as any).venda_perdida || false;
-        
+
         setFormData({
             colaboradora_id: sale.colaboradora_id,
             valor: sale.valor.toString(),
@@ -3489,8 +3476,8 @@ export default function LojaDashboard() {
 
             // Se for venda do ERP (Tiny), atualizar também o tiny_orders
             // ✅ Usar external_order_id com fallback para tiny_order_id (compatibilidade)
-            const tinyOrderId = (sale.order_source === 'TINY' && sale.external_order_id) 
-                ? sale.external_order_id 
+            const tinyOrderId = (sale.order_source === 'TINY' && sale.external_order_id)
+                ? sale.external_order_id
                 : sale.tiny_order_id;
             if (tinyOrderId) {
                 // Converter para UUID se necessário (external_order_id é TEXT)
@@ -3502,7 +3489,7 @@ export default function LojaDashboard() {
                         orderIdForUpdate = sale.tiny_order_id!; // Fallback
                     }
                 }
-                
+
                 const { error: orderError } = await supabase
                     .schema("sistemaretiradas")
                     .from('tiny_orders')
@@ -3595,8 +3582,8 @@ export default function LojaDashboard() {
         try {
             // Se for venda do ERP (Tiny), excluir também do tiny_orders
             // ✅ Usar external_order_id com fallback para tiny_order_id (compatibilidade)
-            const tinyOrderId = (sale.order_source === 'TINY' && sale.external_order_id) 
-                ? sale.external_order_id 
+            const tinyOrderId = (sale.order_source === 'TINY' && sale.external_order_id)
+                ? sale.external_order_id
                 : sale.tiny_order_id;
             if (isVendaERP && tinyOrderId) {
                 // Converter para UUID se necessário
@@ -3608,7 +3595,7 @@ export default function LojaDashboard() {
                         orderIdForDelete = sale.tiny_order_id!;
                     }
                 }
-                
+
                 const { error: orderError } = await supabase
                     .schema("sistemaretiradas")
                     .from('tiny_orders')
@@ -3634,14 +3621,14 @@ export default function LojaDashboard() {
                 console.error(error);
             } else {
                 toast.success(isVendaERP ? 'Venda e pedido do ERP excluídos com sucesso!' : 'Venda excluída com sucesso!');
-                
+
                 // ✅ ATUALIZAR DADOS AUTOMATICAMENTE SEM PRECISAR REFRESH
                 // Invalidar queries relacionadas para atualizar automaticamente
                 queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales, 'store', storeId] });
                 queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.sales, 'metrics', storeId] });
                 queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.goals, storeId] });
                 queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.profiles, 'colaboradoras', storeId] });
-                
+
                 // Refetch imediato para atualização instantânea
                 refetchSales();
             }
@@ -4366,7 +4353,7 @@ export default function LojaDashboard() {
                                                         }}
                                                     />
                                                 </div>
-                                                
+
                                                 {formData.venda_perdida && (
                                                     <div className="space-y-2 pt-2">
                                                         <Label htmlFor="motivo_perda_venda">Motivo da Perda de Venda *</Label>
