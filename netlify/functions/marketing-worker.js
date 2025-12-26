@@ -360,8 +360,28 @@ async function processVideoJob(supabase, job) {
   const status = await pollVideoStatusWithRetry(job.provider_ref, job.provider);
 
   if (!status.done) {
-    // Ainda processando, atualizar progresso estimado
-    const progress = Math.min(90, 10 + Math.floor((Date.now() - new Date(job.started_at).getTime()) / 1000 / 10));
+    // Calcular progresso estimado baseado no tempo decorrido
+    const elapsedSeconds = Math.floor((Date.now() - new Date(job.started_at).getTime()) / 1000);
+    const elapsedMinutes = elapsedSeconds / 60;
+    
+    // Progresso mais realista:
+    // - Primeiros 2 minutos: 10-30%
+    // - 2-5 minutos: 30-60%
+    // - 5-10 minutos: 60-85%
+    // - 10+ minutos: 85-95% (aguardando finalização)
+    let progress;
+    if (elapsedMinutes < 2) {
+      progress = Math.min(30, 10 + Math.floor(elapsedSeconds / 4)); // 1% a cada 4 segundos nos primeiros 2 min
+    } else if (elapsedMinutes < 5) {
+      progress = Math.min(60, 30 + Math.floor((elapsedMinutes - 2) * 10)); // 10% por minuto entre 2-5 min
+    } else if (elapsedMinutes < 10) {
+      progress = Math.min(85, 60 + Math.floor((elapsedMinutes - 5) * 5)); // 5% por minuto entre 5-10 min
+    } else {
+      progress = Math.min(95, 85 + Math.floor((elapsedMinutes - 10) * 0.5)); // Muito lento após 10 min
+    }
+    
+    console.log(`[marketing-worker] Atualizando progresso do vídeo: ${progress}% (${elapsedMinutes.toFixed(1)} min decorridos)`);
+    
     await supabase
       .from('marketing_jobs')
       .update({
@@ -926,6 +946,14 @@ async function pollVideoStatusGeminiDirect(operationId) {
 
   const data = await response.json();
 
+  // Log para debug
+  console.log(`[marketing-worker] Status do vídeo Gemini:`, {
+    done: data.done,
+    hasError: !!data.error,
+    hasResponse: !!data.response,
+    metadata: data.metadata,
+  });
+
   if (data.done) {
     if (data.error) {
       return { done: true, error: data.error.message };
@@ -937,7 +965,13 @@ async function pollVideoStatusGeminiDirect(operationId) {
     }
   }
 
-  return { done: false };
+  // Retornar informações de progresso se disponíveis
+  const progressInfo = {
+    done: false,
+    metadata: data.metadata,
+  };
+
+  return progressInfo;
 }
 
 /**
