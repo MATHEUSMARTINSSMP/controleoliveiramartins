@@ -3,21 +3,35 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface MarketingJob {
   id: string;
-  type: "image_generation" | "video_generation" | "image_edit" | "carousel_generation" | "prompt_expansion";
+  store_id: string;
+  user_id: string;
+  type: "image" | "video" | "carousel" | "batch";
+  provider: string;
+  provider_model: string;
   status: "queued" | "processing" | "done" | "failed" | "canceled";
-  provider: string | null;
-  provider_model: string | null;
-  original_prompt: string;
-  final_prompt_spec: Record<string, any> | null;
-  input_images_refs: any[] | null;
-  mask_ref: any | null;
+  progress: number | null;
+  input: Record<string, any>; // JSONB
+  prompt_original: string | null;
+  prompt_final: string | null;
   provider_ref: string | null;
-  result_asset_id: string | null;
-  progress: number;
+  result: {
+    assetId?: string;
+    assetIds?: string[]; // Para múltiplas alternativas
+    mediaUrl?: string;
+    mediaUrls?: string[]; // Para múltiplas alternativas
+    thumbnailUrl?: string;
+    thumbnailUrls?: string[];
+    meta?: Record<string, any>;
+  } | null;
   error_message: string | null;
-  cost_estimate: number | null;
+  error_code: string | null;
   created_at: string;
   updated_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  
+  // Helper para compatibilidade
+  result_asset_id?: string | null;
 }
 
 export function useMarketingJobs(storeId: string | undefined) {
@@ -46,7 +60,14 @@ export function useMarketingJobs(storeId: string | undefined) {
 
       if (fetchError) throw fetchError;
 
-      setJobs((data || []) as MarketingJob[]);
+      // Mapear dados do banco para a interface
+      const mappedJobs = (data || []).map((job: any) => ({
+        ...job,
+        // Helper para compatibilidade com código existente
+        result_asset_id: job.result?.assetId || job.result?.assetIds?.[0] || null,
+      }));
+
+      setJobs(mappedJobs as MarketingJob[]);
     } catch (err: any) {
       console.error("Erro ao buscar jobs:", err);
       setError(err.message || "Erro ao carregar jobs");
