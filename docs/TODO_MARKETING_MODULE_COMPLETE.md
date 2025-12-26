@@ -212,10 +212,16 @@
 
 ---
 
-## ⏳ **PARTE 10: TESTES E DOCUMENTAÇÃO** (6/10) ⏳
+## ⏳ **PARTE 10: TESTES E DOCUMENTAÇÃO** (7/10) ⏳
+
+### Correções de Bugs
+- [x] 120.5. Corrigir validação JWT no endpoint marketing-media - *Corrigido: validação JWT implementada*
+- [x] 120.6. Corrigir extração de userId do token - *Corrigido: usando supabaseAdmin.auth.getUser*
+- [x] 120.7. Corrigir validação de permissões - *Corrigido: simplificada, RLS gerencia*
+- [x] 120.8. Melhorar tratamento de erros para retornar mensagens detalhadas - *Corrigido*
 
 ### Testes
-- [ ] 121. Testar geração de imagem (Gemini) - *Guia criado*
+- [ ] 121. Testar geração de imagem (Gemini) - *Guia criado - Aguardando correção de bugs*
 - [ ] 122. Testar geração de imagem (OpenAI) - *Guia criado*
 - [ ] 123. Testar geração de vídeo (Gemini) - *Guia criado*
 - [ ] 124. Testar geração de vídeo (OpenAI) - *Guia criado*
@@ -234,9 +240,9 @@
 
 ## ✅ **RESUMO**
 
-- **Concluídas**: 122/132 (92%)
-- **Em Progresso**: 0/132 (0%)
-- **Pendentes**: 10/132 (8%)
+- **Concluídas**: 126/136 (93%)
+- **Em Progresso**: 0/136 (0%)
+- **Pendentes**: 10/136 (7%)
 
 ### Próximas Prioridades
 
