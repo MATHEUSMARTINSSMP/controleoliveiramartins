@@ -794,13 +794,6 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
 
   return (
     <div className="space-y-4">
-      <Tabs defaultValue="generate" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="generate">Gerar Conteúdo</TabsTrigger>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="generate" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Gerar Conteúdo com IA</CardTitle>
@@ -1041,25 +1034,33 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
               </CardContent>
             </Card>
           )}
-        </TabsContent>
 
-        <TabsContent value="templates" className="space-y-4">
-          <PromptTemplates
-            type={type}
-            provider={provider}
-            onSelectTemplate={(template) => {
-              setPrompt(template.prompt);
-              if (template.provider) {
-                setProvider(template.provider);
-              }
-              if (template.model) {
-                setModel(template.model);
-              }
-              toast.success("Template aplicado!");
-            }}
-          />
-        </TabsContent>
-      </Tabs>
+          {/* Templates Section */}
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle>Templates de Prompt</CardTitle>
+              <CardDescription>
+                Use templates prontos para começar mais rápido
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PromptTemplates
+                type={type}
+                provider={provider}
+                onSelectTemplate={(template) => {
+                  setPrompt(template.prompt);
+                  setHasUsedPromptExpander(true); // Marcar como usado ao selecionar template
+                  if (template.provider) {
+                    setProvider(template.provider);
+                  }
+                  if (template.model) {
+                    setModel(template.model);
+                  }
+                  toast.success("Template aplicado!");
+                }}
+              />
+            </CardContent>
+          </Card>
     </div>
   );
 }
