@@ -788,44 +788,80 @@ async function ensureMarketingBucket(supabase) {
     
     if (listError) {
       console.warn('[marketing-worker] Erro ao listar buckets:', listError);
-      // Se não conseguir listar, tentar criar diretamente
-      console.log('[marketing-worker] Tentando criar bucket diretamente...');
+      console.log('[marketing-worker] Tentando criar bucket diretamente (sem verificar lista)...');
     } else {
       const marketingBucket = buckets?.find(b => b.name === 'marketing');
       
       if (marketingBucket) {
-        console.log('[marketing-worker] Bucket "marketing" já existe');
+        console.log('[marketing-worker] ✅ Bucket "marketing" já existe (encontrado na lista)');
         return; // Bucket existe, não precisa criar
       }
+      
+      console.log('[marketing-worker] Bucket "marketing" não encontrado na lista, criando...');
     }
 
     // Bucket não encontrado, criar
-    console.log('[marketing-worker] Bucket "marketing" não encontrado, criando...');
+    console.log('[marketing-worker] Criando bucket "marketing" com configurações: public=true, fileSizeLimit=50MB');
     
-    const { data: newBucket, error: createError } = await supabase.storage.createBucket('marketing', {
+    const bucketConfig = {
       public: true, // Imagens podem ser públicas
       fileSizeLimit: 52428800, // 50MB
       allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'video/mp4', 'video/webm'],
-    });
+    };
+    
+    console.log('[marketing-worker] Configuração do bucket:', JSON.stringify(bucketConfig, null, 2));
+    
+    const { data: newBucket, error: createError } = await supabase.storage.createBucket('marketing', bucketConfig);
 
     if (createError) {
       // Se o erro for que o bucket já existe, tudo bem
       const errorMsg = createError.message || String(createError);
+      const errorCode = createError.statusCode || createError.code || '';
+      
+      console.log('[marketing-worker] Erro ao criar bucket:', {
+        message: errorMsg,
+        code: errorCode,
+        error: createError
+      });
+      
       if (errorMsg && (
         errorMsg.includes('already exists') ||
         errorMsg.includes('duplicate') ||
         errorMsg.includes('Bucket already exists') ||
-        errorMsg.includes('already_exists')
+        errorMsg.includes('already_exists') ||
+        errorCode === '409' // Conflict
       )) {
         console.log('[marketing-worker] ✅ Bucket "marketing" já existe (criado por outro processo)');
         return;
       }
       
+      // Se for erro de permissão, dar mensagem mais clara
+      if (errorMsg.includes('permission') || errorMsg.includes('unauthorized') || errorCode === '401' || errorCode === '403') {
+        throw new Error(
+          `Erro de permissão ao criar bucket. Verifique se a SERVICE_ROLE_KEY tem permissões de Storage Admin. ` +
+          `Erro: ${errorMsg}`
+        );
+      }
+      
       console.error('[marketing-worker] Erro ao criar bucket:', createError);
-      throw new Error(`Erro ao criar bucket: ${errorMsg}`);
+      throw new Error(`Erro ao criar bucket: ${errorMsg} (código: ${errorCode})`);
     }
 
-    console.log('[marketing-worker] ✅ Bucket "marketing" criado com sucesso');
+    console.log('[marketing-worker] ✅ Bucket "marketing" criado com sucesso!', newBucket);
+    
+    // Verificar se o bucket foi realmente criado (aguardar um pouco para eventual consistency)
+    await delay(1000);
+    
+    const { data: verifyBuckets, error: verifyError } = await supabase.storage.listBuckets();
+    if (!verifyError && verifyBuckets) {
+      const verified = verifyBuckets.find(b => b.name === 'marketing');
+      if (verified) {
+        console.log('[marketing-worker] ✅ Bucket "marketing" verificado e confirmado na lista');
+      } else {
+        console.warn('[marketing-worker] ⚠️ Bucket criado mas ainda não aparece na lista (eventual consistency)');
+      }
+    }
+    
   } catch (error) {
     console.error('[marketing-worker] Erro ao verificar/criar bucket:', error);
     
@@ -876,15 +912,14 @@ async function getStoreIdentifier(supabase, storeId) {
   }
 }
 
-async function uploadMediaToSupabase(supabase, buffer, mimeType, storeId, userId, assetId, type) {
-  // Garantir que o bucket existe (tentar criar se necessário)
-  try {
-    await ensureMarketingBucket(supabase);
-  } catch (bucketError) {
-    console.warn('[marketing-worker] Erro ao garantir bucket, tentando upload mesmo assim:', bucketError.message);
-    // Continuar - pode ser que o bucket já exista mas não esteja visível na listagem
-  }
+/**
+ * Função auxiliar para aguardar um tempo (delay)
+ */
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
+async function uploadMediaToSupabase(supabase, buffer, mimeType, storeId, userId, assetId, type) {
   // Obter identificador da loja (site_slug se disponível, senão store_id)
   const storeIdentifier = await getStoreIdentifier(supabase, storeId);
 
@@ -897,46 +932,65 @@ async function uploadMediaToSupabase(supabase, buffer, mimeType, storeId, userId
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const path = `marketing/${storeIdentifier}/${userId}/${type}/${year}/${month}/${assetId}.${extension}`;
 
-  // Upload
-  let uploadResult = await supabase.storage.from('marketing').upload(path, buffer, {
-    contentType: mimeType,
-    upsert: false,
-    cacheControl: type === 'video' ? '3600' : '31536000',
-  });
+  // Tentar upload com retry automático
+  const MAX_RETRIES = 3;
+  let lastError = null;
 
-  // Se o erro for "Bucket not found", tentar criar bucket e fazer retry
-  if (uploadResult.error && uploadResult.error.message && uploadResult.error.message.includes('Bucket not found')) {
-    console.log('[marketing-worker] Bucket não encontrado, tentando criar novamente...');
-    await ensureMarketingBucket(supabase);
-    
-    // Tentar upload novamente
-    uploadResult = await supabase.storage.from('marketing').upload(path, buffer, {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    // Garantir que o bucket existe antes de cada tentativa
+    try {
+      await ensureMarketingBucket(supabase);
+      // Aguardar um pouco após criar o bucket (eventual consistency)
+      if (attempt > 1) {
+        console.log(`[marketing-worker] Aguardando 2s após criar bucket (tentativa ${attempt}/${MAX_RETRIES})...`);
+        await delay(2000);
+      }
+    } catch (bucketError) {
+      console.warn(`[marketing-worker] Erro ao garantir bucket (tentativa ${attempt}/${MAX_RETRIES}):`, bucketError.message);
+      // Continuar - pode ser que o bucket já exista mas não esteja visível na listagem
+    }
+
+    // Tentar upload
+    const uploadResult = await supabase.storage.from('marketing').upload(path, buffer, {
       contentType: mimeType,
       upsert: false,
       cacheControl: type === 'video' ? '3600' : '31536000',
     });
 
-    if (uploadResult.error) {
-      // Se ainda falhar após tentar criar, dar mensagem mais clara
-      if (uploadResult.error.message && uploadResult.error.message.includes('Bucket not found')) {
-        throw new Error(
-          `Bucket "marketing" não encontrado e não foi possível criar automaticamente. ` +
-          `Por favor, crie o bucket manualmente no Supabase Dashboard: ` +
-          `Storage → Buckets → New bucket → Name: "marketing" → Public: Yes`
-        );
+    // Se sucesso, retornar
+    if (!uploadResult.error) {
+      if (attempt > 1) {
+        console.log(`[marketing-worker] ✅ Upload bem-sucedido na tentativa ${attempt}`);
       }
-      throw new Error(`Erro ao fazer upload após criar bucket: ${uploadResult.error.message}`);
+      lastError = null;
+      break;
     }
-  } else if (uploadResult.error) {
-    // Mensagem mais clara para erro de bucket
-    if (uploadResult.error.message && uploadResult.error.message.includes('Bucket not found')) {
-      throw new Error(
-        `Bucket "marketing" não encontrado. ` +
-        `O sistema tentará criar automaticamente na próxima tentativa, ou você pode criar manualmente: ` +
-        `Supabase Dashboard → Storage → Buckets → New bucket → Name: "marketing" → Public: Yes`
-      );
+
+    // Se erro for "Bucket not found", tentar criar novamente na próxima iteração
+    const errorMsg = uploadResult.error?.message || String(uploadResult.error);
+    if (errorMsg && errorMsg.includes('Bucket not found')) {
+      console.log(`[marketing-worker] ⚠️ Bucket não encontrado (tentativa ${attempt}/${MAX_RETRIES}), tentando criar...`);
+      lastError = uploadResult.error;
+      
+      // Se não for a última tentativa, continuar loop
+      if (attempt < MAX_RETRIES) {
+        continue;
+      }
+    } else {
+      // Outro tipo de erro, lançar imediatamente
+      throw new Error(`Erro ao fazer upload: ${errorMsg}`);
     }
-    throw new Error(`Erro ao fazer upload: ${uploadResult.error.message}`);
+  }
+
+  // Se ainda houver erro após todas as tentativas
+  if (lastError) {
+    const errorMsg = lastError.message || String(lastError);
+    throw new Error(
+      `Bucket "marketing" não encontrado após ${MAX_RETRIES} tentativas. ` +
+      `O bucket pode não ter sido criado com sucesso ou há um problema de permissões. ` +
+      `Por favor, verifique no Supabase Dashboard: Storage → Buckets → "marketing" deve existir e ser público. ` +
+      `Erro original: ${errorMsg}`
+    );
   }
 
   // Gerar URLs
