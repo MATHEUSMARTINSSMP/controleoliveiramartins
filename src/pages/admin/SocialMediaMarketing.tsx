@@ -114,10 +114,10 @@ export default function SocialMediaMarketing({ embedded = false }: SocialMediaMa
               Gere imagens e vídeos com IA para suas redes sociais
             </p>
           </div>
-          {stores.length > 1 && selectedStoreId && (
-            <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+          {stores.length > 0 && (
+            <Select value={selectedStoreId || ""} onValueChange={setSelectedStoreId}>
               <SelectTrigger className="w-[280px]">
-                <SelectValue />
+                <SelectValue placeholder="Selecione uma loja" />
               </SelectTrigger>
               <SelectContent>
                 {stores.map((store) => (
@@ -127,23 +127,6 @@ export default function SocialMediaMarketing({ embedded = false }: SocialMediaMa
                 ))}
               </SelectContent>
             </Select>
-          )}
-          {stores.length > 0 && !selectedStoreId && (
-            <div className="w-[280px]">
-              <label className="text-sm font-medium mb-2 block">Selecione a Loja</label>
-              <Select value={selectedStoreId || ""} onValueChange={setSelectedStoreId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma loja" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stores.map((store) => (
-                    <SelectItem key={store.id} value={store.id}>
-                      {store.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           )}
         </div>
       ) : (
