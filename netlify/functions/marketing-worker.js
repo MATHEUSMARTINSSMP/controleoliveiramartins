@@ -124,8 +124,12 @@ async function processJob(supabase, job) {
   const startTime = Date.now();
 
   try {
-    // Verificar idempotência (se já foi processado)
-    if (job.status !== 'queued') {
+    // Se job já está processing, continuar processamento (atualizar progresso, fazer polling)
+    // Se job está queued, iniciar processamento
+    if (job.status === 'processing') {
+      console.log(`[marketing-worker] Job ${jobId} já está em processamento, continuando...`);
+      // Continuar processamento (fazer polling, atualizar progresso)
+    } else if (job.status !== 'queued') {
       console.log(`[marketing-worker] Job ${jobId} já foi processado (status: ${job.status})`);
       return;
     }
