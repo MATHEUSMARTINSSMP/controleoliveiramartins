@@ -440,6 +440,7 @@ export default function Landing() {
             <a href="#precos" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-precos">Preços</a>
             <a href="#faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-faq">FAQ</a>
             <a href="#contato" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-contato">Contato</a>
+            <Link to="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-privacy-nav">Privacidade</Link>
           </nav>
 
           <div className="flex items-center gap-3">
