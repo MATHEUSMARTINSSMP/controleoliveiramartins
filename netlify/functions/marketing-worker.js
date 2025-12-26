@@ -58,11 +58,11 @@ exports.handler = async (event, context) => {
   });
 
   try {
-    // Buscar jobs queued (limitado)
+    // Buscar jobs queued E processing (para atualizar progresso)
     const { data: jobs, error: fetchError } = await supabase
       .from('marketing_jobs')
       .select('*')
-      .eq('status', 'queued')
+      .in('status', ['queued', 'processing'])
       .order('created_at', { ascending: true })
       .limit(MAX_JOBS_PER_RUN);
 
