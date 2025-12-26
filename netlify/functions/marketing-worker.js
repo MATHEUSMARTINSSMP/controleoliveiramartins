@@ -590,8 +590,20 @@ async function generateImageWithOpenAIDirect(input) {
     if (input.output) {
       const formatInfo = [];
       
-      // Informações básicas de tamanho
-      if (input.output.size) {
+      // Nome do formato primeiro
+      if (input.output.formatName) {
+        formatInfo.push(`Formato: ${input.output.formatName}`);
+      }
+      
+      // Descrição do formato
+      if (input.output.formatDescription) {
+        formatInfo.push(`Descrição: ${input.output.formatDescription}`);
+      }
+      
+      // Dimensões (priorizar formatDimensions se disponível, senão calcular do size)
+      if (input.output.formatDimensions) {
+        formatInfo.push(`Dimensões: ${input.output.formatDimensions}`);
+      } else if (input.output.size) {
         const [width, height] = input.output.size.split('x').map(Number);
         formatInfo.push(`Dimensões: ${width}x${height} pixels (${input.output.size})`);
       }
@@ -599,14 +611,6 @@ async function generateImageWithOpenAIDirect(input) {
       // Aspect ratio
       if (input.output.aspectRatio) {
         formatInfo.push(`Proporção: ${input.output.aspectRatio}`);
-      }
-      
-      // Nome e descrição do formato
-      if (input.output.formatName) {
-        formatInfo.push(`Formato: ${input.output.formatName}`);
-        if (input.output.formatDescription) {
-          formatInfo.push(`Descrição: ${input.output.formatDescription}`);
-        }
       }
       
       // Construir prompt enriquecido
