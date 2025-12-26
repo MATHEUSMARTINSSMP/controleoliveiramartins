@@ -228,3 +228,53 @@ Se não aparecer nada em "Processamentos":
 
 Se houver jobs no banco mas não aparecerem no frontend, o problema é de **RLS (Row Level Security)** ou **storeId incorreto**.
 
+### 🔧 Verificar Políticas RLS
+
+Execute no Supabase SQL Editor para verificar se as políticas estão corretas:
+
+```sql
+-- Ver políticas ativas
+SELECT 
+  schemaname,
+  tablename,
+  policyname,
+  permissive,
+  roles,
+  cmd,
+  qual,
+  with_check
+FROM pg_policies 
+WHERE schemaname = 'sistemaretiradas' 
+AND tablename = 'marketing_jobs';
+```
+
+### 🔧 Testar Acesso RLS
+
+Execute como ADMIN para testar se consegue ver jobs:
+
+```sql
+-- Ver seu user_id atual
+SELECT auth.uid() as current_user_id;
+
+-- Ver seu role e store_id
+SELECT id, role, store_id, store_default 
+FROM sistemaretiradas.profiles 
+WHERE id = auth.uid();
+
+-- Ver lojas que você gerencia (se ADMIN)
+SELECT id, name, admin_id 
+FROM sistemaretiradas.stores 
+WHERE admin_id = auth.uid();
+
+-- Tentar buscar jobs (deve funcionar se RLS estiver correto)
+SELECT COUNT(*) 
+FROM sistemaretiradas.marketing_jobs;
+```
+
+### ⚠️ Problema Comum: RLS Bloqueando ADMINs
+
+Se você é ADMIN e não vê jobs, execute a migration:
+`supabase/migrations/20251225000002_fix_marketing_jobs_rls_policies.sql`
+
+Esta migration corrige as políticas RLS para permitir que ADMINs vejam jobs de todas as lojas que eles gerenciam.
+
