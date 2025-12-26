@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+const POLLING_INTERVAL_PROCESSING = 3000; // 3 segundos para jobs em processamento
+const POLLING_INTERVAL_IDLE = 10000; // 10 segundos quando não há jobs em processamento
+
 export interface MarketingJob {
   id: string;
   store_id: string;
@@ -91,41 +94,49 @@ export function useMarketingJobs(storeId: string | undefined) {
     }
   };
 
-  // Polling automático para jobs em processamento
+  // Polling automático contínuo (sempre ativo para detectar novos jobs)
   useEffect(() => {
     fetchJobs();
 
-    // Verificar se há jobs em processamento
-    const hasProcessingJobs = jobs.some(j => j.status === "queued" || j.status === "processing");
+    // Sempre manter polling ativo para atualização em tempo real
+    // Intervalo menor quando há jobs em processamento, maior quando idle
+    const startPolling = () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
 
-    if (hasProcessingJobs) {
-      // Polling a cada 3 segundos para jobs em processamento
+      const hasProcessingJobs = jobs.some(j => j.status === "queued" || j.status === "processing");
+      const interval = hasProcessingJobs ? POLLING_INTERVAL_PROCESSING : POLLING_INTERVAL_IDLE;
+
       pollingIntervalRef.current = setInterval(() => {
         fetchJobs();
-      }, 3000);
-    }
+      }, interval);
+    };
+
+    startPolling();
 
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storeId]);
 
-  // Limpar polling quando não houver mais jobs em processamento
+  // Ajustar intervalo de polling baseado no status dos jobs
   useEffect(() => {
-    const hasProcessingJobs = jobs.some(j => j.status === "queued" || j.status === "processing");
+    if (!pollingIntervalRef.current) return;
 
-    if (!hasProcessingJobs && pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    } else if (hasProcessingJobs && !pollingIntervalRef.current) {
-      pollingIntervalRef.current = setInterval(() => {
-        fetchJobs();
-      }, 3000);
-    }
-  }, [jobs]);
+    const hasProcessingJobs = jobs.some(j => j.status === "queued" || j.status === "processing");
+    const currentInterval = hasProcessingJobs ? POLLING_INTERVAL_PROCESSING : POLLING_INTERVAL_IDLE;
+
+    // Reiniciar polling com novo intervalo se necessário
+    clearInterval(pollingIntervalRef.current);
+    pollingIntervalRef.current = setInterval(() => {
+      fetchJobs();
+    }, currentInterval);
+  }, [jobs, fetchJobs]);
 
   return { jobs, loading, error, refetch: fetchJobs };
 }

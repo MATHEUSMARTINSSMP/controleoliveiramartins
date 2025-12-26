@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface MarketingAsset {
@@ -25,12 +25,14 @@ export interface MarketingAsset {
   updated_at: string;
 }
 
-export function useMarketingAssets(storeId: string | undefined, type?: "image" | "video") {
+export function useMarketingAssets(storeId: string | undefined, type?: "image" | "video", enablePolling = true) {
   const [assets, setAssets] = useState<MarketingAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialLoad = useRef(true);
 
-  const fetchAssets = async () => {
+  const fetchAssets = async (silent = false) => {
     if (!storeId) {
       setAssets([]);
       setLoading(false);
@@ -38,7 +40,9 @@ export function useMarketingAssets(storeId: string | undefined, type?: "image" |
     }
 
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
 
       let query = supabase
@@ -64,14 +68,30 @@ export function useMarketingAssets(storeId: string | undefined, type?: "image" |
       setAssets([]);
     } finally {
       setLoading(false);
+      isInitialLoad.current = false;
     }
   };
 
+  // Polling automático a cada 5 segundos
   useEffect(() => {
     fetchAssets();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storeId, type]);
 
-  return { assets, loading, error, refetch: fetchAssets };
+    if (enablePolling) {
+      // Polling a cada 5 segundos para atualização em tempo real
+      pollingIntervalRef.current = setInterval(() => {
+        fetchAssets(true); // Silent update (não mostra loading)
+      }, 5000);
+    }
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeId, type, enablePolling]);
+
+  return { assets, loading, error, refetch: () => fetchAssets(false) };
 }
 

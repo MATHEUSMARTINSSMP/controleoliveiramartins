@@ -43,9 +43,14 @@ exports.handler = async (event) => {
       };
     }
 
-    // Extrair job ID do path
+    // Extrair job ID do path ou query string
     const pathParts = event.path.split('/');
-    const jobId = pathParts[pathParts.length - 1];
+    let jobId = pathParts[pathParts.length - 1];
+    
+    // Se não encontrou no path, tentar query string
+    if (!jobId || jobId === 'marketing-jobs') {
+      jobId = event.queryStringParameters?.jobId;
+    }
 
     if (!jobId) {
       return {
@@ -88,15 +93,16 @@ exports.handler = async (event) => {
       jobId: job.id,
       status: job.status,
       progress: job.progress || 0,
+      result: job.result || null, // Incluir result completo para suportar múltiplas variações
     };
 
-    // Se concluído, incluir asset
+    // Se concluído, incluir asset (compatibilidade com código antigo)
     if (job.status === 'done' && job.result) {
       response.asset = {
-        assetId: job.result.assetId,
+        assetId: job.result.assetId || job.result.assetIds?.[0],
         type: job.type,
-        mediaUrl: job.result.mediaUrl,
-        thumbnailUrl: job.result.thumbnailUrl || null,
+        mediaUrl: job.result.mediaUrl || job.result.mediaUrls?.[0],
+        thumbnailUrl: job.result.thumbnailUrl || job.result.thumbnailUrls?.[0] || null,
         mime: job.type === 'image' ? 'image/png' : 'video/mp4',
         meta: job.result.meta || {},
       };

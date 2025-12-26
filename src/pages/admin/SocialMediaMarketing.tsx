@@ -253,6 +253,50 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
   // Usar storeId passado via props ou obter do profile
   const storeId = propStoreId || (profile ? getStoreIdFromProfile(profile) : null);
   const hasStoreId = !!storeId;
+  
+  // Usar hook de jobs para monitoramento em tempo real
+  const { jobs } = useMarketingJobs(storeId || undefined);
+  
+  // Monitorar jobs concluídos em tempo real e atualizar imagens geradas
+  useEffect(() => {
+    if (!processingJobId) return;
+
+    const completedJob = jobs.find(j => j.id === processingJobId && j.status === "done");
+    
+    if (completedJob && completedJob.result) {
+      const assetIds = completedJob.result?.assetIds || (completedJob.result?.assetId ? [completedJob.result.assetId] : []);
+      
+      if (assetIds.length > 0) {
+        // Verificar se já temos essas imagens
+        const existingIds = new Set(generatedAssets.map(a => a.id));
+        const newAssetIds = assetIds.filter(id => !existingIds.has(id));
+        
+        if (newAssetIds.length > 0) {
+          // Buscar URLs dos novos assets
+          supabase
+            .schema("sistemaretiradas")
+            .from("marketing_assets")
+            .select("id, public_url, signed_url")
+            .in("id", newAssetIds)
+            .then(({ data: assets, error: assetsError }) => {
+              if (!assetsError && assets) {
+                const assetUrls = assets.map((asset) => ({
+                  id: asset.id,
+                  url: asset.public_url || asset.signed_url || "",
+                  jobId: processingJobId,
+                }));
+
+                setGeneratedAssets((prev) => [...prev, ...assetUrls]);
+                toast.success(`${assetUrls.length} imagem(ns) gerada(s) com sucesso!`, { id: "generating" });
+                setProcessingJobId(null);
+              }
+            });
+        } else {
+          setProcessingJobId(null);
+        }
+      }
+    }
+  }, [jobs, processingJobId, generatedAssets]);
 
   // Atualizar modelo quando provider ou type mudar
   useEffect(() => {
@@ -400,7 +444,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
   };
 
   const pollJobUntilComplete = async (jobId: string, token: string) => {
-    const maxAttempts = 60; // 60 tentativas (5 minutos máximo)
+    const maxAttempts = 120; // 120 tentativas (10 minutos máximo)
     let attempts = 0;
 
     while (attempts < maxAttempts) {
@@ -418,7 +462,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
         const jobData = await response.json();
         
         if (jobData.status === "done") {
-          // Buscar assets gerados
+          // Buscar assets gerados (suporta múltiplas variações)
           const assetIds = jobData.result?.assetIds || (jobData.result?.assetId ? [jobData.result.assetId] : []);
           
           if (assetIds.length > 0) {
@@ -444,25 +488,31 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
           setProcessingJobId(null);
           return;
         } else if (jobData.status === "failed") {
+          setProcessingJobId(null);
           throw new Error(jobData.error_message || "Job falhou");
         }
 
-        // Aguardar 5 segundos antes da próxima verificação
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        // Aguardar 3 segundos antes da próxima verificação (mais rápido)
+        await new Promise((resolve) => setTimeout(resolve, 3000));
         attempts++;
       } catch (error: any) {
         if (error.message.includes("Job falhou")) {
+          setProcessingJobId(null);
+          toast.error(error.message, { id: "generating" });
           throw error;
         }
         // Continuar tentando em caso de erro de rede
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        await new Promise((resolve) => setTimeout(resolve, 3000));
         attempts++;
       }
     }
 
-    // Timeout após 5 minutos
+    // Timeout após 10 minutos - mas continua monitorando em background
     setProcessingJobId(null);
-    toast.warning("Processamento está demorando mais que o esperado. As imagens aparecerão quando prontas.", { id: "generating" });
+    toast.warning("Processamento está demorando. Continuando monitoramento em background...", { id: "generating" });
+    
+    // Continuar monitorando em background usando o hook useMarketingJobs
+    // As imagens aparecerão automaticamente quando prontas
   };
 
   const handlePromptSelected = (selectedPrompt: string) => {
@@ -651,6 +701,73 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
         )}
             </CardContent>
           </Card>
+
+          {/* Mostrar imagens geradas */}
+          {(generatedAssets.length > 0 || processingJobId) && (
+            <Card className="mt-4">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Imagens Geradas</CardTitle>
+                  {generatedAssets.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setGeneratedAssets([]);
+                        setProcessingJobId(null);
+                      }}
+                    >
+                      Limpar
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {processingJobId && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Processando imagens... Aguarde.</span>
+                  </div>
+                )}
+
+                {generatedAssets.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {generatedAssets.map((asset) => (
+                      <div
+                        key={asset.id}
+                        className="rounded-lg border overflow-hidden hover:shadow-lg transition-all"
+                      >
+                        {asset.url ? (
+                          <div className="aspect-square relative bg-muted">
+                            <img
+                              src={asset.url}
+                              alt="Imagem gerada"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="aspect-square bg-muted flex items-center justify-center">
+                            <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="p-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => asset.url && window.open(asset.url, "_blank")}
+                          >
+                            <Download className="h-3 w-3 mr-2" />
+                            Abrir
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="templates" className="space-y-4">
@@ -682,7 +799,8 @@ function GalleryTab({ storeId: propStoreId, highlightAssetId }: { storeId?: stri
   const storeId = propStoreId || (profile ? getStoreIdFromProfile(profile) : null);
   const [filterType, setFilterType] = useState<"image" | "video" | undefined>(undefined);
   const [filterProvider, setFilterProvider] = useState<"gemini" | "openai" | undefined>(undefined);
-  const { assets, loading, error, refetch } = useMarketingAssets(storeId || undefined, filterType);
+  // Habilitar polling automático para atualização em tempo real
+  const { assets, loading, error, refetch } = useMarketingAssets(storeId || undefined, filterType, true);
 
   if (loading) {
     return (
