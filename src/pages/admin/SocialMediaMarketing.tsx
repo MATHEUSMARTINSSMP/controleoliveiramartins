@@ -1808,10 +1808,10 @@ function JobCard({ job, onCancel }: { job: any; onCancel: (jobId: string) => voi
 
   return (
     <div className="rounded-lg border p-4 space-y-3">
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3 flex-1">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
           {getStatusIcon()}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 overflow-hidden">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="font-medium capitalize">
                             {job.type.replace("_", " ")}
@@ -1825,7 +1825,7 @@ function JobCard({ job, onCancel }: { job: any; onCancel: (jobId: string) => voi
                             </span>
                           )}
                         </div>
-            <p className="text-sm text-muted-foreground truncate" title={job.prompt_original || job.original_prompt || "Sem prompt"}>
+            <p className="text-sm text-muted-foreground break-words line-clamp-2" title={job.prompt_original || job.original_prompt || "Sem prompt"}>
               {job.prompt_original || job.original_prompt || "Sem prompt"}
             </p>
             <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
