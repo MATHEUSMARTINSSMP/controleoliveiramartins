@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, Globe, Instagram, ArrowLeft, BarChart3 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { PageLoader } from "@/components/ui/page-loader";
 import WhatsAppBulkSend from "@/pages/admin/WhatsAppBulkSend";
 import WhatsAppCampaigns from "@/pages/admin/WhatsAppCampaigns";
@@ -15,6 +15,11 @@ import GoogleIntegration from "@/pages/admin/GoogleIntegration";
 export default function GestaoMarketing() {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  // Determinar aba padrão baseado no parâmetro da URL (ex: ?gmb=ok abre aba google)
+  const defaultTab = searchParams.get("gmb") ? "google" : "whatsapp";
+  const [activeTab, setActiveTab] = useState(defaultTab);
 
   if (authLoading) {
     return <PageLoader />;
@@ -24,6 +29,13 @@ export default function GestaoMarketing() {
     navigate("/");
     return null;
   }
+
+  // Atualizar aba ativa quando o parâmetro gmb estiver presente
+  useEffect(() => {
+    if (searchParams.get("gmb")) {
+      setActiveTab("google");
+    }
+  }, [searchParams]);
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -39,7 +51,7 @@ export default function GestaoMarketing() {
         </div>
       </div>
 
-      <Tabs defaultValue="whatsapp" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="whatsapp" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />

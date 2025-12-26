@@ -3,9 +3,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useGoogleAuth } from "@/hooks/use-google-auth";
 import { useGoogleReviews } from "@/hooks/use-google-reviews";
 import { useDebounce } from "@/hooks/use-debounce";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, MessageSquare, MapPin, Activity, Settings, RefreshCw, Image as ImageIcon, MessageCircleQuestion, Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { BarChart3, MessageSquare, MapPin, Activity, Settings, RefreshCw, Image as ImageIcon, MessageCircleQuestion, Search, Store } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +18,7 @@ import {
   ReviewsList,
   ReviewsHeader,
   GoogleLocations,
+  LocationMapping,
   ProfileHealth,
   GoogleNotifications,
   GoogleSettings
@@ -55,6 +58,8 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
     email?: string;
     profilePictureUrl?: string;
   } | null>(null);
+  const [stores, setStores] = useState<Array<{ id: string; name: string; slug: string }>>([]);
+  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
   const [siteSlug, setSiteSlug] = useState<string>("elevea");
   const [statsPeriod, setStatsPeriod] = useState<string>("30d");
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
@@ -71,31 +76,48 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
   const [currentPage, setCurrentPage] = useState(1);
   const reviewsPerPage = 10;
 
-  // Buscar site_slug do perfil ou loja
+  // Buscar lojas do admin
   useEffect(() => {
-    const fetchSiteSlug = async () => {
+    const fetchStores = async () => {
       if (!profile?.id) return;
 
       try {
-        const { data: store } = await supabase
+        const { data: storesData, error } = await supabase
           .schema("sistemaretiradas")
           .from("stores")
-          .select("slug")
+          .select("id, name, slug")
           .eq("admin_id", profile.id)
           .eq("active", true)
-          .limit(1)
-          .single();
+          .order("name");
 
-        if (store?.slug) {
-          setSiteSlug(store.slug);
+        if (error) throw error;
+
+        if (storesData && storesData.length > 0) {
+          setStores(storesData);
+          // Se não tem loja selecionada, selecionar a primeira
+          if (!selectedStoreId) {
+            setSelectedStoreId(storesData[0].id);
+            setSiteSlug(storesData[0].slug || storesData[0].id);
+          }
         }
       } catch (error) {
-        console.error("Erro ao buscar site_slug:", error);
+        console.error("Erro ao buscar lojas:", error);
+        toast.error("Erro ao carregar lojas");
       }
     };
 
-    fetchSiteSlug();
+    fetchStores();
   }, [profile?.id]);
+
+  // Atualizar siteSlug quando loja selecionada mudar
+  useEffect(() => {
+    if (selectedStoreId && stores.length > 0) {
+      const selectedStore = stores.find(s => s.id === selectedStoreId);
+      if (selectedStore) {
+        setSiteSlug(selectedStore.slug || selectedStore.id);
+      }
+    }
+  }, [selectedStoreId, stores]);
 
   // Verificar status da conexão
   useEffect(() => {
@@ -366,6 +388,41 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
         </CardHeader>
       </Card>
 
+      {/* Seletor de Loja */}
+      {stores.length > 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Store className="h-5 w-5" />
+              Selecionar Loja
+            </CardTitle>
+            <CardDescription>
+              Escolha qual loja você deseja gerenciar no Google My Business
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Label htmlFor="store-select">Loja</Label>
+              <Select
+                value={selectedStoreId}
+                onValueChange={(value) => setSelectedStoreId(value)}
+              >
+                <SelectTrigger id="store-select">
+                  <SelectValue placeholder="Selecione uma loja" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stores.map((store) => (
+                    <SelectItem key={store.id} value={store.id}>
+                      {store.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Status da Conexão */}
       <ConnectionStatus
         connected={connectionStatus?.connected || false}
@@ -378,6 +435,21 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
         showDisconnectDialog={showDisconnectDialog}
         setShowDisconnectDialog={setShowDisconnectDialog}
       />
+
+      {/* Mapeamento de Locations (quando há múltiplas locations e está conectado) */}
+      {connectionStatus?.connected && user?.email && (
+        <LocationMapping
+          customerId={user.email}
+          siteSlug={siteSlug}
+          onMappingComplete={() => {
+            // Recarregar dados após mapeamento
+            if (siteSlug) {
+              fetchReviews(siteSlug);
+              fetchStats(siteSlug, statsPeriod);
+            }
+          }}
+        />
+      )}
 
       {/* Conteúdo principal - apenas se conectado */}
       {connectionStatus?.connected && (

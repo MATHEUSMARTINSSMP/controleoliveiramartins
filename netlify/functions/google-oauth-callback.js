@@ -204,7 +204,7 @@ exports.handler = async (event) => {
           <!DOCTYPE html>
           <html>
           <head>
-            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/client/dashboard?gmb=error&msg=${encodeURIComponent('Configuração do servidor incompleta')}">
+            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/admin/marketing?gmb=error&msg=${encodeURIComponent('Configuração do servidor incompleta')}">
           </head>
           <body>
             <p>Redirecionando...</p>
@@ -217,7 +217,7 @@ exports.handler = async (event) => {
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
-      { db: { schema: 'elevea' } }
+      { db: { schema: 'sistemaretiradas' } }
     );
 
     // Extrair parâmetros da query string
@@ -237,7 +237,7 @@ exports.handler = async (event) => {
           <!DOCTYPE html>
           <html>
           <head>
-            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/client/dashboard?gmb=error&msg=${encodeURIComponent(errorMsg)}">
+            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/admin/marketing?gmb=error&msg=${encodeURIComponent(errorMsg)}">
           </head>
           <body>
             <p>Redirecionando...</p>
@@ -256,7 +256,7 @@ exports.handler = async (event) => {
           <!DOCTYPE html>
           <html>
           <head>
-            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/client/dashboard?gmb=error&msg=${encodeURIComponent('Código de autorização ou state não fornecidos')}">
+            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/admin/marketing?gmb=error&msg=${encodeURIComponent('Código de autorização ou state não fornecidos')}">
           </head>
           <body>
             <p>Redirecionando...</p>
@@ -279,7 +279,7 @@ exports.handler = async (event) => {
           <!DOCTYPE html>
           <html>
           <head>
-            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/client/dashboard?gmb=error&msg=${encodeURIComponent('State inválido')}">
+            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/admin/marketing?gmb=error&msg=${encodeURIComponent('State inválido')}">
           </head>
           <body>
             <p>Redirecionando...</p>
@@ -299,7 +299,7 @@ exports.handler = async (event) => {
           <!DOCTYPE html>
           <html>
           <head>
-            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/client/dashboard?gmb=error&msg=${encodeURIComponent('Dados do state incompletos')}">
+            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/admin/marketing?gmb=error&msg=${encodeURIComponent('Dados do state incompletos')}">
           </head>
           <body>
             <p>Redirecionando...</p>
@@ -338,7 +338,7 @@ exports.handler = async (event) => {
           <!DOCTYPE html>
           <html>
           <head>
-            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/client/dashboard?gmb=error&msg=${encodeURIComponent(errorData.error?.message || 'Erro ao obter tokens')}">
+            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/admin/marketing?gmb=error&msg=${encodeURIComponent(errorData.error?.message || 'Erro ao obter tokens')}">
           </head>
           <body>
             <p>Redirecionando...</p>
@@ -365,7 +365,7 @@ exports.handler = async (event) => {
           <!DOCTYPE html>
           <html>
           <head>
-            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/client/dashboard?gmb=error&msg=${encodeURIComponent('Access token não recebido')}">
+            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/admin/marketing?gmb=error&msg=${encodeURIComponent('Access token não recebido')}">
           </head>
           <body>
             <p>Redirecionando...</p>
@@ -405,7 +405,7 @@ exports.handler = async (event) => {
           <!DOCTYPE html>
           <html>
           <head>
-            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/client/dashboard?gmb=error&msg=${encodeURIComponent('Erro ao salvar credenciais')}">
+            <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/admin/marketing?gmb=error&msg=${encodeURIComponent('Erro ao salvar credenciais')}">
           </head>
           <body>
             <p>Redirecionando...</p>
@@ -424,8 +424,8 @@ exports.handler = async (event) => {
         console.error('[Google OAuth] Erro ao salvar accounts/locations:', err);
       });
 
-    // Redirecionar para dashboard com sucesso
-    const redirectUrl = `${FRONTEND_URL}/client/dashboard?gmb=ok&site=${encodeURIComponent(siteSlug)}`;
+    // Redirecionar para página de marketing com sucesso
+    const redirectUrl = `${FRONTEND_URL}/admin/marketing?gmb=ok&site=${encodeURIComponent(siteSlug)}`;
 
     return {
       statusCode: 200,
@@ -454,7 +454,7 @@ exports.handler = async (event) => {
         <!DOCTYPE html>
         <html>
         <head>
-          <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/client/dashboard?gmb=error&msg=${encodeURIComponent(error.message || 'Erro desconhecido')}">
+          <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}/admin/marketing?gmb=error&msg=${encodeURIComponent(error.message || 'Erro desconhecido')}">
         </head>
         <body>
           <p>Redirecionando...</p>

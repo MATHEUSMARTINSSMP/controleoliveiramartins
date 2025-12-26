@@ -2,14 +2,14 @@
 -- Migration: Criar tabela para armazenar accounts e locations do Google My Business
 -- Data: 2025-12-26
 -- Descrição: Armazena informações de accounts e locations após autenticação OAuth
--- Schema: elevea
+-- Schema: sistemaretiradas
 -- ============================================================================
 
 -- ============================================================================
 -- Tabela: google_business_accounts
 -- Armazena accounts e locations do Google My Business por customer e site
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS elevea.google_business_accounts (
+CREATE TABLE IF NOT EXISTS sistemaretiradas.google_business_accounts (
   id SERIAL PRIMARY KEY,
   customer_id VARCHAR(255) NOT NULL,
   site_slug VARCHAR(255) NOT NULL,
@@ -33,20 +33,20 @@ CREATE TABLE IF NOT EXISTS elevea.google_business_accounts (
 );
 
 -- Comentários
-COMMENT ON TABLE elevea.google_business_accounts IS 'Accounts e locations do Google My Business por customer e site';
-COMMENT ON COLUMN elevea.google_business_accounts.account_id IS 'ID da account do Google (formato: accounts/123456789)';
-COMMENT ON COLUMN elevea.google_business_accounts.location_id IS 'ID da location do Google (formato: locations/987654321)';
-COMMENT ON COLUMN elevea.google_business_accounts.is_primary IS 'Indica se é a location padrão para este customer/site';
+COMMENT ON TABLE sistemaretiradas.google_business_accounts IS 'Accounts e locations do Google My Business por customer e site';
+COMMENT ON COLUMN sistemaretiradas.google_business_accounts.account_id IS 'ID da account do Google (formato: accounts/123456789)';
+COMMENT ON COLUMN sistemaretiradas.google_business_accounts.location_id IS 'ID da location do Google (formato: locations/987654321)';
+COMMENT ON COLUMN sistemaretiradas.google_business_accounts.is_primary IS 'Indica se é a location padrão para este customer/site';
 
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_google_business_accounts_customer_site 
-  ON elevea.google_business_accounts(customer_id, site_slug);
+  ON sistemaretiradas.google_business_accounts(customer_id, site_slug);
 CREATE INDEX IF NOT EXISTS idx_google_business_accounts_account 
-  ON elevea.google_business_accounts(account_id);
+  ON sistemaretiradas.google_business_accounts(account_id);
 CREATE INDEX IF NOT EXISTS idx_google_business_accounts_location 
-  ON elevea.google_business_accounts(location_id);
+  ON sistemaretiradas.google_business_accounts(location_id);
 CREATE INDEX IF NOT EXISTS idx_google_business_accounts_primary 
-  ON elevea.google_business_accounts(customer_id, site_slug, is_primary) 
+  ON sistemaretiradas.google_business_accounts(customer_id, site_slug, is_primary) 
   WHERE is_primary = true;
 
 -- ============================================================================
@@ -54,11 +54,11 @@ CREATE INDEX IF NOT EXISTS idx_google_business_accounts_primary
 -- ============================================================================
 
 -- Habilitar RLS
-ALTER TABLE elevea.google_business_accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sistemaretiradas.google_business_accounts ENABLE ROW LEVEL SECURITY;
 
 -- Policy: ADMIN pode ver accounts/locations de suas lojas
 CREATE POLICY "ADMIN pode ver google_business_accounts de suas lojas"
-  ON elevea.google_business_accounts
+  ON sistemaretiradas.google_business_accounts
   FOR SELECT
   TO authenticated
   USING (
@@ -83,7 +83,7 @@ CREATE POLICY "ADMIN pode ver google_business_accounts de suas lojas"
 
 -- Policy: ADMIN pode inserir/atualizar accounts/locations
 CREATE POLICY "ADMIN pode gerenciar google_business_accounts"
-  ON elevea.google_business_accounts
+  ON sistemaretiradas.google_business_accounts
   FOR ALL
   TO authenticated
   USING (
@@ -108,9 +108,9 @@ CREATE POLICY "ADMIN pode gerenciar google_business_accounts"
 -- ============================================================================
 
 CREATE TRIGGER update_google_business_accounts_updated_at
-  BEFORE UPDATE ON elevea.google_business_accounts
+  BEFORE UPDATE ON sistemaretiradas.google_business_accounts
   FOR EACH ROW
-  EXECUTE FUNCTION elevea.update_updated_at_column();
+  EXECUTE FUNCTION sistemaretiradas.update_updated_at_column();
 
 -- ============================================================================
 -- Atualizar tabela google_reviews para incluir location_id e account_id
@@ -122,46 +122,46 @@ BEGIN
   -- Adicionar account_id se não existir
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'elevea' 
+    WHERE table_schema = 'sistemaretiradas' 
     AND table_name = 'google_reviews' 
     AND column_name = 'account_id'
   ) THEN
-    ALTER TABLE elevea.google_reviews
+    ALTER TABLE sistemaretiradas.google_reviews
     ADD COLUMN account_id VARCHAR(255);
   END IF;
 
   -- Adicionar location_id se não existir
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'elevea' 
+    WHERE table_schema = 'sistemaretiradas' 
     AND table_name = 'google_reviews' 
     AND column_name = 'location_id'
   ) THEN
-    ALTER TABLE elevea.google_reviews
+    ALTER TABLE sistemaretiradas.google_reviews
     ADD COLUMN location_id VARCHAR(255);
   END IF;
 
   -- Adicionar is_read se não existir
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'elevea' 
+    WHERE table_schema = 'sistemaretiradas' 
     AND table_name = 'google_reviews' 
     AND column_name = 'is_read'
   ) THEN
-    ALTER TABLE elevea.google_reviews
+    ALTER TABLE sistemaretiradas.google_reviews
     ADD COLUMN is_read BOOLEAN DEFAULT false;
   END IF;
 END $$;
 
 -- Comentários
-COMMENT ON COLUMN elevea.google_reviews.account_id IS 'ID da account do Google (formato: accounts/123456789)';
-COMMENT ON COLUMN elevea.google_reviews.location_id IS 'ID da location do Google (formato: locations/987654321)';
-COMMENT ON COLUMN elevea.google_reviews.is_read IS 'Indica se o review foi lido pelo usuário';
+COMMENT ON COLUMN sistemaretiradas.google_reviews.account_id IS 'ID da account do Google (formato: accounts/123456789)';
+COMMENT ON COLUMN sistemaretiradas.google_reviews.location_id IS 'ID da location do Google (formato: locations/987654321)';
+COMMENT ON COLUMN sistemaretiradas.google_reviews.is_read IS 'Indica se o review foi lido pelo usuário';
 
 -- Índices adicionais
 CREATE INDEX IF NOT EXISTS idx_google_reviews_account_location 
-  ON elevea.google_reviews(account_id, location_id);
+  ON sistemaretiradas.google_reviews(account_id, location_id);
 CREATE INDEX IF NOT EXISTS idx_google_reviews_is_read 
-  ON elevea.google_reviews(is_read) 
+  ON sistemaretiradas.google_reviews(is_read) 
   WHERE is_read = false;
 

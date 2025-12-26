@@ -8,7 +8,7 @@
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
 -- 2. Criar função para chamar Netlify Function de sincronização
-CREATE OR REPLACE FUNCTION elevea.sync_google_reviews_automatico()
+CREATE OR REPLACE FUNCTION sistemaretiradas.sync_google_reviews_automatico()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -91,11 +91,11 @@ END $$;
 SELECT cron.schedule(
   'sync-google-reviews-automatico',
   '0 */6 * * *', -- A cada 6 horas
-  $$SELECT elevea.sync_google_reviews_automatico();$$
+  $$SELECT sistemaretiradas.sync_google_reviews_automatico();$$
 );
 
 -- Comentários
-COMMENT ON FUNCTION elevea.sync_google_reviews_automatico() IS 
+COMMENT ON FUNCTION sistemaretiradas.sync_google_reviews_automatico() IS 
 'Chama Netlify Function google-reviews-fetch para sincronização automática de reviews. Executada via pg_cron a cada 6 horas.';
 
 -- ============================================================================
@@ -114,6 +114,6 @@ COMMENT ON FUNCTION elevea.sync_google_reviews_automatico() IS
 
 -- Reativar o cron job:
 -- SELECT cron.schedule('sync-google-reviews-automatico', '0 */6 * * *', 
---   $$SELECT elevea.sync_google_reviews_automatico();$$);
+--   $$SELECT sistemaretiradas.sync_google_reviews_automatico();$$);
 
 

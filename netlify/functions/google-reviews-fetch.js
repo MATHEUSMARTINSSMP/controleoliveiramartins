@@ -156,7 +156,7 @@ exports.handler = async (event) => {
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
-      { db: { schema: 'elevea' } }
+      { db: { schema: 'sistemaretiradas' } }
     );
 
     // Parse body
@@ -175,10 +175,10 @@ exports.handler = async (event) => {
       };
     }
 
-    // Buscar credenciais do banco
+    // Buscar credenciais do banco (incluindo location_id opcional)
     const { data: credentials, error: credError } = await supabase
       .from('google_credentials')
-      .select('access_token, refresh_token, expires_at, token_type, status')
+      .select('access_token, refresh_token, expires_at, token_type, status, location_id')
       .eq('customer_id', userEmail)
       .eq('site_slug', siteSlug)
       .eq('status', 'active')
@@ -266,11 +266,20 @@ exports.handler = async (event) => {
     }
 
     // Buscar locations do banco
-    const { data: locations, error: locError } = await supabase
+    // Se credentials tem location_id, filtrar apenas essa location
+    let locationsQuery = supabase
       .from('google_business_accounts')
       .select('account_id, location_id')
       .eq('customer_id', userEmail)
       .eq('site_slug', siteSlug);
+    
+    // Se tem location_id na credencial, filtrar apenas essa location
+    if (credentials.location_id) {
+      locationsQuery = locationsQuery.eq('location_id', credentials.location_id);
+      console.log(`[Google Reviews] Filtrando por location_id: ${credentials.location_id}`);
+    }
+    
+    const { data: locations, error: locError } = await locationsQuery;
 
     if (locError || !locations || locations.length === 0) {
       // Se não tem locations no banco, tentar buscar da API
@@ -327,20 +336,24 @@ exports.handler = async (event) => {
               location_id: location.name || '',
             });
 
-            // Salvar no banco
-            await supabase
-              .from('google_business_accounts')
-              .upsert({
-                customer_id: userEmail,
-                site_slug: siteSlug,
-                account_id: accountId,
-                account_name: account.accountName || '',
-                location_id: location.name || '',
-                location_name: location.title || location.storefront?.title || '',
-                is_primary: allLocations.length === 1,
-              }, {
-                onConflict: 'customer_id,site_slug,account_id,location_id',
-              });
+            // Salvar no banco (apenas se não tiver location_id na credencial OU se for a location específica)
+            const shouldSave = !credentials.location_id || location.name === credentials.location_id;
+            
+            if (shouldSave) {
+              await supabase
+                .from('google_business_accounts')
+                .upsert({
+                  customer_id: userEmail,
+                  site_slug: siteSlug,
+                  account_id: accountId,
+                  account_name: account.accountName || '',
+                  location_id: location.name || '',
+                  location_name: location.title || location.storefront?.title || '',
+                  is_primary: allLocations.length === 1 && (!credentials.location_id || location.name === credentials.location_id),
+                }, {
+                  onConflict: 'customer_id,site_slug,account_id,location_id',
+                });
+            }
           }
         }
 

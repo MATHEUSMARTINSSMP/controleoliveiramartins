@@ -14,6 +14,7 @@ export { PeriodComparison } from "./PeriodComparison";
 export { StatsExportButton } from "./StatsExportButton";
 export { ReviewsExportPDF } from "./ReviewsExportPDF";
 export { GoogleLocations } from "./GoogleLocations";
+export { LocationMapping } from "./LocationMapping";
 export { ProfileHealth } from "./ProfileHealth";
 export { GoogleNotifications } from "./GoogleNotifications";
 export { GoogleSettings } from "./GoogleSettings";
