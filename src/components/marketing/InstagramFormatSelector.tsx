@@ -26,7 +26,7 @@ export const INSTAGRAM_FORMATS: InstagramFormat[] = [
     dimensions: '1080 x 1080 px',
     aspectRatio: '1:1',
     icon: <Square className="h-6 w-6" />,
-    color: 'bg-blue-500',
+    color: 'bg-primary',
     examples: ['Feed principal', 'Melhor para produtos', 'Mais visualizado'],
   },
   {
@@ -36,7 +36,7 @@ export const INSTAGRAM_FORMATS: InstagramFormat[] = [
     dimensions: '1080 x 1920 px',
     aspectRatio: '9:16',
     icon: <RectangleVertical className="h-6 w-6" />,
-    color: 'bg-purple-500',
+    color: 'bg-primary',
     examples: ['24 horas de duração', 'Ideal para promoções', 'Alta interação'],
   },
   {
@@ -46,7 +46,7 @@ export const INSTAGRAM_FORMATS: InstagramFormat[] = [
     dimensions: '1080 x 1920 px',
     aspectRatio: '9:16',
     icon: <RectangleVertical className="h-6 w-6" />,
-    color: 'bg-pink-500',
+    color: 'bg-primary',
     examples: ['Até 90 segundos', 'Algoritmo prioriza', 'Máximo engajamento'],
   },
   {
@@ -56,7 +56,7 @@ export const INSTAGRAM_FORMATS: InstagramFormat[] = [
     dimensions: '1080 x 1080 px (cada)',
     aspectRatio: '1:1',
     icon: <Square className="h-6 w-6" />,
-    color: 'bg-green-500',
+    color: 'bg-primary',
     examples: ['Até 10 imagens', 'Conta histórias', 'Mais informações'],
   },
   {
@@ -66,7 +66,7 @@ export const INSTAGRAM_FORMATS: InstagramFormat[] = [
     dimensions: '1080 x 566 px',
     aspectRatio: '1.91:1',
     icon: <RectangleHorizontal className="h-6 w-6" />,
-    color: 'bg-orange-500',
+    color: 'bg-primary',
     examples: ['Feed principal', 'Boa para paisagens', 'Menos comum'],
   },
 ];
@@ -101,7 +101,7 @@ export function InstagramFormatSelector({ selectedFormat, onFormatSelect }: Inst
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className={`p-2 rounded-lg ${format.color} text-white`}>
+                  <div className={`p-2 rounded-lg ${format.color} text-primary-foreground`}>
                     {format.icon}
                   </div>
                   <div>
@@ -120,7 +120,7 @@ export function InstagramFormatSelector({ selectedFormat, onFormatSelect }: Inst
               {/* Ilustração do formato */}
               <div className="flex items-center justify-center bg-muted rounded-lg p-4">
                 <div
-                  className={`${format.color} rounded shadow-lg`}
+                  className={`${format.color} rounded shadow-lg border border-border`}
                   style={{
                     width:
                       format.aspectRatio === '1:1'
@@ -136,7 +136,7 @@ export function InstagramFormatSelector({ selectedFormat, onFormatSelect }: Inst
                         : '63px',
                   }}
                 >
-                  <div className="h-full w-full flex items-center justify-center text-white text-xs font-bold">
+                  <div className="h-full w-full flex items-center justify-center text-primary-foreground text-xs font-bold">
                     {format.aspectRatio}
                   </div>
                 </div>
