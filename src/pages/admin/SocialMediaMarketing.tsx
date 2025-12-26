@@ -1425,6 +1425,70 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
               />
             </CardContent>
           </Card>
+
+      {/* Dialog de Edição de Imagem */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar Imagem</DialogTitle>
+            <DialogDescription>
+              Descreva o que deseja alterar na imagem. A IA manterá tudo igual e fará apenas as alterações solicitadas.
+            </DialogDescription>
+          </DialogHeader>
+          {editingAsset && (
+            <div className="space-y-4">
+              <div className="aspect-square bg-muted rounded-lg overflow-hidden">
+                <img
+                  src={editingAsset.public_url || editingAsset.signed_url || editingAsset.url}
+                  alt="Imagem a editar"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-prompt">O que deseja alterar?</Label>
+                <Textarea
+                  id="edit-prompt"
+                  placeholder="Ex: Troque a fonte do texto, Mude a cor do fundo para azul, Adicione mais brilho..."
+                  value={editPrompt}
+                  onChange={(e) => setEditPrompt(e.target.value)}
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Exemplos: "Troque a fonte", "Mude a cor do texto para branco", "Adicione mais contraste"
+                </p>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setEditingAsset(null);
+                    setEditPrompt("");
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleGenerateEdit}
+                  disabled={!editPrompt.trim() || isGenerating}
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Gerando...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Gerar Variação
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
