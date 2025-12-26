@@ -973,8 +973,12 @@ async function startVideoGenerationWithOpenAIDirect(input) {
     // Construir prompt enriquecido
     if (formatInfo.length > 0) {
       const formatDetails = formatInfo.join('\n');
-      enrichedPrompt = `${input.prompt}\n\n=== ESPECIFICAÇÕES DO FORMATO ===\n${formatDetails}\n\nIMPORTANTE: O vídeo deve ser gerado exatamente nestas especificações. Garanta que a composição, movimento, câmera e elementos visuais estejam completamente otimizados para este formato específico do Instagram.`;
+      enrichedPrompt = `${input.prompt}\n\n=== CONTEXTO COMERCIAL ===\nEste é um vídeo para POST COMERCIAL profissional em redes sociais de empresa. O objetivo é GERAR VENDAS e ENGAJAMENTO. O vídeo deve ser profissional, comercialmente eficaz, com composição e movimento que direciona atenção para pontos importantes e reforça branding.\n\n=== ESPECIFICAÇÕES DO FORMATO ===\n${formatDetails}\n\nIMPORTANTE: O vídeo deve ser gerado exatamente nestas especificações. Garanta que a composição, movimento, câmera e elementos visuais estejam completamente otimizados para este formato específico do Instagram como um POST COMERCIAL PROFISSIONAL que vende e engaja.`;
+    } else {
+      enrichedPrompt = `${input.prompt}\n\nCONTEXTO: Este é um vídeo para POST COMERCIAL profissional em redes sociais de empresa. O objetivo é GERAR VENDAS e ENGAJAMENTO. O vídeo deve ser profissional, comercialmente eficaz e adequado para redes sociais de empresas.`;
     }
+  } else {
+    enrichedPrompt = `${input.prompt}\n\nCONTEXTO: Este é um vídeo para POST COMERCIAL profissional em redes sociais de empresa. O objetivo é GERAR VENDAS e ENGAJAMENTO. O vídeo deve ser profissional, comercialmente eficaz e adequado para redes sociais de empresas.`;
   }
 
   const formData = new FormData();
