@@ -81,6 +81,7 @@ const Lancamentos = () => {
   const [motivoEstorno, setMotivoEstorno] = useState("");
   const [tipoFiltro, setTipoFiltro] = useState<"TODOS" | "COMPRAS" | "PARCELAS" | "ADIANTAMENTOS">("TODOS");
   const [mesFiltro, setMesFiltro] = useState<string>("TODOS");
+  const [statusAdiantamentoFiltro, setStatusAdiantamentoFiltro] = useState<string>("TODOS");
   const [adiantamentoParaExcluir, setAdiantamentoParaExcluir] = useState<string | null>(null);
   const [compraParaExcluir, setCompraParaExcluir] = useState<string | null>(null);
   const [expandedCompras, setExpandedCompras] = useState<Set<string>>(new Set());
@@ -256,7 +257,7 @@ const Lancamentos = () => {
         .schema("sistemaretiradas")
         .from("adiantamentos")
         .select("*")
-        .eq("status", "APROVADO" as any)
+        .in("status", ["APROVADO", "DESCONTADO"])
         .order("mes_competencia", { ascending: true });
 
       if (error) throw error;
@@ -1082,7 +1083,22 @@ const Lancamentos = () => {
 
               {/* ABA DE ADIANTAMENTOS */}
               <TabsContent value="adiantamentos" className="space-y-4">
-                {adiantamentos.filter(a => mesFiltro === "TODOS" || a.mes_competencia === mesFiltro).length === 0 ? (
+                <div className="flex gap-2 mb-4">
+                  <Select value={statusAdiantamentoFiltro} onValueChange={setStatusAdiantamentoFiltro}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TODOS">Todos os Status</SelectItem>
+                      <SelectItem value="APROVADO">Aprovado</SelectItem>
+                      <SelectItem value="DESCONTADO">Descontado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {adiantamentos
+                  .filter(a => mesFiltro === "TODOS" || a.mes_competencia === mesFiltro)
+                  .filter(a => statusAdiantamentoFiltro === "TODOS" || a.status === statusAdiantamentoFiltro)
+                  .length === 0 ? (
                   <Card>
                     <CardContent className="py-8 text-center text-muted-foreground">
                       Nenhum adiantamento encontrado
@@ -1103,6 +1119,7 @@ const Lancamentos = () => {
                       <TableBody>
                         {adiantamentos
                           .filter(a => mesFiltro === "TODOS" || a.mes_competencia === mesFiltro)
+                          .filter(a => statusAdiantamentoFiltro === "TODOS" || a.status === statusAdiantamentoFiltro)
                           .map((adiantamento) => (
                             <TableRow key={adiantamento.id}>
                               <TableCell className="font-medium">
