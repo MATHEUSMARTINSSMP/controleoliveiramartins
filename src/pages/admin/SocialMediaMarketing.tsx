@@ -528,7 +528,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
       }
 
       // Chamar endpoint de criação de job
-      const response = await fetch("/.netlify/functions/marketing-media", {
+      let response = await fetch("/.netlify/functions/marketing-media", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1822,28 +1822,36 @@ function JobCard({ job, onCancel }: { job: any; onCancel: (jobId: string) => voi
   return (
     <div className="rounded-lg border p-4 space-y-3">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3 flex-1 min-w-0">
+        <div className="flex items-start gap-3 flex-1 min-w-0 overflow-hidden">
           {getStatusIcon()}
           <div className="flex-1 min-w-0 overflow-hidden">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="font-medium capitalize">
-                            {job.type.replace("_", " ")}
-                          </span>
-                          <span className={`text-xs font-medium ${getStatusColor()}`}>
-                            {getStatusLabel()}
-                          </span>
-                          {job.progress !== null && job.progress !== undefined && job.progress >= 0 && job.progress < 100 && (
-                            <span className="text-xs font-medium text-primary">
-                              {Math.round(job.progress)}%
-                            </span>
-                          )}
-                        </div>
-            <p className="text-sm text-muted-foreground break-words line-clamp-2" title={job.prompt_original || job.original_prompt || "Sem prompt"}>
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="font-medium capitalize">
+                {job.type.replace("_", " ")}
+              </span>
+              <span className={`text-xs font-medium ${getStatusColor()}`}>
+                {getStatusLabel()}
+              </span>
+              {job.progress !== null && job.progress !== undefined && job.progress >= 0 && job.progress < 100 && (
+                <span className="text-xs font-medium text-primary">
+                  {Math.round(job.progress)}%
+                </span>
+              )}
+            </div>
+            <p 
+              className="text-sm text-muted-foreground break-words line-clamp-3 overflow-hidden" 
+              title={job.prompt_original || job.original_prompt || "Sem prompt"}
+              style={{ 
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
+                maxWidth: '100%'
+              }}
+            >
               {job.prompt_original || job.original_prompt || "Sem prompt"}
             </p>
-            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-              <span>{job.provider} • {job.provider_model || "N/A"}</span>
-              <span>{formatDistanceToNow(new Date(job.created_at), { addSuffix: true, locale: ptBR })}</span>
+            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
+              <span className="whitespace-nowrap">{job.provider} • {job.provider_model || "N/A"}</span>
+              <span className="whitespace-nowrap">{formatDistanceToNow(new Date(job.created_at), { addSuffix: true, locale: ptBR })}</span>
             </div>
           </div>
         </div>
@@ -1852,6 +1860,7 @@ function JobCard({ job, onCancel }: { job: any; onCancel: (jobId: string) => voi
             size="sm"
             variant="ghost"
             onClick={() => onCancel(job.id)}
+            className="flex-shrink-0"
           >
             <X className="h-4 w-4" />
           </Button>
