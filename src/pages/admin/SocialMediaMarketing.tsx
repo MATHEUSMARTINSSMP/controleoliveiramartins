@@ -932,22 +932,76 @@ function JobsTab({ storeId: propStoreId, onJobCompleted }: { storeId?: string | 
     );
   }
 
-  const processingJobs = jobs.filter(j => j.status === "queued" || j.status === "processing");
+  const queuedJobs = jobs.filter(j => j.status === "queued");
+  const processingJobs = jobs.filter(j => j.status === "processing");
   const completedJobs = jobs.filter(j => j.status === "done");
   const failedJobs = jobs.filter(j => j.status === "failed");
+  const totalProcessing = queuedJobs.length + processingJobs.length;
+
+  const handleProcessManually = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Sessão expirada");
+        return;
+      }
+
+      toast.loading("Processando jobs pendentes...", { id: "process-manual" });
+
+      const response = await fetch(`/.netlify/functions/marketing-worker`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao processar jobs");
+      }
+
+      toast.success(
+        `Processados: ${result.processed || 0} jobs (${result.successful || 0} sucesso, ${result.failed || 0} falhas)`,
+        { id: "process-manual" }
+      );
+      
+      // Recarregar jobs após processamento
+      setTimeout(() => refetch(), 1000);
+    } catch (error: any) {
+      console.error("Erro ao processar jobs manualmente:", error);
+      toast.error(error.message || "Erro ao processar jobs", { id: "process-manual" });
+    }
+  };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Processamentos</CardTitle>
-        <CardDescription>
-          Acompanhe o status das gerações em andamento
-          {processingJobs.length > 0 && (
-            <span className="ml-2 text-primary">
-              ({processingJobs.length} em processamento)
-            </span>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Processamentos</CardTitle>
+            <CardDescription>
+              Acompanhe o status das gerações em andamento
+              {totalProcessing > 0 && (
+                <span className="ml-2 text-primary">
+                  ({totalProcessing} em processamento)
+                </span>
+              )}
+            </CardDescription>
+          </div>
+          {queuedJobs.length > 0 && (
+            <Button
+              onClick={handleProcessManually}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Processar Agora ({queuedJobs.length})
+            </Button>
           )}
-        </CardDescription>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {jobs.length === 0 ? (
