@@ -7,12 +7,16 @@ import { SiteOnboarding, SiteEditor, useSiteData } from "@/components/admin/site
 
 interface SiteBuilderProps {
   embedded?: boolean;
+  storeId?: string | null;
 }
 
-export default function SiteBuilder({ embedded = false }: SiteBuilderProps) {
+export default function SiteBuilder({ embedded = false, storeId: propStoreId }: SiteBuilderProps) {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { hasSite, isLoading } = useSiteData();
+  
+  // Se storeId foi passado como prop, usar ele; senão, tentar obter do profile
+  const tenantId = propStoreId || (profile as any)?.store_id;
+  const { hasSite, isLoading } = useSiteData({ tenantId });
 
   if (authLoading || isLoading) {
     return <PageLoader />;
@@ -38,7 +42,7 @@ export default function SiteBuilder({ embedded = false }: SiteBuilderProps) {
             }
           </p>
         </div>
-        {hasSite ? <SiteEditor /> : <SiteOnboarding />}
+        {hasSite ? <SiteEditor tenantId={tenantId} /> : <SiteOnboarding tenantId={tenantId} />}
       </div>
     );
   }
@@ -64,7 +68,7 @@ export default function SiteBuilder({ embedded = false }: SiteBuilderProps) {
         </div>
       </div>
 
-      {hasSite ? <SiteEditor /> : <SiteOnboarding />}
+      {hasSite ? <SiteEditor tenantId={tenantId} /> : <SiteOnboarding tenantId={tenantId} />}
     </div>
   );
 }

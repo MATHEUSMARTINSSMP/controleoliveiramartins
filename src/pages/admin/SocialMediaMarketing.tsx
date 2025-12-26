@@ -27,17 +27,18 @@ import { useNavigate } from "react-router-dom";
 
 interface SocialMediaMarketingProps {
   embedded?: boolean;
+  storeId?: string | null;
 }
 
-export default function SocialMediaMarketing({ embedded = false }: SocialMediaMarketingProps) {
+export default function SocialMediaMarketing({ embedded = false, storeId: propStoreId }: SocialMediaMarketingProps) {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [selectedTab, setSelectedTab] = useState("generate");
   const [newlyCompletedJobId, setNewlyCompletedJobId] = useState<string | null>(null);
   const [highlightAssetId, setHighlightAssetId] = useState<string | null>(null);
 
-  // Obter store_id usando função que lida com diferentes roles
-  const storeId = profile ? getStoreIdFromProfile(profile) : null;
+  // Se storeId foi passado como prop, usar ele; senão, tentar obter do profile
+  const storeId = propStoreId !== undefined ? propStoreId : (profile ? getStoreIdFromProfile(profile) : null);
   const hasStoreId = !!storeId;
 
   return (
