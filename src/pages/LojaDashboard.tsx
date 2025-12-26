@@ -2976,68 +2976,29 @@ export default function LojaDashboard() {
                         if (adminPhones.length > 0) {
                             console.log('📱 [4/4] Buscando totais da loja...');
 
-                            // ✅ CORREÇÃO: Aguardar um pequeno delay para garantir que a venda foi salva no banco
-                            // e então recalcular o total incluindo a venda recém-criada
-                            await new Promise(resolve => setTimeout(resolve, 500)); // 500ms de delay
+                            // ✅ USANDO HELPER: Calcular totais garantindo que a venda atual seja contada apenas uma vez
+                            const { calculateSalesTotals } = await import('@/lib/sales-totals');
+                            const { totalDia, totalMes: totalMesAtualizado } = await calculateSalesTotals({
+                                storeId,
+                                currentSaleId: insertedSale?.id,
+                                currentSaleValue: parseFloat(vendaData.valor) || 0,
+                            });
 
-                            // Buscar total do dia (todas as vendas do dia da loja) - EXCLUINDO a venda atual
-                            const hoje = new Date();
-                            const hojeStr = format(hoje, 'yyyy-MM-dd');
-                            const valorVendaAtual = parseFloat(vendaData.valor) || 0;
-                            const saleIdAtual = insertedSale?.id;
+                            console.log('📱 [4/4] === TOTAIS CALCULADOS (VIA HELPER) ===');
+                            console.log('📱 [4/4] Total do dia:', totalDia.toFixed(2));
+                            console.log('📱 [4/4] Total do mês:', totalMesAtualizado.toFixed(2));
+                            console.log('📱 [4/4] Valor da venda atual:', (parseFloat(vendaData.valor) || 0).toFixed(2));
 
-                            // ✅ SOLUÇÃO DEFINITIVA: Buscar vendas EXCLUINDO a venda atual
-                            const { data: vendasHoje, error: vendasHojeError } = await supabase
-                                .schema('sistemaretiradas')
-                                .from('sales')
-                                .select('id, valor')
-                                .eq('store_id', storeId)
-                                .gte('data_venda', `${hojeStr}T00:00:00`)
-                                .lte('data_venda', `${hojeStr}T23:59:59`)
-                                .neq('id', saleIdAtual); // ✅ EXCLUIR a venda atual
 
-                            // Calcular total do dia SEM a venda atual
-                            let totalDiaSemVendaAtual = 0;
-                            if (!vendasHojeError && vendasHoje) {
-                                totalDiaSemVendaAtual = vendasHoje.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
-                            }
 
-                            // ✅ SEMPRE adicionar a venda atual (garantia de não duplicar)
-                            const totalDia = totalDiaSemVendaAtual + valorVendaAtual;
-                            console.log('📱 [4/4] Total do dia SEM venda atual:', totalDiaSemVendaAtual.toFixed(2));
-                            console.log('📱 [4/4] Venda atual:', valorVendaAtual.toFixed(2));
-                            console.log('📱 [4/4] Total do dia FINAL:', totalDia.toFixed(2));
 
-                            // ✅ CORREÇÃO: Recalcular total do mês também, EXCLUINDO a venda atual
-                            // Reutilizar a variável 'hoje' já declarada acima
-                            const mesAtualISO = hoje.toISOString().slice(0, 7); // Formato: yyyy-MM
-                            const primeiroDiaMes = `${mesAtualISO}-01T00:00:00`;
-                            const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-                            const ultimoDiaMesISO = format(ultimoDiaMes, 'yyyy-MM-dd');
 
-                            // ✅ SOLUÇÃO DEFINITIVA: Buscar vendas do mês EXCLUINDO a venda atual
-                            const { data: vendasMes, error: vendasMesError } = await supabase
-                                .schema('sistemaretiradas')
-                                .from('sales')
-                                .select('id, valor')
-                                .eq('store_id', storeId)
-                                .gte('data_venda', primeiroDiaMes)
-                                .lte('data_venda', `${ultimoDiaMesISO}T23:59:59`)
-                                .neq('id', saleIdAtual); // ✅ EXCLUIR a venda atual
 
-                            // Calcular total do mês SEM a venda atual
-                            let totalMesSemVendaAtual = 0;
-                            if (!vendasMesError && vendasMes) {
-                                totalMesSemVendaAtual = vendasMes.reduce((sum: number, v: any) => sum + parseFloat(v.valor || 0), 0);
-                            }
 
-                            // ✅ SEMPRE adicionar a venda atual (garantia de não duplicar)
-                            const totalMesAtualizado = totalMesSemVendaAtual + valorVendaAtual;
-                            console.log('📱 [4/4] Total do mês SEM venda atual:', totalMesSemVendaAtual.toFixed(2));
-                            console.log('📱 [4/4] Total do mês FINAL:', totalMesAtualizado.toFixed(2));
 
-                            console.log('📱 [4/4] === TOTAIS CALCULADOS ===');
-                            console.log('📱 [4/4] Valor da venda atual:', valorVendaAtual.toFixed(2));
+
+
+
 
                             console.log('📱 [4/4] Formatando mensagem...');
                             const { formatVendaMessage, sendWhatsAppMessage } = await import('@/lib/whatsapp');
