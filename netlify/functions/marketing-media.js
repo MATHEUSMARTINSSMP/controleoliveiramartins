@@ -95,19 +95,86 @@ exports.handler = async (event) => {
     }
 
     // Criar cliente Supabase
-    const supabase = createClient(
+    const supabaseAdmin = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
       { db: { schema: 'sistemaretiradas' } }
     );
 
-    // Obter userId e storeId do token (simplificado, ajustar conforme auth real)
-    // TODO: Validar JWT e extrair user_id e store_id
-    const userId = body.userId || 'temp-user-id';
-    const storeId = body.storeId || 'temp-store-id';
+    // Validar JWT e extrair userId
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+    if (authError || !user) {
+      return {
+        statusCode: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Não autorizado', code: 'AUTH_ERROR' }),
+      };
+    }
+
+    const userId = user.id;
+
+    // Obter storeId do body (obrigatório)
+    const storeId = body.storeId;
+    if (!storeId) {
+      return {
+        statusCode: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          error: 'storeId é obrigatório',
+          code: 'VALIDATION_ERROR',
+        }),
+      };
+    }
+
+    // Validar que a loja pertence ao usuário (verificar profile)
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .schema('sistemaretiradas')
+      .from('profiles')
+      .select('store_id, store_default, role')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      return {
+        statusCode: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Perfil não encontrado', code: 'AUTH_ERROR' }),
+      };
+    }
+
+    // Verificar se o usuário tem permissão para a loja
+    // ADMIN pode acessar qualquer loja que ele gerencie
+    if (profile.role === 'ADMIN') {
+      const { data: store, error: storeError } = await supabaseAdmin
+        .schema('sistemaretiradas')
+        .from('stores')
+        .select('admin_id')
+        .eq('id', storeId)
+        .single();
+
+      if (storeError || !store || store.admin_id !== userId) {
+        return {
+          statusCode: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'Acesso negado a esta loja', code: 'AUTH_ERROR' }),
+        };
+      }
+    } else {
+      // LOJA/COLABORADORA só pode acessar sua própria loja
+      const userStoreId = profile.store_id || profile.store_default;
+      if (userStoreId !== storeId) {
+        return {
+          statusCode: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'Acesso negado a esta loja', code: 'AUTH_ERROR' }),
+        };
+      }
+    }
 
     // Verificar rate limit
-    const rateLimitCheck = await checkRateLimit(supabase, storeId);
+    const rateLimitCheck = await checkRateLimit(supabaseAdmin, storeId);
     if (!rateLimitCheck.allowed) {
       return {
         statusCode: 429,
@@ -121,7 +188,7 @@ exports.handler = async (event) => {
     }
 
     // Verificar quotas
-    const quotaCheck = await checkQuota(supabase, storeId, type);
+    const quotaCheck = await checkQuota(supabaseAdmin, storeId, type);
     if (!quotaCheck.canProceed) {
       return {
         statusCode: 403,
@@ -164,7 +231,8 @@ exports.handler = async (event) => {
     };
 
     // Inserir job
-    const { data: job, error: insertError } = await supabase
+    const { data: job, error: insertError } = await supabaseAdmin
+      .schema('sistemaretiradas')
       .from('marketing_jobs')
       .insert({
         id: jobId,
@@ -196,7 +264,7 @@ exports.handler = async (event) => {
 
     // Incrementar uso (não bloquear se falhar)
     try {
-      await incrementUsage(supabase, storeId, type);
+      await incrementUsage(supabaseAdmin, storeId, type);
     } catch (error) {
       console.warn('[marketing-media] Erro ao incrementar uso:', error);
     }
@@ -239,6 +307,7 @@ async function checkRateLimit(supabase, storeId) {
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
   const { count } = await supabase
+    .schema('sistemaretiradas')
     .from('marketing_jobs')
     .select('*', { count: 'exact', head: true })
     .eq('store_id', storeId)
@@ -265,6 +334,7 @@ async function checkQuota(supabase, storeId, type) {
   // Buscar uso diário e mensal
   const [dailyData, monthlyData] = await Promise.all([
     supabase
+      .schema('sistemaretiradas')
       .from('marketing_usage')
       .select('count')
       .eq('store_id', storeId)
@@ -273,6 +343,7 @@ async function checkQuota(supabase, storeId, type) {
       .eq('type', type)
       .single(),
     supabase
+      .schema('sistemaretiradas')
       .from('marketing_usage')
       .select('count')
       .eq('store_id', storeId)
