@@ -19,6 +19,7 @@ import { ImageUploadInput, ImageFile } from "@/components/marketing/ImageUploadI
 import { MaskUploadInput, MaskFile } from "@/components/marketing/MaskUploadInput";
 import { PromptTemplates, PromptTemplate } from "@/components/marketing/PromptTemplates";
 import { MarketingAnalytics } from "@/components/marketing/MarketingAnalytics";
+import { InstagramFormatSelector, INSTAGRAM_FORMATS, InstagramFormat } from "@/components/marketing/InstagramFormatSelector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { PROVIDER_CONFIG, getDefaultModel, getAllowedModels } from "@/lib/config/provider-config";
@@ -242,6 +243,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
   const [prompt, setPrompt] = useState("");
   const [provider, setProvider] = useState<"gemini" | "openai">("gemini");
   const [model, setModel] = useState<string>("");
+  const [selectedFormat, setSelectedFormat] = useState<string>("post");
   const [inputImages, setInputImages] = useState<ImageFile[]>([]);
   const [mask, setMask] = useState<MaskFile | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -264,12 +266,26 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
     const completedJob = jobs.find(j => j.id === processingJobId && j.status === "done");
     
     if (completedJob && completedJob.result) {
-      const assetIds = completedJob.result?.assetIds || (completedJob.result?.assetId ? [completedJob.result.assetId] : []);
+      console.log("[GenerateContentTab] Job concluído, result:", completedJob.result);
+      
+      // Parse result se for string (JSONB pode vir como string)
+      let result = completedJob.result;
+      if (typeof result === 'string') {
+        try {
+          result = JSON.parse(result);
+        } catch (e) {
+          console.error("[GenerateContentTab] Erro ao parsear result:", e);
+        }
+      }
+      
+      const assetIds = result?.assetIds || (result?.assetId ? [result.assetId] : []);
+      console.log("[GenerateContentTab] AssetIds extraídos:", assetIds);
       
       if (assetIds.length > 0) {
         // Verificar se já temos essas imagens
         const existingIds = new Set(generatedAssets.map(a => a.id));
         const newAssetIds = assetIds.filter(id => !existingIds.has(id));
+        console.log("[GenerateContentTab] Novos assetIds:", newAssetIds);
         
         if (newAssetIds.length > 0) {
           // Buscar URLs dos novos assets
@@ -279,21 +295,28 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
             .select("id, public_url, signed_url")
             .in("id", newAssetIds)
             .then(({ data: assets, error: assetsError }) => {
-              if (!assetsError && assets) {
+              console.log("[GenerateContentTab] Assets buscados:", assets, "Erro:", assetsError);
+              if (!assetsError && assets && assets.length > 0) {
                 const assetUrls = assets.map((asset) => ({
                   id: asset.id,
                   url: asset.public_url || asset.signed_url || "",
                   jobId: processingJobId,
                 }));
 
+                console.log("[GenerateContentTab] Adicionando assets ao estado:", assetUrls);
                 setGeneratedAssets((prev) => [...prev, ...assetUrls]);
                 toast.success(`${assetUrls.length} imagem(ns) gerada(s) com sucesso!`, { id: "generating" });
                 setProcessingJobId(null);
+              } else {
+                console.warn("[GenerateContentTab] Nenhum asset encontrado ou erro na busca");
               }
             });
         } else {
+          console.log("[GenerateContentTab] Todos os assets já estão no estado");
           setProcessingJobId(null);
         }
+      } else {
+        console.warn("[GenerateContentTab] Nenhum assetId encontrado no result");
       }
     }
   }, [jobs, processingJobId, generatedAssets]);
@@ -382,7 +405,19 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
           mask: maskBase64,
           variations: type === "image" ? 3 : 1, // Gerar 3 alternativas para imagens
           output: {
-            size: type === "image" ? "1024x1024" : "1280x720",
+            size: type === "image" 
+              ? (() => {
+                  // Ajustar tamanho baseado no formato do Instagram selecionado
+                  const format = INSTAGRAM_FORMATS.find(f => f.id === selectedFormat);
+                  if (format?.id === "story" || format?.id === "reel") {
+                    return "1080x1920"; // Vertical 9:16
+                  } else if (format?.id === "landscape") {
+                    return "1080x566"; // Horizontal 1.91:1
+                  } else {
+                    return "1080x1080"; // Quadrado 1:1 (post, carousel)
+                  }
+                })()
+              : "1280x720",
             seconds: type === "video" ? 8 : undefined,
           },
         }),
@@ -521,8 +556,21 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
         const jobData = await response.json();
         
         if (jobData.status === "done") {
+          console.log("[GenerateContentTab] Job concluído no polling, result:", jobData.result);
+          
+          // Parse result se for string (JSONB pode vir como string)
+          let result = jobData.result;
+          if (typeof result === 'string') {
+            try {
+              result = JSON.parse(result);
+            } catch (e) {
+              console.error("[GenerateContentTab] Erro ao parsear result no polling:", e);
+            }
+          }
+          
           // Buscar assets gerados (suporta múltiplas variações)
-          const assetIds = jobData.result?.assetIds || (jobData.result?.assetId ? [jobData.result.assetId] : []);
+          const assetIds = result?.assetIds || (result?.assetId ? [result.assetId] : []);
+          console.log("[GenerateContentTab] AssetIds extraídos no polling:", assetIds);
           
           if (assetIds.length > 0) {
             // Buscar URLs dos assets
@@ -532,16 +580,23 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
               .select("id, public_url, signed_url")
               .in("id", assetIds);
 
-            if (!assetsError && assets) {
+            console.log("[GenerateContentTab] Assets buscados no polling:", assets, "Erro:", assetsError);
+
+            if (!assetsError && assets && assets.length > 0) {
               const assetUrls = assets.map((asset) => ({
                 id: asset.id,
                 url: asset.public_url || asset.signed_url || "",
                 jobId: jobId,
               }));
 
+              console.log("[GenerateContentTab] Adicionando assets ao estado no polling:", assetUrls);
               setGeneratedAssets((prev) => [...prev, ...assetUrls]);
               toast.success(`${assetUrls.length} imagem(ns) gerada(s) com sucesso!`, { id: "generating" });
+            } else {
+              console.warn("[GenerateContentTab] Nenhum asset encontrado no polling ou erro na busca");
             }
+          } else {
+            console.warn("[GenerateContentTab] Nenhum assetId encontrado no result do polling");
           }
 
           setProcessingJobId(null);
@@ -676,6 +731,16 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
             Vídeo
           </Button>
         </div>
+
+        {/* Instagram Format Selector (apenas para imagens) */}
+        {type === "image" && (
+          <div className="space-y-2">
+            <InstagramFormatSelector
+              selectedFormat={selectedFormat}
+              onFormatSelect={setSelectedFormat}
+            />
+          </div>
+        )}
 
         {/* Provider & Model Selector */}
         <div className="grid grid-cols-2 gap-2">
