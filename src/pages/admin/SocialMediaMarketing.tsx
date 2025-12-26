@@ -373,6 +373,12 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
       return;
     }
 
+    if (!hasUsedPromptExpander) {
+      toast.error("É obrigatório gerar 5 variações de prompt antes de gerar o conteúdo. Use o botão 'Começar com IA' ou 'Expandir Prompt'.");
+      setShowPromptExpander(true);
+      return;
+    }
+
     if (!storeId) {
       toast.error("Loja não identificada");
       return;
@@ -923,7 +929,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
           )}
           <Button
             onClick={handleGenerate}
-            disabled={isGenerating || !prompt.trim() || !hasStoreId}
+            disabled={isGenerating || !prompt.trim() || !hasStoreId || !hasUsedPromptExpander}
             className={prompt.trim() ? "w-full" : "flex-1"}
           >
             {isGenerating ? (
@@ -940,14 +946,27 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
           </Button>
         </div>
 
+        {/* Alerta se não tiver usado prompt expandido */}
+        {prompt.trim() && !hasUsedPromptExpander && (
+          <Alert className="border-yellow-500/50 bg-yellow-500/10">
+            <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
+            <AlertTitle className="text-yellow-800 dark:text-yellow-200">Prompt Expandido Obrigatório</AlertTitle>
+            <AlertDescription className="text-yellow-700 dark:text-yellow-300">
+              É necessário gerar 5 variações de prompt antes de gerar o conteúdo. Clique em "Começar com IA" ou "Expandir Prompt" para continuar.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Info */}
-        <div className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">
-          <p className="font-medium mb-1">💡 Dica:</p>
-          <p>
-            Quanto mais detalhado for o prompt, melhor será o resultado. Use o botão "Expandir Prompt" 
-            para gerar 5 alternativas profissionais automaticamente com IA.
-          </p>
-        </div>
+        {hasUsedPromptExpander && (
+          <div className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">
+            <p className="font-medium mb-1">💡 Dica:</p>
+            <p>
+              Quanto mais detalhado for o prompt, melhor será o resultado. Use o botão "Expandir Prompt" 
+              para gerar 5 alternativas profissionais automaticamente com IA.
+            </p>
+          </div>
+        )}
 
         {/* Alerta se não tiver store_id */}
         {!hasStoreId && (

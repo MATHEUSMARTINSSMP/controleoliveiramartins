@@ -105,61 +105,61 @@ export function InstagramFormatSelector({ type, selectedFormat, onFormatSelect }
   const currentFormat = selectedFormat || defaultFormat;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
-          <Instagram className="h-4 w-4" />
+        <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+          <Instagram className="h-5 w-5" />
           Formatos do Instagram {type === 'image' ? '(Imagens)' : '(Vídeos)'}
         </h3>
-        <p className="text-xs text-muted-foreground">
-          Escolha o formato ideal para seu conteúdo
+        <p className="text-sm text-muted-foreground mb-4">
+          Escolha o formato ideal para seu conteúdo. Cada formato tem características específicas de tamanho e uso.
         </p>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {formats.map((format) => (
           <Card
             key={format.id}
-            className={`cursor-pointer transition-all hover:shadow-lg flex-shrink-0 w-[200px] ${
+            className={`cursor-pointer transition-all hover:shadow-lg ${
               currentFormat === format.id ? 'ring-2 ring-primary' : ''
             }`}
             onClick={() => onFormatSelect(format.id)}
           >
-            <CardHeader className="pb-2 px-3 pt-3">
+            <CardHeader className="pb-3">
               <div className="flex items-center justify-between mb-2">
-                <div className={`p-1.5 rounded-md ${format.color} text-primary-foreground`}>
+                <div className={`p-2 rounded-lg ${format.color} text-primary-foreground`}>
                   {format.icon}
                 </div>
                 {currentFormat === format.id && (
-                  <Badge variant="default" className="text-xs px-1.5 py-0">✓</Badge>
+                  <Badge variant="default" className="text-xs">Selecionado</Badge>
                 )}
               </div>
-              <CardTitle className="text-sm leading-tight">{format.name}</CardTitle>
-              <CardDescription className="text-xs mt-0.5 leading-tight">
+              <CardTitle className="text-base">{format.name}</CardTitle>
+              <CardDescription className="text-xs mt-1">
                 {format.description}
               </CardDescription>
             </CardHeader>
-            <CardContent className="px-3 pb-3 space-y-2">
+            <CardContent className="space-y-3">
               {/* Ilustração do formato */}
-              <div className="flex items-center justify-center bg-muted rounded-md p-2">
+              <div className="flex items-center justify-center bg-muted rounded-lg p-4">
                 <div
-                  className={`${format.color} rounded shadow-sm border border-border`}
+                  className={`${format.color} rounded shadow-lg border border-border`}
                   style={{
                     width:
                       format.aspectRatio === '1:1'
-                        ? '50px'
+                        ? '80px'
                         : format.aspectRatio === '9:16'
-                        ? '28px'
-                        : '70px',
+                        ? '45px'
+                        : '120px',
                     height:
                       format.aspectRatio === '1:1'
-                        ? '50px'
+                        ? '80px'
                         : format.aspectRatio === '9:16'
-                        ? '50px'
-                        : '37px',
+                        ? '80px'
+                        : '63px',
                   }}
                 >
-                  <div className="h-full w-full flex items-center justify-center text-primary-foreground text-[10px] font-bold">
+                  <div className="h-full w-full flex items-center justify-center text-primary-foreground text-xs font-bold">
                     {format.aspectRatio}
                   </div>
                 </div>
@@ -167,17 +167,17 @@ export function InstagramFormatSelector({ type, selectedFormat, onFormatSelect }
 
               {/* Dimensões */}
               <div className="text-center">
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                <Badge variant="outline" className="text-xs">
                   {format.dimensions}
                 </Badge>
               </div>
 
-              {/* Exemplos de uso (limitado a 2) */}
-              <div className="space-y-0.5">
-                {format.examples.slice(0, 2).map((example, idx) => (
-                  <div key={idx} className="text-[10px] text-muted-foreground flex items-center gap-1">
-                    <div className="h-0.5 w-0.5 rounded-full bg-muted-foreground" />
-                    <span className="leading-tight">{example}</span>
+              {/* Exemplos de uso */}
+              <div className="space-y-1">
+                {format.examples.map((example, idx) => (
+                  <div key={idx} className="text-xs text-muted-foreground flex items-center gap-1">
+                    <div className="h-1 w-1 rounded-full bg-muted-foreground" />
+                    {example}
                   </div>
                 ))}
               </div>
