@@ -742,13 +742,49 @@ async function startVideoGenerationWithGeminiDirect(input) {
   const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
   const MODEL = input.model || 'veo-2.0-generate-001';
 
+  // Enriquecer prompt com informações completas do formato
+  let enrichedPrompt = input.prompt;
+  if (input.output) {
+    const formatInfo = [];
+    
+    // Aspect ratio
+    if (input.output.aspectRatio) {
+      formatInfo.push(`Proporção: ${input.output.aspectRatio}`);
+    }
+    
+    // Duração
+    if (input.output.seconds) {
+      formatInfo.push(`Duração: ${input.output.seconds} segundos`);
+    }
+    
+    // Nome e descrição do formato
+    if (input.output.formatName) {
+      formatInfo.push(`Formato: ${input.output.formatName}`);
+      if (input.output.formatDescription) {
+        formatInfo.push(`Descrição: ${input.output.formatDescription}`);
+      }
+    }
+    
+    // Dimensões (se disponível)
+    if (input.output.size) {
+      const [width, height] = input.output.size.split('x').map(Number);
+      formatInfo.push(`Dimensões: ${width}x${height} pixels (${input.output.size})`);
+    }
+    
+    // Construir prompt enriquecido
+    if (formatInfo.length > 0) {
+      const formatDetails = formatInfo.join('\n');
+      enrichedPrompt = `${input.prompt}\n\n=== ESPECIFICAÇÕES DO FORMATO ===\n${formatDetails}\n\nIMPORTANTE: O vídeo deve ser gerado exatamente nestas especificações. Garanta que a composição, movimento, câmera e elementos visuais estejam completamente otimizados para este formato específico do Instagram.`;
+    }
+  }
+
   const response = await fetch(
     `${BASE_URL}/models/${MODEL}:predictLongRunning?key=${GEMINI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        instances: [{ prompt: input.prompt }],
+        instances: [{ prompt: enrichedPrompt }],
         parameters: {
           durationSeconds: input.output?.seconds || 8,
           aspectRatio: input.output?.aspectRatio || '16:9',
