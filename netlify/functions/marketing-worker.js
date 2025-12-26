@@ -401,14 +401,24 @@ async function processVideoJob(supabase, job) {
   }
 
   // Download do vídeo
+  console.log(`[marketing-worker] Iniciando download do vídeo (provider: ${job.provider}, videoUri: ${status.videoUri ? 'presente' : 'ausente'})`);
+  
   let videoBuffer;
   if (job.provider === 'gemini' && status.videoUri) {
+    console.log(`[marketing-worker] Download do vídeo Gemini: ${status.videoUri.substring(0, 100)}...`);
     videoBuffer = await downloadVideoFromGemini(status.videoUri);
   } else if (job.provider === 'openai') {
+    console.log(`[marketing-worker] Download do vídeo OpenAI: ${job.provider_ref}`);
     videoBuffer = await downloadVideoFromOpenAI(job.provider_ref);
   } else {
-    throw new Error('Método de download não implementado para este provider');
+    throw new Error(`Método de download não implementado para este provider: ${job.provider}`);
   }
+  
+  if (!videoBuffer || videoBuffer.length === 0) {
+    throw new Error('Vídeo baixado está vazio ou inválido');
+  }
+  
+  console.log(`[marketing-worker] Vídeo baixado com sucesso: ${videoBuffer.length} bytes`);
 
   // Upload para storage
   const assetId = uuidv4();
@@ -1101,19 +1111,34 @@ async function pollVideoStatusOpenAIDirect(videoId) {
 }
 
 async function downloadVideoFromGemini(videoUri) {
-  const response = await fetch(videoUri, {
+  console.log(`[marketing-worker] Baixando vídeo do Gemini: ${videoUri.substring(0, 100)}...`);
+  
+  // Tentar primeiro sem header (alguns URIs não precisam)
+  let response = await fetch(videoUri, {
     method: 'GET',
-    headers: {
-      'x-goog-api-key': GEMINI_API_KEY,
-    },
   });
 
+  // Se falhar, tentar com API key
+  if (!response.ok && response.status === 401) {
+    console.log(`[marketing-worker] Tentando download com API key...`);
+    response = await fetch(videoUri, {
+      method: 'GET',
+      headers: {
+        'x-goog-api-key': GEMINI_API_KEY,
+      },
+    });
+  }
+
   if (!response.ok) {
-    throw new Error(`Erro ao baixar vídeo: ${response.status}`);
+    const errorText = await response.text().catch(() => '');
+    console.error(`[marketing-worker] Erro ao baixar vídeo: ${response.status} - ${errorText.substring(0, 200)}`);
+    throw new Error(`Erro ao baixar vídeo: ${response.status} ${response.statusText}`);
   }
 
   const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  const buffer = Buffer.from(arrayBuffer);
+  console.log(`[marketing-worker] Vídeo baixado com sucesso: ${buffer.length} bytes`);
+  return buffer;
 }
 
 /**
