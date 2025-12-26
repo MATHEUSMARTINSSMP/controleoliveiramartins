@@ -51,7 +51,7 @@ export async function generateImageWithOpenAI(
     mask,
     size,
     aspectRatio,
-    model = 'gpt-image-1',
+    model = 'gpt-image-1-mini',
     apiKey,
   } = options;
 
@@ -189,7 +189,7 @@ export function convertToOpenAIImageOptions(
     mask: input.mask,
     size,
     aspectRatio: input.output?.aspectRatio,
-    model: input.model as OpenAIImageModel || 'gpt-image-1',
+    model: input.model as OpenAIImageModel || 'gpt-image-1-mini',
     apiKey,
   };
 }
