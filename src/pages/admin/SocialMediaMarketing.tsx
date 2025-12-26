@@ -577,9 +577,9 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
 /**
  * Tab de Galeria
  */
-function GalleryTab({ highlightAssetId }: { highlightAssetId?: string | null }) {
+function GalleryTab({ storeId: propStoreId, highlightAssetId }: { storeId?: string | null; highlightAssetId?: string | null }) {
   const { profile } = useAuth();
-  const storeId = profile ? getStoreIdFromProfile(profile) : null;
+  const storeId = propStoreId || (profile ? getStoreIdFromProfile(profile) : null);
   const [filterType, setFilterType] = useState<"image" | "video" | undefined>(undefined);
   const [filterProvider, setFilterProvider] = useState<"gemini" | "openai" | undefined>(undefined);
   const { assets, loading, error, refetch } = useMarketingAssets(storeId || undefined, filterType);
@@ -660,6 +660,35 @@ function GalleryTab({ highlightAssetId }: { highlightAssetId?: string | null }) 
             ? assets.filter((asset) => asset.provider === filterProvider)
             : assets;
           
+          // Agrupar assets por job_id (variações do mesmo job)
+          const assetsByJob = new Map<string | null, typeof filteredAssets>();
+          filteredAssets.forEach((asset) => {
+            const jobId = asset.job_id || 'no-job';
+            if (!assetsByJob.has(jobId)) {
+              assetsByJob.set(jobId, []);
+            }
+            assetsByJob.get(jobId)!.push(asset);
+          });
+
+          // Separar jobs com múltiplas variações dos assets individuais
+          const jobGroups: Array<{ jobId: string | null; assets: typeof filteredAssets }> = [];
+          const singleAssets: typeof filteredAssets = [];
+
+          assetsByJob.forEach((jobAssets, jobId) => {
+            if (jobAssets.length > 1 && jobId !== 'no-job') {
+              // Agrupar por job_id (ordenar por variação se houver metadata)
+              jobAssets.sort((a, b) => {
+                const aVar = a.metadata?.variation || 0;
+                const bVar = b.metadata?.variation || 0;
+                return aVar - bVar;
+              });
+              jobGroups.push({ jobId, assets: jobAssets });
+            } else {
+              // Asset único ou sem job_id
+              singleAssets.push(...jobAssets);
+            }
+          });
+
           return filteredAssets.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -667,14 +696,39 @@ function GalleryTab({ highlightAssetId }: { highlightAssetId?: string | null }) 
             <p className="text-sm mt-2">Comece gerando uma imagem ou vídeo na aba "Gerar Conteúdo"</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredAssets.map((asset) => (
-              <AssetCard
-                key={asset.id}
-                asset={asset}
-                isHighlighted={asset.id === highlightAssetId}
-              />
+          <div className="space-y-6">
+            {/* Grupos de variações (3 alternativas juntas) */}
+            {jobGroups.map(({ jobId, assets: jobAssets }) => (
+              <div key={jobId || 'group'} className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground px-1">
+                  {jobAssets.length} variação{jobAssets.length > 1 ? 'ões' : ''} geradas juntas
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {jobAssets.map((asset) => (
+                    <AssetCard
+                      key={asset.id}
+                      asset={asset}
+                      isHighlighted={asset.id === highlightAssetId}
+                      showVariationBadge={true}
+                      variationNumber={asset.metadata?.variation || null}
+                    />
+                  ))}
+                </div>
+              </div>
             ))}
+
+            {/* Assets individuais */}
+            {singleAssets.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {singleAssets.map((asset) => (
+                  <AssetCard
+                    key={asset.id}
+                    asset={asset}
+                    isHighlighted={asset.id === highlightAssetId}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         );
         })()}
@@ -686,7 +740,17 @@ function GalleryTab({ highlightAssetId }: { highlightAssetId?: string | null }) 
 /**
  * Card de Asset individual
  */
-function AssetCard({ asset, isHighlighted = false }: { asset: any; isHighlighted?: boolean }) {
+function AssetCard({ 
+  asset, 
+  isHighlighted = false,
+  showVariationBadge = false,
+  variationNumber = null
+}: { 
+  asset: any; 
+  isHighlighted?: boolean;
+  showVariationBadge?: boolean;
+  variationNumber?: number | null;
+}) {
   const mediaUrl = asset.public_url || asset.signed_url;
 
   return (
@@ -719,7 +783,14 @@ function AssetCard({ asset, isHighlighted = false }: { asset: any; isHighlighted
       )}
       <div className="p-3 space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium capitalize">{asset.type}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium capitalize">{asset.type}</span>
+            {showVariationBadge && variationNumber && (
+              <Badge variant="outline" className="text-xs">
+                Variação {variationNumber}
+              </Badge>
+            )}
+          </div>
           <span className="text-xs text-muted-foreground">
             {formatDistanceToNow(new Date(asset.created_at), { addSuffix: true, locale: ptBR })}
           </span>

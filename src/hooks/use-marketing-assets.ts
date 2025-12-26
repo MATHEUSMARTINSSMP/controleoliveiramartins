@@ -3,6 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface MarketingAsset {
   id: string;
+  store_id: string;
+  user_id: string;
+  job_id: string | null; // ID do job que gerou este asset (para agrupar variações)
   type: "image" | "video" | "audio" | "font" | "other";
   provider: string;
   provider_model: string | null;
@@ -41,10 +44,10 @@ export function useMarketingAssets(storeId: string | undefined, type?: "image" |
       let query = supabase
         .schema("sistemaretiradas")
         .from("marketing_assets")
-        .select("*")
+        .select("*, job_id")
         .eq("store_id", storeId)
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(200); // Aumentar limite para suportar agrupamento
 
       if (type) {
         query = query.eq("type", type);
