@@ -4,7 +4,7 @@
 
 - **Project ID**: `cosmic-sensor-473804-k9`
 - **OAuth Consent Screen**: https://console.cloud.google.com/apis/credentials/consent?project=cosmic-sensor-473804-k9
-- **OAuth Client Config**: https://console.cloud.google.com/auth/clients/876861117959-mhvqlkhrcp22uhucv0vpp5jk9r1uscap.apps.googleusercontent.com?project=cosmic-sensor-473804-k9
+- **OAuth Client Config**: https://console.cloud.google.com/apis/credentials?project=cosmic-sensor-473804-k9
 - **Branding**: https://console.cloud.google.com/auth/branding?project=cosmic-sensor-473804-k9
 
 ## 📋 Checklist de Configuração
