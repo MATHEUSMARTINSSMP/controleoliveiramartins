@@ -228,8 +228,9 @@ exports.handler = async (event) => {
         statusCode: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          error: 'Erro ao criar job',
-          code: 'UNKNOWN_ERROR',
+          error: insertError.message || 'Erro ao criar job',
+          code: insertError.code || 'UNKNOWN_ERROR',
+          details: insertError.details || null,
         }),
       };
     }
