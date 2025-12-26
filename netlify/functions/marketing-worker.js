@@ -560,6 +560,19 @@ async function generateImageWithGeminiDirect(input) {
     }
   }
 
+  // Construir generationConfig com aspectRatio se disponível
+  const generationConfig: any = {
+    responseModalities: ['IMAGE'],
+  };
+
+  // Adicionar imageConfig com aspectRatio conforme documentação Gemini
+  // Documentação: https://ai.google.dev/docs/generate_images#aspect-ratio
+  if (input.output?.aspectRatio) {
+    generationConfig.imageConfig = {
+      aspectRatio: input.output.aspectRatio,
+    };
+  }
+
   const response = await fetch(
     `${BASE_URL}/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`,
     {
@@ -567,7 +580,7 @@ async function generateImageWithGeminiDirect(input) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ role: 'user', parts }],
-        generationConfig: { responseModalities: ['IMAGE'] },
+        generationConfig,
       }),
     }
   );
@@ -588,10 +601,65 @@ async function generateImageWithGeminiDirect(input) {
   const imageBase64 = imagePart.inlineData.data;
   const imageBuffer = Buffer.from(imageBase64, 'base64');
 
+  // Calcular dimensões baseadas no aspect ratio
+  let width = 1024;
+  let height = 1024;
+  
+  if (input.output?.aspectRatio) {
+    const aspectRatio = input.output.aspectRatio;
+    switch (aspectRatio) {
+      case '1:1':
+        width = 1024; height = 1024;
+        break;
+      case '2:3':
+        width = 832; height = 1248;
+        break;
+      case '3:2':
+        width = 1248; height = 832;
+        break;
+      case '3:4':
+        width = 864; height = 1184;
+        break;
+      case '4:3':
+        width = 1184; height = 864;
+        break;
+      case '4:5':
+        width = 896; height = 1152;
+        break;
+      case '5:4':
+        width = 1152; height = 896;
+        break;
+      case '9:16': // Story format
+        width = 768; height = 1344;
+        break;
+      case '16:9':
+        width = 1344; height = 768;
+        break;
+      case '21:9':
+        width = 1536; height = 672;
+        break;
+      default:
+        width = 1024; height = 1024;
+    }
+  } else if (input.output?.size) {
+    // Se não tem aspectRatio mas tem size, calcular do size
+    const [w, h] = input.output.size.split('x').map(Number);
+    if (w && h) {
+      width = w;
+      height = h;
+    }
+  }
+
+  // Tentar extrair dimensões do metadata se disponível (tem prioridade)
+  if (data.candidates[0]?.metadata?.dimensions) {
+    width = data.candidates[0].metadata.dimensions.width || width;
+    height = data.candidates[0].metadata.dimensions.height || height;
+  }
+
   return {
     imageData: imageBuffer,
-    width: 1024,
-    height: 1024,
+    width,
+    height,
     mimeType: 'image/png',
   };
 }
