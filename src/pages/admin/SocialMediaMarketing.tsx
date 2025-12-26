@@ -470,6 +470,14 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
 
     setIsGenerating(true);
 
+    // Scroll para a área de processamento/resultados após um pequeno delay
+    setTimeout(() => {
+      const processingArea = document.querySelector('[data-processing-area]');
+      if (processingArea) {
+        processingArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+
     try {
       // Obter token de autenticação
       const { data: { session } } = await supabase.auth.getSession();
@@ -1143,7 +1151,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
 
           {/* Mostrar indicador de processamento */}
           {processingJobId && generatedAssets.length === 0 && (
-            <Card className="mt-4">
+            <Card className="mt-4" data-processing-area>
               <CardContent className="py-8">
                 <div className="flex flex-col items-center justify-center gap-3">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1156,7 +1164,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
 
           {/* Mostrar imagens geradas - Logo após o formulário */}
           {generatedAssets.length > 0 && (
-            <Card className="mt-4" data-generated-results>
+            <Card className="mt-4" data-generated-results data-processing-area>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
