@@ -1616,146 +1616,148 @@ function GalleryTab({ storeId: propStoreId, highlightAssetId, onEditAsset }: { s
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Galeria de Conteúdos</CardTitle>
-        <CardDescription>Visualize todos os conteúdos gerados anteriormente</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Filtros */}
-        <div className="flex gap-2">
-          <Button
-            variant={filterType === undefined ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilterType(undefined)}
-          >
-            Todos
-          </Button>
-          <Button
-            variant={filterType === "image" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilterType("image")}
-          >
-            <ImageIcon className="h-4 w-4 mr-2" />
-            Imagens
-          </Button>
-          <Button
-            variant={filterType === "video" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilterType("video")}
-          >
-            <VideoIcon className="h-4 w-4 mr-2" />
-            Vídeos
-          </Button>
-        </div>
-
-        {/* Grid de Assets */}
-        {(() => {
-          // Filtrar assets por provider se necessário
-          const filteredAssets = filterProvider
-            ? assets.filter((asset) => asset.provider === filterProvider)
-            : assets;
-          
-          // Agrupar assets por job_id (variações do mesmo job)
-          const assetsByJob = new Map<string | null, typeof filteredAssets>();
-          filteredAssets.forEach((asset) => {
-            const jobId = asset.job_id || 'no-job';
-            if (!assetsByJob.has(jobId)) {
-              assetsByJob.set(jobId, []);
-            }
-            assetsByJob.get(jobId)!.push(asset);
-          });
-
-          // Separar jobs com múltiplas variações dos assets individuais
-          const jobGroups: Array<{ jobId: string | null; assets: typeof filteredAssets }> = [];
-          const singleAssets: typeof filteredAssets = [];
-
-          assetsByJob.forEach((jobAssets, jobId) => {
-            if (jobAssets.length > 1 && jobId !== 'no-job') {
-              // Agrupar por job_id (ordenar por variação se houver metadata)
-              jobAssets.sort((a, b) => {
-                const aVar = a.metadata?.variation || 0;
-                const bVar = b.metadata?.variation || 0;
-                return aVar - bVar;
-              });
-              jobGroups.push({ jobId, assets: jobAssets });
-            } else {
-              // Asset único ou sem job_id
-              singleAssets.push(...jobAssets);
-            }
-          });
-
-          return filteredAssets.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Nenhum conteúdo gerado ainda.</p>
-            <p className="text-sm mt-2">Comece gerando uma imagem ou vídeo na aba "Gerar Conteúdo"</p>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Galeria de Conteúdos</CardTitle>
+          <CardDescription>Visualize todos os conteúdos gerados anteriormente</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Filtros */}
+          <div className="flex gap-2">
+            <Button
+              variant={filterType === undefined ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterType(undefined)}
+            >
+              Todos
+            </Button>
+            <Button
+              variant={filterType === "image" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterType("image")}
+            >
+              <ImageIcon className="h-4 w-4 mr-2" />
+              Imagens
+            </Button>
+            <Button
+              variant={filterType === "video" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterType("video")}
+            >
+              <VideoIcon className="h-4 w-4 mr-2" />
+              Vídeos
+            </Button>
           </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Grupos de variações (3 alternativas juntas) */}
-            {jobGroups.map(({ jobId, assets: jobAssets }) => (
-              <div key={jobId || 'group'} className="space-y-2">
-                <div className="text-sm font-medium text-muted-foreground px-1">
-                  {jobAssets.length} variação{jobAssets.length > 1 ? 'ões' : ''} geradas juntas
+
+          {/* Grid de Assets */}
+          {(() => {
+            // Filtrar assets por provider se necessário
+            const filteredAssets = filterProvider
+              ? assets.filter((asset) => asset.provider === filterProvider)
+              : assets;
+            
+            // Agrupar assets por job_id (variações do mesmo job)
+            const assetsByJob = new Map<string | null, typeof filteredAssets>();
+            filteredAssets.forEach((asset) => {
+              const jobId = asset.job_id || 'no-job';
+              if (!assetsByJob.has(jobId)) {
+                assetsByJob.set(jobId, []);
+              }
+              assetsByJob.get(jobId)!.push(asset);
+            });
+
+            // Separar jobs com múltiplas variações dos assets individuais
+            const jobGroups: Array<{ jobId: string | null; assets: typeof filteredAssets }> = [];
+            const singleAssets: typeof filteredAssets = [];
+
+            assetsByJob.forEach((jobAssets, jobId) => {
+              if (jobAssets.length > 1 && jobId !== 'no-job') {
+                // Agrupar por job_id (ordenar por variação se houver metadata)
+                jobAssets.sort((a, b) => {
+                  const aVar = a.metadata?.variation || 0;
+                  const bVar = b.metadata?.variation || 0;
+                  return aVar - bVar;
+                });
+                jobGroups.push({ jobId, assets: jobAssets });
+              } else {
+                // Asset único ou sem job_id
+                singleAssets.push(...jobAssets);
+              }
+            });
+
+            return filteredAssets.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Nenhum conteúdo gerado ainda.</p>
+              <p className="text-sm mt-2">Comece gerando uma imagem ou vídeo na aba "Gerar Conteúdo"</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Grupos de variações (3 alternativas juntas) */}
+              {jobGroups.map(({ jobId, assets: jobAssets }) => (
+                <div key={jobId || 'group'} className="space-y-2">
+                  <div className="text-sm font-medium text-muted-foreground px-1">
+                    {jobAssets.length} variação{jobAssets.length > 1 ? 'ões' : ''} geradas juntas
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {jobAssets.map((asset) => (
+                      <AssetCard
+                        key={asset.id}
+                        asset={asset}
+                        isHighlighted={asset.id === highlightAssetId}
+                        showVariationBadge={true}
+                        variationNumber={asset.metadata?.variation || null}
+                        onEdit={onEditAsset}
+                        onDelete={(asset) => setAssetToDelete(asset)}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {jobAssets.map((asset) => (
+              ))}
+
+              {/* Assets individuais */}
+              {singleAssets.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {singleAssets.map((asset) => (
                     <AssetCard
                       key={asset.id}
                       asset={asset}
                       isHighlighted={asset.id === highlightAssetId}
-                      showVariationBadge={true}
-                      variationNumber={asset.metadata?.variation || null}
                       onEdit={onEditAsset}
                       onDelete={(asset) => setAssetToDelete(asset)}
                     />
                   ))}
                 </div>
-              </div>
-            ))}
+              )}
+            </div>
+          );
+          })()}
+        </CardContent>
+      </Card>
 
-            {/* Assets individuais */}
-            {singleAssets.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {singleAssets.map((asset) => (
-                  <AssetCard
-                    key={asset.id}
-                    asset={asset}
-                    isHighlighted={asset.id === highlightAssetId}
-                    onEdit={onEditAsset}
-                    onDelete={(asset) => setAssetToDelete(asset)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        );
-        })()}
-      </CardContent>
-    </Card>
-
-    {/* Dialog de confirmação de exclusão */}
-    <AlertDialog open={!!assetToDelete} onOpenChange={(open) => !open && setAssetToDelete(null)}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-          <AlertDialogDescription>
-            Tem certeza que deseja deletar esta {assetToDelete?.type === "image" ? "imagem" : "vídeo"}? 
-            Esta ação não pode ser desfeita.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={handleDeleteAsset}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            Deletar
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      {/* Dialog de confirmação de exclusão */}
+      <AlertDialog open={!!assetToDelete} onOpenChange={(open) => !open && setAssetToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja deletar esta {assetToDelete?.type === "image" ? "imagem" : "vídeo"}? 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAsset}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Deletar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
