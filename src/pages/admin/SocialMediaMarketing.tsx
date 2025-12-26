@@ -215,7 +215,15 @@ export default function SocialMediaMarketing({ embedded = false }: SocialMediaMa
         </TabsContent>
 
         <TabsContent value="gallery" className="space-y-4">
-          <GalleryTab storeId={storeId} highlightAssetId={highlightAssetId} />
+          <GalleryTab 
+            storeId={storeId} 
+            highlightAssetId={highlightAssetId}
+            onEditAsset={(asset) => {
+              setEditingAsset(asset);
+              setEditPrompt("");
+              setIsEditDialogOpen(true);
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="jobs" className="space-y-4">
@@ -588,23 +596,25 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
                   return { size: defaultSize };
                 }
                 
-                // Mapear tamanhos do Instagram para tamanhos suportados pela OpenAI
+                // Mapear tamanhos do Instagram para tamanhos suportados por cada IA
                 // OpenAI aceita apenas: '1024x1024', '1024x1536', '1536x1024', 'auto'
+                // Gemini aceita aspect ratios e gera nas dimensões corretas automaticamente
                 let size = "1080x1080"; // Padrão para Gemini
                 if (provider === "openai") {
-                  if (format.id === "story") {
-                    size = "1024x1536"; // Vertical 9:16 (mais próximo de 1080x1920)
-                  } else if (format.id === "landscape") {
-                    size = "1536x1024"; // Horizontal 16:9 (mais próximo de 1080x566)
+                  // OpenAI: mapear para tamanhos válidos mantendo a proporção
+                  if (format.aspectRatio === "9:16" || format.id === "story") {
+                    size = "1024x1536"; // Vertical 9:16 (proporção ~0.67, mais próximo de 9:16 = 0.5625)
+                  } else if (format.aspectRatio === "16:9" || format.aspectRatio === "1.91:1" || format.id === "landscape") {
+                    size = "1536x1024"; // Horizontal 16:9 (proporção 1.5, mais próximo de 16:9 = 1.78)
                   } else {
                     size = "1024x1024"; // Quadrado 1:1 (post, carousel)
                   }
                 } else {
-                  // Gemini aceita outros tamanhos
+                  // Gemini: usar dimensões exatas do formato (Gemini respeita aspectRatio e gera nas dimensões corretas)
                   if (format.id === "story") {
-                    size = "1080x1920"; // Vertical 9:16
+                    size = "1080x1920"; // Vertical 9:16 exato
                   } else if (format.id === "landscape") {
-                    size = "1080x566"; // Horizontal 1.91:1
+                    size = "1080x566"; // Horizontal 1.91:1 exato
                   } else {
                     size = "1080x1080"; // Quadrado 1:1 (post, carousel)
                   }
@@ -678,16 +688,37 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
 
         if (!processResponse.ok) {
           let errorMessage = "Erro ao processar job";
+          let errorDetails = null;
           try {
             const errorData = await processResponse.json();
             errorMessage = errorData.error || errorData.message || errorMessage;
-            if (errorData.details) {
-              errorMessage += `: ${errorData.details}`;
+            errorDetails = errorData.details || errorData.error || null;
+            if (errorDetails) {
+              errorMessage += `: ${errorDetails}`;
             }
           } catch (e) {
-            const errorText = await processResponse.text();
-            errorMessage = errorText || `HTTP ${processResponse.status}: ${processResponse.statusText}`;
+            try {
+              const errorText = await processResponse.text();
+              errorMessage = errorText || `HTTP ${processResponse.status}: ${processResponse.statusText}`;
+            } catch (textError) {
+              errorMessage = `HTTP ${processResponse.status}: ${processResponse.statusText}`;
+            }
           }
+          
+          console.error("[GenerateContentTab] Erro detalhado do worker:", {
+            status: processResponse.status,
+            statusText: processResponse.statusText,
+            message: errorMessage,
+            details: errorDetails,
+          });
+          
+          // Se for erro 500 ou de configuração, não bloquear - o worker agendado vai processar
+          if (processResponse.status === 500) {
+            console.warn("[GenerateContentTab] Worker retornou erro 500, mas job foi criado. Será processado pelo worker agendado.");
+            // Não lançar erro - apenas continuar com polling
+            return;
+          }
+          
           throw new Error(errorMessage);
         }
 

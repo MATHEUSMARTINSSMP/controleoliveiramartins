@@ -184,16 +184,37 @@ async function processImageJob(supabase, job) {
   const input = job.input;
   const variations = input.variations || 1; // Número de alternativas (padrão: 1)
 
+  // Validar input
+  if (!input) {
+    throw new Error('Input do job está vazio ou inválido');
+  }
+
   // Preparar input para adapter
   const adapterInput = {
     type: 'image',
     provider: job.provider,
-    model: job.provider_model,
-    prompt: input.prompt || job.prompt_final,
+    model: job.provider_model || (job.provider === 'gemini' ? 'gemini-2.5-flash-image' : 'gpt-image-1-mini'),
+    prompt: input.prompt || job.prompt_final || job.prompt_original || '',
     output: input.output || {},
     inputImages: input.inputImages || [],
     mask: input.mask,
   };
+
+  // Validar prompt
+  if (!adapterInput.prompt || adapterInput.prompt.trim() === '') {
+    throw new Error('Prompt não pode estar vazio');
+  }
+
+  // Validar provider e model
+  if (!adapterInput.provider || !['gemini', 'openai'].includes(adapterInput.provider)) {
+    throw new Error(`Provider inválido: ${adapterInput.provider}`);
+  }
+
+  if (!adapterInput.model) {
+    throw new Error('Model não especificado');
+  }
+
+  console.log(`[marketing-worker] Processando imagem com provider=${adapterInput.provider}, model=${adapterInput.model}, output=`, JSON.stringify(adapterInput.output));
 
   // Gerar múltiplas variações
   const assets = [];
@@ -246,6 +267,11 @@ async function processImageJob(supabase, job) {
     if (!assetUrl) {
       throw new Error(`Erro: uploadResult não retornou URL válida (publicUrl: ${uploadResult.publicUrl}, signedUrl: ${uploadResult.signedUrl})`);
     }
+
+    // Determinar extensão baseada no mimeType
+    const extension = imageResult.mimeType.includes('png') ? 'png' : 
+                     imageResult.mimeType.includes('jpg') || imageResult.mimeType.includes('jpeg') ? 'jpg' : 
+                     'png'; // padrão
 
     // Extrair filename do path (último componente)
     const filename = uploadResult.path.split('/').pop() || `${assetId}.${extension}`;
@@ -533,10 +559,21 @@ async function generateImageWithGeminiDirect(input) {
       }
     }
     
-    // Construir prompt enriquecido
+    // Construir prompt enriquecido com instruções específicas de composição
     if (formatInfo.length > 0) {
       const formatDetails = formatInfo.join('\n');
-      enrichedPrompt = `${input.prompt}\n\n=== CONTEXTO COMERCIAL ===\nEsta é uma imagem para POST COMERCIAL profissional em redes sociais de empresa. O objetivo é GERAR VENDAS e ENGAJAMENTO. A imagem deve ser profissional, comercialmente eficaz, com composição que direciona atenção para pontos importantes e reforça branding.\n\n=== ESPECIFICAÇÕES DO FORMATO ===\n${formatDetails}\n\nIMPORTANTE: A imagem deve ser gerada exatamente nestas especificações. Garanta que a composição, elementos visuais e layout estejam completamente otimizados para este formato específico do Instagram como um POST COMERCIAL PROFISSIONAL que vende e engaja.`;
+      
+      // Instruções específicas baseadas no aspect ratio
+      let compositionInstructions = '';
+      if (input.output.aspectRatio === '9:16') {
+        compositionInstructions = '\n=== COMPOSIÇÃO VERTICAL (9:16) ===\nA imagem DEVE ser VERTICAL, com altura muito maior que largura. Componha elementos na vertical: texto no topo ou meio, elementos principais centralizados verticalmente. Evite elementos que se estendam horizontalmente. A composição deve aproveitar toda a altura disponível.';
+      } else if (input.output.aspectRatio === '16:9' || input.output.aspectRatio === '1.91:1') {
+        compositionInstructions = '\n=== COMPOSIÇÃO HORIZONTAL (16:9) ===\nA imagem DEVE ser HORIZONTAL, com largura muito maior que altura. Componha elementos na horizontal: texto e elementos principais distribuídos horizontalmente. Evite elementos que se estendam verticalmente. A composição deve aproveitar toda a largura disponível.';
+      } else if (input.output.aspectRatio === '1:1') {
+        compositionInstructions = '\n=== COMPOSIÇÃO QUADRADA (1:1) ===\nA imagem DEVE ser QUADRADA, com largura igual à altura. Componha elementos de forma equilibrada, centralizados ou seguindo a regra dos terços. A composição deve funcionar bem em formato quadrado.';
+      }
+      
+      enrichedPrompt = `${input.prompt}\n\n=== CONTEXTO COMERCIAL ===\nEsta é uma imagem para POST COMERCIAL profissional em redes sociais de empresa. O objetivo é GERAR VENDAS e ENGAJAMENTO. A imagem deve ser profissional, comercialmente eficaz, com composição que direciona atenção para pontos importantes e reforça branding.\n\n=== ESPECIFICAÇÕES DO FORMATO ===\n${formatDetails}${compositionInstructions}\n\n=== INSTRUÇÕES CRÍTICAS ===\n1. A imagem DEVE ser gerada EXATAMENTE nas dimensões e proporção especificadas acima.\n2. A composição DEVE seguir as instruções de orientação (vertical/horizontal/quadrado) acima.\n3. Todos os elementos visuais (texto, imagens, gráficos) devem estar perfeitamente adaptados a este formato.\n4. A imagem resultante deve estar 100% otimizada para este formato específico do Instagram como um POST COMERCIAL PROFISSIONAL que vende e engaja.`;
     } else {
       enrichedPrompt = `${input.prompt}\n\nCONTEXTO: Esta é uma imagem para POST COMERCIAL profissional em redes sociais de empresa. O objetivo é GERAR VENDAS e ENGAJAMENTO. A imagem deve ser profissional, comercialmente eficaz e adequada para redes sociais de empresas.`;
     }
@@ -848,10 +885,21 @@ async function generateImageWithOpenAIDirect(input) {
       }
     }
     
-    // Construir prompt enriquecido
+    // Construir prompt enriquecido com instruções específicas de composição
     if (formatInfo.length > 0) {
       const formatDetails = formatInfo.join('\n');
-      enrichedPrompt = `${input.prompt}\n\n=== CONTEXTO COMERCIAL ===\nEsta é uma imagem para POST COMERCIAL profissional em redes sociais de empresa. O objetivo é GERAR VENDAS e ENGAJAMENTO. A imagem deve ser profissional, comercialmente eficaz, com composição que direciona atenção para pontos importantes e reforça branding.\n\n=== ESPECIFICAÇÕES DO FORMATO ===\n${formatDetails}\n\nIMPORTANTE: A imagem deve ser gerada exatamente nestas especificações. Garanta que a composição, elementos visuais e layout estejam completamente otimizados para este formato específico do Instagram como um POST COMERCIAL PROFISSIONAL que vende e engaja.`;
+      
+      // Instruções específicas baseadas no aspect ratio
+      let compositionInstructions = '';
+      if (input.output.aspectRatio === '9:16') {
+        compositionInstructions = '\n=== COMPOSIÇÃO VERTICAL (9:16) ===\nA imagem DEVE ser VERTICAL, com altura muito maior que largura. Componha elementos na vertical: texto no topo ou meio, elementos principais centralizados verticalmente. Evite elementos que se estendam horizontalmente. A composição deve aproveitar toda a altura disponível.';
+      } else if (input.output.aspectRatio === '16:9' || input.output.aspectRatio === '1.91:1') {
+        compositionInstructions = '\n=== COMPOSIÇÃO HORIZONTAL (16:9) ===\nA imagem DEVE ser HORIZONTAL, com largura muito maior que altura. Componha elementos na horizontal: texto e elementos principais distribuídos horizontalmente. Evite elementos que se estendam verticalmente. A composição deve aproveitar toda a largura disponível.';
+      } else if (input.output.aspectRatio === '1:1') {
+        compositionInstructions = '\n=== COMPOSIÇÃO QUADRADA (1:1) ===\nA imagem DEVE ser QUADRADA, com largura igual à altura. Componha elementos de forma equilibrada, centralizados ou seguindo a regra dos terços. A composição deve funcionar bem em formato quadrado.';
+      }
+      
+      enrichedPrompt = `${input.prompt}\n\n=== CONTEXTO COMERCIAL ===\nEsta é uma imagem para POST COMERCIAL profissional em redes sociais de empresa. O objetivo é GERAR VENDAS e ENGAJAMENTO. A imagem deve ser profissional, comercialmente eficaz, com composição que direciona atenção para pontos importantes e reforça branding.\n\n=== ESPECIFICAÇÕES DO FORMATO ===\n${formatDetails}${compositionInstructions}\n\n=== INSTRUÇÕES CRÍTICAS ===\n1. A imagem DEVE ser gerada EXATAMENTE nas dimensões e proporção especificadas acima.\n2. A composição DEVE seguir as instruções de orientação (vertical/horizontal/quadrado) acima.\n3. Todos os elementos visuais (texto, imagens, gráficos) devem estar perfeitamente adaptados a este formato.\n4. A imagem resultante deve estar 100% otimizada para este formato específico do Instagram como um POST COMERCIAL PROFISSIONAL que vende e engaja.`;
     } else {
       // Adicionar contexto comercial mesmo sem formato específico
       enrichedPrompt = `${input.prompt}\n\nCONTEXTO: Esta é uma imagem para POST COMERCIAL profissional em redes sociais de empresa. O objetivo é GERAR VENDAS e ENGAJAMENTO. A imagem deve ser profissional, comercialmente eficaz e adequada para redes sociais de empresas.`;
@@ -911,6 +959,7 @@ async function generateImageWithOpenAIDirect(input) {
   
   console.log(`[marketing-worker] Imagem baixada com sucesso (${imageBuffer.length} bytes)`);
 
+  // Calcular dimensões baseadas no size normalizado usado na API
   const [width, height] = (payload.size || '1024x1024').split('x').map(Number);
 
   return {
