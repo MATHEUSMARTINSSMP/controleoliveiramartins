@@ -1806,14 +1806,14 @@ function JobCard({ job, onCancel }: { job: any; onCancel: (jobId: string) => voi
                           <span className={`text-xs font-medium ${getStatusColor()}`}>
                             {getStatusLabel()}
                           </span>
-                          {job.progress > 0 && job.progress < 100 && (
-                            <span className="text-xs text-muted-foreground">
-                              {job.progress}%
+                          {job.progress !== null && job.progress !== undefined && job.progress >= 0 && job.progress < 100 && (
+                            <span className="text-xs font-medium text-primary">
+                              {Math.round(job.progress)}%
                             </span>
                           )}
                         </div>
-            <p className="text-sm text-muted-foreground truncate" title={job.original_prompt}>
-              {job.original_prompt}
+            <p className="text-sm text-muted-foreground truncate" title={job.prompt_original || job.original_prompt || "Sem prompt"}>
+              {job.prompt_original || job.original_prompt || "Sem prompt"}
             </p>
             <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
               <span>{job.provider} • {job.provider_model || "N/A"}</span>
@@ -1831,12 +1831,22 @@ function JobCard({ job, onCancel }: { job: any; onCancel: (jobId: string) => voi
           </Button>
         )}
       </div>
-      {job.status === "processing" && job.progress > 0 && (
-        <div className="w-full bg-muted rounded-full h-2">
-          <div
-            className="bg-primary h-2 rounded-full transition-all"
-            style={{ width: `${job.progress}%` }}
-          />
+      {job.status === "processing" && job.progress !== null && job.progress !== undefined && job.progress >= 0 && (
+        <div className="w-full space-y-1">
+          <div className="w-full bg-muted rounded-full h-2.5">
+            <div
+              className="bg-primary h-2.5 rounded-full transition-all duration-500"
+              style={{ width: `${Math.min(100, Math.max(0, job.progress))}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Progresso: {Math.round(job.progress)}%</span>
+            {job.started_at && (
+              <span>
+                {formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale: ptBR })}
+              </span>
+            )}
+          </div>
         </div>
       )}
       {job.error_message && (
