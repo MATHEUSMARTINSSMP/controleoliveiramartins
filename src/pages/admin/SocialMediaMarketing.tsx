@@ -419,16 +419,61 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
         });
 
         if (!processResponse.ok) {
-          const error = await processResponse.json();
-          throw new Error(error.error || "Erro ao processar job");
+          let errorMessage = "Erro ao processar job";
+          try {
+            const errorData = await processResponse.json();
+            errorMessage = errorData.error || errorData.message || errorMessage;
+            if (errorData.details) {
+              errorMessage += `: ${errorData.details}`;
+            }
+          } catch (e) {
+            const errorText = await processResponse.text();
+            errorMessage = errorText || `HTTP ${processResponse.status}: ${processResponse.statusText}`;
+          }
+          throw new Error(errorMessage);
+        }
+
+        let processResult;
+        try {
+          processResult = await processResponse.json();
+        } catch (e) {
+          // Se não conseguir parsear JSON, tentar ler como texto
+          const text = await processResponse.text();
+          console.log("[GenerateContentTab] Resposta do worker (texto):", text);
+          processResult = { processed: 0, message: text };
+        }
+        
+        console.log("[GenerateContentTab] Resultado do processamento:", processResult);
+
+        // Se não processou nenhum job, pode ser que o job ainda não esteja na fila
+        // ou já foi processado. Nesse caso, apenas iniciar o polling
+        if (processResult.processed === 0) {
+          console.log("[GenerateContentTab] Nenhum job processado imediatamente, iniciando polling...");
+          // Não é um erro - o job pode já ter sido processado ou será processado pelo worker agendado
         }
 
         // Polling para verificar quando o job estiver pronto
-        await pollJobUntilComplete(data.jobId, session.access_token);
+        // Usar setProcessingJobId para que o monitoramento em tempo real funcione
+        setProcessingJobId(data.jobId);
+        
+        // Iniciar polling (não bloquear - deixar o useEffect monitorar)
+        pollJobUntilComplete(data.jobId, session.access_token).catch((err) => {
+          console.error("[GenerateContentTab] Erro no polling:", err);
+          // Não mostrar erro - o useEffect vai detectar quando o job estiver pronto
+        });
       } catch (processError: any) {
-        console.error("Erro ao processar job:", processError);
-        toast.error(processError.message || "Erro ao processar. O job foi criado e será processado em breve.", { id: "generating" });
-        // Continuar mesmo se falhar o processamento imediato
+        console.error("[GenerateContentTab] Erro ao processar job:", processError);
+        console.error("[GenerateContentTab] Detalhes do erro:", {
+          message: processError.message,
+          stack: processError.stack,
+        });
+        
+        // Não mostrar erro se o job foi criado - ele será processado pelo worker agendado
+        toast.warning(
+          processError.message || "Processamento iniciado. As imagens aparecerão automaticamente quando prontas.",
+          { id: "generating", duration: 5000 }
+        );
+        // Continuar mesmo se falhar o processamento imediato - o worker agendado vai processar
       }
       
       // Limpar prompt, imagens e máscara

@@ -9,7 +9,7 @@
  * package = "@netlify/plugin-scheduled-functions"
  * 
  * [functions.marketing-worker]
- * schedule = "cron(*/1 * * * *)"
+ * schedule = "cron(0/1 * * * *)"  // A cada minuto
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -39,6 +39,19 @@ exports.handler = async (event, context) => {
   const isManual = event.httpMethod === 'POST' || (event.httpMethod === 'GET' && event.queryStringParameters?.manual === 'true');
   
   console.log(`[marketing-worker] Iniciando processamento... (${isManual ? 'manual' : 'scheduled'})`);
+
+  // Validar variáveis de ambiente
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('[marketing-worker] Variáveis de ambiente não configuradas');
+    return {
+      statusCode: 500,
+      headers: corsHeaders,
+      body: JSON.stringify({ 
+        error: 'Configuração incompleta',
+        details: 'SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não configurados'
+      }),
+    };
+  }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     db: { schema: 'sistemaretiradas' },
