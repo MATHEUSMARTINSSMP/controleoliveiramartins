@@ -304,7 +304,9 @@ CONTEXTO DE USO:
 - POST COMERCIAL para redes sociais (Instagram, Facebook, TikTok, etc)
 - OBJETIVO: Vender produtos/serviços e gerar engajamento
 - FORMATO: Post profissional, adequado para redes sociais de empresas
-${context.logo_url ? '- LOGO: Logo será anexada - considere composição que integre a logo de forma harmoniosa e profissional\n' : ''}
+${context.logoUrl ? '- LOGO: Logo será anexada - considere composição que integre a logo de forma harmoniosa e profissional no design comercial\n' : ''}
+${context.sector ? `- ÁREA DE ATUAÇÃO/SETOR: ${context.sector} - Adapte o estilo visual e elementos para este setor, considerando referências e estética que ressoem com este mercado\n` : ''}
+${context.description ? `- DESCRIÇÃO DA EMPRESA: ${context.description} - Considere esta descrição ao criar prompts que reflitam a identidade e valores da empresa\n` : ''}
 
 IMPORTANTE CRÍTICO: 
 - TODAS as respostas DEVEM estar em PORTUGUÊS DO BRASIL (pt-BR). Nunca use inglês.
