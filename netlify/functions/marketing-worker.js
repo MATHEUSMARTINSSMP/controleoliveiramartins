@@ -573,7 +573,8 @@ async function generateImageWithGeminiDirect(input) {
   );
 
   if (!response.ok) {
-    const errorText = await response.text();
+    // Clonar response para poder ler o body sem consumir
+    const errorText = await response.clone().text().catch(() => '');
     throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
   }
 
@@ -714,7 +715,8 @@ async function generateImageWithOpenAIDirect(input) {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
+      // Clonar response para poder ler o body sem consumir
+      const errorText = await response.clone().text().catch(() => '');
       throw new Error(`OpenAI Inpainting API error: ${response.status} - ${errorText}`);
     }
 
@@ -810,7 +812,8 @@ async function generateImageWithOpenAIDirect(input) {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
+    // Clonar response para poder ler o body sem consumir
+    const errorText = await response.clone().text().catch(() => '');
     throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
   }
 
@@ -935,7 +938,8 @@ async function startVideoGenerationWithGeminiDirect(input) {
   );
 
   if (!response.ok) {
-    const errorText = await response.text();
+    // Clonar response para poder ler o body sem consumir
+    const errorText = await response.clone().text().catch(() => '');
     throw new Error(`Gemini Video API error: ${response.status} - ${errorText}`);
   }
 
@@ -1071,7 +1075,8 @@ async function startVideoGenerationWithOpenAIDirect(input) {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
+    // Clonar response para poder ler o body sem consumir
+    const errorText = await response.clone().text().catch(() => '');
     throw new Error(`OpenAI Video API error: ${response.status} - ${errorText}`);
   }
 
@@ -1130,7 +1135,8 @@ async function downloadVideoFromGemini(videoUri) {
   }
 
   if (!response.ok) {
-    const errorText = await response.text().catch(() => '');
+    // Clonar response para poder ler o body sem consumir
+    const errorText = await response.clone().text().catch(() => '');
     console.error(`[marketing-worker] Erro ao baixar vídeo: ${response.status} - ${errorText.substring(0, 200)}`);
     throw new Error(`Erro ao baixar vídeo: ${response.status} ${response.statusText}`);
   }
