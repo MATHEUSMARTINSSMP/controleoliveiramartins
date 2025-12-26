@@ -1703,7 +1703,14 @@ function JobsTab({ storeId: propStoreId, onJobCompleted }: { storeId?: string | 
           <div className="space-y-4">
             {processingJobs.length > 0 && (
               <div>
-                <h3 className="font-semibold mb-3">Em Processamento</h3>
+                <h3 className="font-semibold mb-3">
+                  Em Processamento
+                  {processingJobs.length > 0 && (
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                      ({processingJobs.length})
+                    </span>
+                  )}
+                </h3>
                 <div className="space-y-2">
                   {processingJobs.map((job) => (
                     <JobCard key={job.id} job={job} onCancel={handleCancelJob} />
@@ -1725,7 +1732,13 @@ function JobsTab({ storeId: propStoreId, onJobCompleted }: { storeId?: string | 
 
             {failedJobs.length > 0 && (
               <div>
-                <h3 className="font-semibold mb-3 text-destructive">Falhas</h3>
+                <h3 className="font-semibold mb-3 text-destructive flex items-center gap-2">
+                  <XCircle className="h-4 w-4" />
+                  Falhas
+                  <span className="text-sm font-normal text-muted-foreground">
+                    ({failedJobs.length})
+                  </span>
+                </h3>
                 <div className="space-y-2">
                   {failedJobs.map((job) => (
                     <JobCard key={job.id} job={job} onCancel={handleCancelJob} />
@@ -1850,10 +1863,46 @@ function JobCard({ job, onCancel }: { job: any; onCancel: (jobId: string) => voi
         </div>
       )}
       {job.error_message && (
-        <div className="rounded-md bg-destructive/10 border border-destructive/20 p-2 text-sm text-destructive">
-          {job.error_message}
+        <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium text-destructive mb-1">Erro no processamento</p>
+              <p className="text-destructive/90 break-words">{job.error_message}</p>
+              {job.error_code && (
+                <p className="text-xs text-destructive/70 mt-1">Código: {job.error_code}</p>
+              )}
+            </div>
+          </div>
         </div>
       )}
+      
+      {/* Alerta para jobs que estão demorando muito */}
+      {job.status === "processing" && job.started_at && (() => {
+        const elapsedMinutes = (Date.now() - new Date(job.started_at).getTime()) / 1000 / 60;
+        if (elapsedMinutes > 15) {
+          return (
+            <div className="rounded-md bg-yellow-500/10 border border-yellow-500/20 p-3 text-sm">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-medium text-yellow-600 dark:text-yellow-400 mb-1">
+                    Processamento demorado
+                  </p>
+                  <p className="text-yellow-600/90 dark:text-yellow-400/90">
+                    Este job está processando há mais de {Math.floor(elapsedMinutes)} minutos. 
+                    Pode estar demorando mais que o normal ou pode ter travado.
+                  </p>
+                  <p className="text-xs text-yellow-600/70 dark:text-yellow-400/70 mt-2">
+                    Se continuar sem progresso, considere cancelar e tentar novamente.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
       {job.status === "done" && job.result_asset_id && (
         <Button
           size="sm"
