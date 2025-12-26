@@ -248,6 +248,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
   const [mask, setMask] = useState<MaskFile | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPromptExpander, setShowPromptExpander] = useState(false);
+  const [hasGeneratedPrompt, setHasGeneratedPrompt] = useState(false); // Indica se já gerou as variações de prompt
   const [generatedAssets, setGeneratedAssets] = useState<Array<{ id: string; url: string; jobId: string }>>([]);
   const [processingJobId, setProcessingJobId] = useState<string | null>(null);
   const { profile } = useAuth();
@@ -367,14 +368,23 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
     }
   }, [provider, type, model]);
 
+  const handleGeneratePrompt = async () => {
+    if (!prompt.trim()) {
+      toast.error("Digite um prompt para gerar as variações");
+      return;
+    }
+    // Abrir o PromptExpander para gerar as 5 variações
+    setShowPromptExpander(true);
+  };
+
   const handleGenerate = async () => {
     if (!prompt.trim()) {
       toast.error("Digite um prompt para gerar o conteúdo");
       return;
     }
 
-    if (!hasUsedPromptExpander) {
-      toast.error("É obrigatório gerar 5 variações de prompt antes de gerar o conteúdo. Use o botão 'Começar com IA' ou 'Expandir Prompt'.");
+    if (!hasGeneratedPrompt) {
+      toast.error("Primeiro você precisa gerar as variações de prompt");
       setShowPromptExpander(true);
       return;
     }
@@ -778,12 +788,10 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
     // As imagens aparecerão automaticamente quando prontas
   };
 
-  const [hasUsedPromptExpander, setHasUsedPromptExpander] = useState(false);
-
   const handlePromptSelected = (selectedPrompt: string) => {
     setPrompt(selectedPrompt);
     setShowPromptExpander(false);
-    setHasUsedPromptExpander(true);
+    setHasGeneratedPrompt(true); // Marcar que já gerou o prompt
     toast.success("Prompt selecionado! Agora você pode gerar o conteúdo.");
   };
 
@@ -889,26 +897,19 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
 
         {/* Prompt Input */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label htmlFor="prompt" className="text-sm font-medium">
-              Descreva o que você quer criar
-            </label>
-            {prompt.trim() && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setShowPromptExpander(true)}
-                className="h-auto py-1 text-xs"
-              >
-                <Sparkles className="h-3 w-3 mr-1" />
-                Expandir Prompt
-              </Button>
-            )}
-          </div>
+          <label htmlFor="prompt" className="text-sm font-medium">
+            Descreva o que você quer criar
+          </label>
           <textarea
             id="prompt"
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={(e) => {
+              setPrompt(e.target.value);
+              // Se o usuário editar o prompt após gerar, precisa gerar novamente
+              if (hasGeneratedPrompt) {
+                setHasGeneratedPrompt(false);
+              }
+            }}
             placeholder="Ex: Uma imagem minimalista de uma casa na árvore com cores suaves"
             className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             disabled={isGenerating}
@@ -917,56 +918,37 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
 
         {/* Action Buttons */}
         <div className="flex gap-2">
-          {!prompt.trim() && (
+          {!hasGeneratedPrompt ? (
+            // Se ainda não gerou o prompt, mostrar botão "Gerar Prompt"
             <Button
-              variant="outline"
-              onClick={() => setShowPromptExpander(true)}
-              className="flex-1"
+              onClick={handleGeneratePrompt}
+              disabled={isGenerating || !prompt.trim() || !hasStoreId}
+              className="w-full"
             >
               <Sparkles className="h-4 w-4 mr-2" />
-              Começar com IA
+              Gerar Prompt
+            </Button>
+          ) : (
+            // Se já gerou o prompt, mostrar botão "Gerar Imagem"
+            <Button
+              onClick={handleGenerate}
+              disabled={isGenerating || !prompt.trim() || !hasStoreId}
+              className="w-full"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Gerando...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Gerar {type === "image" ? "Imagem" : "Vídeo"}
+                </>
+              )}
             </Button>
           )}
-          <Button
-            onClick={handleGenerate}
-            disabled={isGenerating || !prompt.trim() || !hasStoreId || !hasUsedPromptExpander}
-            className={prompt.trim() ? "w-full" : "flex-1"}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Gerando...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Gerar {type === "image" ? "Imagem" : "Vídeo"}
-              </>
-            )}
-          </Button>
         </div>
-
-        {/* Alerta se não tiver usado prompt expandido */}
-        {prompt.trim() && !hasUsedPromptExpander && (
-          <Alert className="border-yellow-500/50 bg-yellow-500/10">
-            <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
-            <AlertTitle className="text-yellow-800 dark:text-yellow-200">Prompt Expandido Obrigatório</AlertTitle>
-            <AlertDescription className="text-yellow-700 dark:text-yellow-300">
-              É necessário gerar 5 variações de prompt antes de gerar o conteúdo. Clique em "Começar com IA" ou "Expandir Prompt" para continuar.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Info */}
-        {hasUsedPromptExpander && (
-          <div className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">
-            <p className="font-medium mb-1">💡 Dica:</p>
-            <p>
-              Quanto mais detalhado for o prompt, melhor será o resultado. Use o botão "Expandir Prompt" 
-              para gerar 5 alternativas profissionais automaticamente com IA.
-            </p>
-          </div>
-        )}
 
         {/* Alerta se não tiver store_id */}
         {!hasStoreId && (
@@ -1066,7 +1048,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
                 provider={provider}
                 onSelectTemplate={(template) => {
                   setPrompt(template.prompt);
-                  setHasUsedPromptExpander(true); // Marcar como usado ao selecionar template
+                  setHasGeneratedPrompt(true); // Marcar como gerado ao selecionar template
                   if (template.provider) {
                     setProvider(template.provider);
                   }
