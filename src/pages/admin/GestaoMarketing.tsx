@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -9,10 +10,12 @@ import WhatsAppCampaigns from "@/pages/admin/WhatsAppCampaigns";
 import WhatsAppAnalytics from "@/pages/admin/WhatsAppAnalytics";
 import SiteBuilder from "@/pages/admin/SiteBuilder";
 import SocialMediaMarketing from "@/pages/admin/SocialMediaMarketing";
+import AdminStoreSelector from "@/components/admin/AdminStoreSelector";
 
 export default function GestaoMarketing() {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
 
   if (authLoading) {
     return <PageLoader />;
@@ -25,16 +28,23 @@ export default function GestaoMarketing() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold">Gestão de Marketing</h1>
-          <p className="text-muted-foreground">
-            Gerencie campanhas WhatsApp, seu site e conteúdos para redes sociais
-          </p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Gestão de Marketing</h1>
+            <p className="text-muted-foreground">
+              Gerencie campanhas WhatsApp, seu site e conteúdos para redes sociais
+            </p>
+          </div>
         </div>
+        <AdminStoreSelector
+          value={selectedStoreId}
+          onChange={setSelectedStoreId}
+          className="w-full sm:w-[280px]"
+        />
       </div>
 
       <Tabs defaultValue="whatsapp" className="space-y-4">
@@ -60,12 +70,12 @@ export default function GestaoMarketing() {
 
         {/* Tab 2: Gestão de Site */}
         <TabsContent value="site" className="space-y-4">
-          <SiteBuilder />
+          <SiteBuilder embedded storeId={selectedStoreId} />
         </TabsContent>
 
         {/* Tab 3: Gestão de Redes Sociais */}
         <TabsContent value="redes-sociais" className="space-y-4">
-          <SocialMediaMarketing />
+          <SocialMediaMarketing storeId={selectedStoreId} />
         </TabsContent>
       </Tabs>
     </div>

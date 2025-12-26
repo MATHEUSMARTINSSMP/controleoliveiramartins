@@ -9,6 +9,7 @@ import { BookOpen, Save, Trash2, Star, StarOff, Sparkles, Plus, Search } from "l
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { getStoreIdFromProfile } from "@/lib/storeLogo";
 
 export interface PromptTemplate {
   id: string;

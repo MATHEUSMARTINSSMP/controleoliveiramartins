@@ -5,20 +5,37 @@ import { ArrowLeft, Globe } from "lucide-react";
 import { PageLoader } from "@/components/ui/page-loader";
 import { SiteOnboarding, SiteEditor, useSiteData } from "@/components/admin/site-builder";
 
-export default function SiteBuilder() {
+interface SiteBuilderProps {
+  embedded?: boolean;
+  storeId?: string | null;
+}
+
+export default function SiteBuilder({ embedded = false, storeId }: SiteBuilderProps) {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { hasSite, isLoading } = useSiteData();
+  const { hasSite, isLoading } = useSiteData({ tenantId: storeId });
 
   if (authLoading || isLoading) {
     return <PageLoader />;
   }
 
   if (!profile || profile.role !== "ADMIN") {
-    navigate("/");
+    if (!embedded) {
+      navigate("/");
+    }
     return null;
   }
 
+  // Se está embedded (dentro de tabs), não mostra header
+  if (embedded) {
+    return (
+      <div className="space-y-6">
+        {hasSite ? <SiteEditor /> : <SiteOnboarding tenantId={storeId} />}
+      </div>
+    );
+  }
+
+  // Versão standalone (rota direta)
   return (
     <div className="container mx-auto p-4 space-y-6">
       <div className="flex items-center gap-4">
@@ -39,7 +56,7 @@ export default function SiteBuilder() {
         </div>
       </div>
 
-      {hasSite ? <SiteEditor /> : <SiteOnboarding />}
+      {hasSite ? <SiteEditor /> : <SiteOnboarding tenantId={storeId} />}
     </div>
   );
 }

@@ -25,14 +25,18 @@ import { PROVIDER_CONFIG, getDefaultModel, getAllowedModels } from "@/lib/config
 import { fileToBase64 } from "@/lib/ai-providers/image-utils";
 import { getStoreIdFromProfile } from "@/lib/storeLogo";
 
-export default function SocialMediaMarketing() {
+interface SocialMediaMarketingProps {
+  storeId?: string | null;
+}
+
+export default function SocialMediaMarketing({ storeId: propStoreId }: SocialMediaMarketingProps = {}) {
   const { profile, loading: authLoading } = useAuth();
   const [selectedTab, setSelectedTab] = useState("generate");
   const [newlyCompletedJobId, setNewlyCompletedJobId] = useState<string | null>(null);
   const [highlightAssetId, setHighlightAssetId] = useState<string | null>(null);
 
-  // Obter store_id usando função que lida com diferentes roles
-  const storeId = profile ? getStoreIdFromProfile(profile) : null;
+  // Usar storeId passado via props ou obter do profile
+  const storeId = propStoreId || (profile ? getStoreIdFromProfile(profile) : null);
   const hasStoreId = !!storeId;
 
   return (
@@ -119,6 +123,7 @@ export default function SocialMediaMarketing() {
 
         <TabsContent value="generate" className="space-y-4">
           <GenerateContentTab
+            storeId={storeId}
             onJobCreated={(jobId) => {
               // Quando um job é criado, mudar para aba de jobs
               setSelectedTab("jobs");
@@ -127,11 +132,12 @@ export default function SocialMediaMarketing() {
         </TabsContent>
 
         <TabsContent value="gallery" className="space-y-4">
-          <GalleryTab highlightAssetId={highlightAssetId} />
+          <GalleryTab storeId={storeId} highlightAssetId={highlightAssetId} />
         </TabsContent>
 
         <TabsContent value="jobs" className="space-y-4">
           <JobsTab
+            storeId={storeId}
             onJobCompleted={(jobId, assetId) => {
               setNewlyCompletedJobId(jobId);
               setHighlightAssetId(assetId);
@@ -140,6 +146,10 @@ export default function SocialMediaMarketing() {
               toast.success("Conteúdo gerado com sucesso! Visualizando na galeria...");
             }}
           />
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
+          <MarketingAnalytics />
         </TabsContent>
       </Tabs>
         </>
@@ -151,7 +161,7 @@ export default function SocialMediaMarketing() {
 /**
  * Tab de Geração de Conteúdo
  */
-function GenerateContentTab({ onJobCreated }: { onJobCreated?: (jobId: string) => void }) {
+function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: string | null; onJobCreated?: (jobId: string) => void }) {
   const [type, setType] = useState<"image" | "video">("image");
   const [prompt, setPrompt] = useState("");
   const [provider, setProvider] = useState<"gemini" | "openai">("gemini");
@@ -162,8 +172,8 @@ function GenerateContentTab({ onJobCreated }: { onJobCreated?: (jobId: string) =
   const [showPromptExpander, setShowPromptExpander] = useState(false);
   const { profile } = useAuth();
   
-  // Obter store_id usando função que lida com diferentes roles
-  const storeId = profile ? getStoreIdFromProfile(profile) : null;
+  // Usar storeId passado via props ou obter do profile
+  const storeId = propStoreId || (profile ? getStoreIdFromProfile(profile) : null);
   const hasStoreId = !!storeId;
 
   // Atualizar modelo quando provider ou type mudar
@@ -669,8 +679,9 @@ function AssetCard({ asset, isHighlighted = false }: { asset: any; isHighlighted
 /**
  * Tab de Jobs/Processamentos
  */
-function JobsTab({ onJobCompleted }: { onJobCompleted?: (jobId: string, assetId: string | null) => void }) {
+function JobsTab({ storeId: propStoreId, onJobCompleted }: { storeId?: string | null; onJobCompleted?: (jobId: string, assetId: string | null) => void }) {
   const { profile } = useAuth();
+  const storeId = propStoreId || (profile ? getStoreIdFromProfile(profile) : null);
   const { jobs, loading, error, refetch } = useMarketingJobs(storeId || undefined);
   const previousJobsRef = useRef<any[]>([]);
 
