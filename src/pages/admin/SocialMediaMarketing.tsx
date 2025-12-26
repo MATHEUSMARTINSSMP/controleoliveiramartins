@@ -3,7 +3,7 @@ import { useMarketingJobStatus } from "@/hooks/use-marketing-job-status";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Image, Video, Sparkles, ImageIcon, VideoIcon, Loader2, X, CheckCircle2, XCircle, Clock, Download, AlertCircle, ArrowLeft, RefreshCw, Pencil } from "lucide-react";
+import { Image, Video, Sparkles, ImageIcon, VideoIcon, Loader2, X, CheckCircle2, XCircle, Clock, Download, AlertCircle, ArrowLeft, RefreshCw, Pencil, Trash2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +23,7 @@ import { InstagramFormatSelector, getInstagramFormats, InstagramFormat } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { PROVIDER_CONFIG, getDefaultModel, getAllowedModels } from "@/lib/config/provider-config";
@@ -1540,8 +1541,44 @@ function GalleryTab({ storeId: propStoreId, highlightAssetId, onEditAsset }: { s
   const storeId = propStoreId || (profile ? getStoreIdFromProfile(profile) : null);
   const [filterType, setFilterType] = useState<"image" | "video" | undefined>(undefined);
   const [filterProvider, setFilterProvider] = useState<"gemini" | "openai" | undefined>(undefined);
+  const [assetToDelete, setAssetToDelete] = useState<any | null>(null);
   // Habilitar polling automático para atualização em tempo real
   const { assets, loading, error, refetch } = useMarketingAssets(storeId || undefined, filterType, true);
+
+  const handleDeleteAsset = async () => {
+    if (!assetToDelete || !storeId) return;
+
+    try {
+      // Deletar do storage primeiro (se houver path)
+      if (assetToDelete.storage_path) {
+        const { error: storageError } = await supabase.storage
+          .from("marketing")
+          .remove([assetToDelete.storage_path]);
+
+        if (storageError) {
+          console.warn("Erro ao deletar do storage (continuando):", storageError);
+          // Continuar mesmo se falhar no storage
+        }
+      }
+
+      // Deletar do banco de dados
+      const { error: dbError } = await supabase
+        .schema("sistemaretiradas")
+        .from("marketing_assets")
+        .delete()
+        .eq("id", assetToDelete.id)
+        .eq("store_id", storeId);
+
+      if (dbError) throw dbError;
+
+      toast.success("Imagem deletada com sucesso!");
+      setAssetToDelete(null);
+      refetch(); // Atualizar lista
+    } catch (error: any) {
+      console.error("Erro ao deletar asset:", error);
+      toast.error(`Erro ao deletar: ${error.message || "Erro desconhecido"}`);
+    }
+  };
 
   if (loading) {
     return (
@@ -1671,6 +1708,7 @@ function GalleryTab({ storeId: propStoreId, highlightAssetId, onEditAsset }: { s
                       showVariationBadge={true}
                       variationNumber={asset.metadata?.variation || null}
                       onEdit={onEditAsset}
+                      onDelete={(asset) => setAssetToDelete(asset)}
                     />
                   ))}
                 </div>
@@ -1686,6 +1724,7 @@ function GalleryTab({ storeId: propStoreId, highlightAssetId, onEditAsset }: { s
                     asset={asset}
                     isHighlighted={asset.id === highlightAssetId}
                     onEdit={onEditAsset}
+                    onDelete={(asset) => setAssetToDelete(asset)}
                   />
                 ))}
               </div>
@@ -1695,6 +1734,28 @@ function GalleryTab({ storeId: propStoreId, highlightAssetId, onEditAsset }: { s
         })()}
       </CardContent>
     </Card>
+
+    {/* Dialog de confirmação de exclusão */}
+    <AlertDialog open={!!assetToDelete} onOpenChange={(open) => !open && setAssetToDelete(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+          <AlertDialogDescription>
+            Tem certeza que deseja deletar esta {assetToDelete?.type === "image" ? "imagem" : "vídeo"}? 
+            Esta ação não pode ser desfeita.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDeleteAsset}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Deletar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -1780,6 +1841,20 @@ function AssetCard({
             >
               <Pencil className="h-3 w-3 mr-2" />
               Editar
+            </Button>
+          )}
+          {onDelete && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(asset);
+              }}
+            >
+              <Trash2 className="h-3 w-3 mr-2" />
+              Deletar
             </Button>
           )}
           {mediaUrl && (

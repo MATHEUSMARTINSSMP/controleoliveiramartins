@@ -71,6 +71,8 @@ const WhatsAppCampaigns = lazyWithRetry(() => import("./pages/admin/WhatsAppCamp
 const WhatsAppAnalytics = lazyWithRetry(() => import("./pages/admin/WhatsAppAnalytics"));
 const GestaoMarketing = lazyWithRetry(() => import("./pages/admin/GestaoMarketing"));
 const SiteBuilder = lazyWithRetry(() => import("./pages/admin/SiteBuilder"));
+const PrivacyPolicy = lazyWithRetry(() => import("./pages/PrivacyPolicy"));
+const TermsOfService = lazyWithRetry(() => import("./pages/TermsOfService"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -113,6 +115,10 @@ const App = () => (
                 <Route path="/obrigado" element={<Suspense fallback={<PageLoader />}><Onboarding /></Suspense>} />
                 <Route path="/acesso" element={<Suspense fallback={<PageLoader />}><CaktoAccess /></Suspense>} />
                 <Route path="/acesso-test" element={<Suspense fallback={<PageLoader />}><CaktoAccessTest /></Suspense>} />
+                <Route path="/privacy" element={<Suspense fallback={<PageLoader />}><PrivacyPolicy /></Suspense>} />
+                <Route path="/politicas" element={<Suspense fallback={<PageLoader />}><PrivacyPolicy /></Suspense>} />
+                <Route path="/terms" element={<Suspense fallback={<PageLoader />}><TermsOfService /></Suspense>} />
+                <Route path="/termos" element={<Suspense fallback={<PageLoader />}><TermsOfService /></Suspense>} />
 
                 <Route path="/admin" element={<Suspense fallback={<SkeletonAdminDashboard />}><AdminDashboard /></Suspense>} />
                 <Route path="/admin/nova-compra" element={<Suspense fallback={<PageLoader />}><NovaCompra /></Suspense>} />

@@ -1273,9 +1273,9 @@ export default function Landing() {
               © 2024 EleveaOne. Todos os direitos reservados.
             </p>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <a href="#" className="hover:text-foreground transition-colors" data-testid="link-footer-termos">Termos de Uso</a>
-              <a href="#" className="hover:text-foreground transition-colors" data-testid="link-footer-privacidade">Privacidade</a>
-              <a href="#" className="hover:text-foreground transition-colors" data-testid="link-footer-lgpd">LGPD</a>
+              <Link to="/terms" className="hover:text-foreground transition-colors" data-testid="link-footer-termos">Termos de Uso</Link>
+              <Link to="/privacy" className="hover:text-foreground transition-colors" data-testid="link-footer-privacidade">Privacidade</Link>
+              <Link to="/privacy" className="hover:text-foreground transition-colors" data-testid="link-footer-lgpd">LGPD</Link>
             </div>
           </div>
         </div>
