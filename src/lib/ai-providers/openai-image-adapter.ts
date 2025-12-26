@@ -24,15 +24,16 @@ export interface OpenAIImageOptions {
 
 /**
  * Mapear aspect ratio para size
+ * OpenAI aceita apenas: '1024x1024', '1024x1536', '1536x1024', 'auto'
  */
 function getSizeFromAspectRatio(
   aspectRatio?: '1:1' | '9:16' | '16:9'
 ): string {
   switch (aspectRatio) {
     case '9:16':
-      return '1024x1792'; // Vertical
+      return '1024x1536'; // Vertical (mais próximo de 9:16)
     case '16:9':
-      return '1792x1024'; // Horizontal
+      return '1536x1024'; // Horizontal (16:9)
     case '1:1':
     default:
       return '1024x1024'; // Quadrado

@@ -561,6 +561,41 @@ async function generateImageWithGeminiDirect(input) {
  * Gerar imagem com OpenAI (chamada direta)
  * Suporta: texto apenas, inpainting com máscara
  */
+/**
+ * Normalizar tamanho de imagem para OpenAI
+ * OpenAI aceita apenas: '1024x1024', '1024x1536', '1536x1024', 'auto'
+ */
+function normalizeOpenAISize(size) {
+  if (!size) return '1024x1024';
+  
+  // Se já for um tamanho válido, retornar
+  const validSizes = ['1024x1024', '1024x1536', '1536x1024', 'auto'];
+  if (validSizes.includes(size)) {
+    return size;
+  }
+  
+  // Tentar mapear tamanhos comuns do Instagram para tamanhos válidos
+  const [width, height] = size.split('x').map(Number);
+  
+  // Quadrado (1:1)
+  if (width === height) {
+    return '1024x1024';
+  }
+  
+  // Vertical (9:16 ou similar)
+  if (height > width) {
+    return '1024x1536';
+  }
+  
+  // Horizontal (16:9 ou similar)
+  if (width > height) {
+    return '1536x1024';
+  }
+  
+  // Fallback
+  return '1024x1024';
+}
+
 async function generateImageWithOpenAIDirect(input) {
   const BASE_URL = 'https://api.openai.com/v1';
   const MODEL = input.model || 'gpt-image-1-mini';
@@ -623,7 +658,8 @@ async function generateImageWithOpenAIDirect(input) {
     formData.append('image', imageBlob, 'image.png');
     formData.append('mask', maskBlob, 'mask.png');
     formData.append('prompt', enrichedPrompt);
-    formData.append('size', input.output?.size || '1024x1024');
+    const normalizedSize = normalizeOpenAISize(input.output?.size || '1024x1024');
+    formData.append('size', normalizedSize);
     formData.append('n', '1');
 
     const response = await fetch(`${BASE_URL}/images/edits`, {
@@ -708,10 +744,11 @@ async function generateImageWithOpenAIDirect(input) {
   }
 
   // Geração normal (texto apenas)
+  const normalizedSize = normalizeOpenAISize(input.output?.size || '1024x1024');
   const payload = {
     model: MODEL,
     prompt: enrichedPrompt,
-    size: input.output?.size || '1024x1024',
+    size: normalizedSize,
     n: 1,
   };
 

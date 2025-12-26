@@ -247,10 +247,12 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
   const [inputImages, setInputImages] = useState<ImageFile[]>([]);
   const [mask, setMask] = useState<MaskFile | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [showPromptExpander, setShowPromptExpander] = useState(false);
   const [hasGeneratedPrompt, setHasGeneratedPrompt] = useState(false); // Indica se já gerou as variações de prompt
   const [generatedAssets, setGeneratedAssets] = useState<Array<{ id: string; url: string; jobId: string }>>([]);
   const [processingJobId, setProcessingJobId] = useState<string | null>(null);
+  const [promptAlternatives, setPromptAlternatives] = useState<Array<{ prompt: string; reasoning?: string }>>([]);
+  const [isGeneratingAlternatives, setIsGeneratingAlternatives] = useState(false);
+  const [selectedAlternativeIndex, setSelectedAlternativeIndex] = useState<number | null>(null);
   const { profile } = useAuth();
   
   // Usar storeId passado via props ou obter do profile
@@ -327,6 +329,14 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
               toast.success(`${assetUrls.length} imagem(ns) gerada(s) com sucesso!`);
               setProcessingJobId(null);
               setIsGenerating(false);
+              
+              // Scroll suave para a seção de imagens geradas após um pequeno delay
+              setTimeout(() => {
+                const resultsCard = document.querySelector('[data-generated-results]');
+                if (resultsCard) {
+                  resultsCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }, 300);
             } else if (retries < maxRetries - 1) {
               // Tentar novamente
               await fetchAssetsWithRetry(retries + 1);
@@ -373,8 +383,73 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
       toast.error("Digite um prompt para gerar as variações");
       return;
     }
-    // Abrir o PromptExpander para gerar as 5 variações
-    setShowPromptExpander(true);
+
+    if (!storeId) {
+      toast.error("Loja não identificada");
+      return;
+    }
+
+    setIsGeneratingAlternatives(true);
+    setPromptAlternatives([]);
+    setSelectedAlternativeIndex(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      const response = await fetch("/.netlify/functions/marketing-prompt-expand", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          context: storeId ? { storeId } : {},
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erro ao expandir prompt");
+      }
+
+      const data = await response.json();
+      
+      // O endpoint retorna { alternatives: [...] }
+      if (data.alternatives && Array.isArray(data.alternatives)) {
+        const formatted = data.alternatives.map((alt: any) => ({
+          prompt: typeof alt === "string" ? alt : alt.prompt || alt.text || alt.message || "",
+          reasoning: alt.reasoning || alt.explanation || alt.context || undefined,
+        })).filter((alt: any) => alt.prompt); // Filtrar vazios
+        
+        if (formatted.length === 0) {
+          throw new Error("Nenhuma alternativa válida foi gerada");
+        }
+        
+        setPromptAlternatives(formatted);
+        setHasGeneratedPrompt(true);
+        toast.success(`${formatted.length} alternativas geradas com sucesso!`);
+        
+        // Scroll suave para as alternativas
+        setTimeout(() => {
+          const alternativesCard = document.querySelector('[data-prompt-alternatives]');
+          if (alternativesCard) {
+            alternativesCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 300);
+      } else {
+        throw new Error("Formato de resposta inválido. Esperado: { alternatives: [...] }");
+      }
+    } catch (error: any) {
+      console.error("Erro ao expandir prompt:", error);
+      toast.error(error.message || "Erro ao expandir prompt");
+    } finally {
+      setIsGeneratingAlternatives(false);
+    }
   };
 
   const handleGenerate = async () => {
@@ -385,7 +460,6 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
 
     if (!hasGeneratedPrompt) {
       toast.error("Primeiro você precisa gerar as variações de prompt");
-      setShowPromptExpander(true);
       return;
     }
 
@@ -454,16 +528,31 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
                 const formats = getInstagramFormats("image");
                 const format = formats.find(f => f.id === selectedFormat);
                 if (!format) {
-                  return { size: "1080x1080" };
+                  // OpenAI aceita apenas: '1024x1024', '1024x1536', '1536x1024', 'auto'
+                  const defaultSize = provider === "openai" ? "1024x1024" : "1080x1080";
+                  return { size: defaultSize };
                 }
                 
-                let size = "1080x1080";
-                if (format.id === "story") {
-                  size = "1080x1920"; // Vertical 9:16
-                } else if (format.id === "landscape") {
-                  size = "1080x566"; // Horizontal 1.91:1
+                // Mapear tamanhos do Instagram para tamanhos suportados pela OpenAI
+                // OpenAI aceita apenas: '1024x1024', '1024x1536', '1536x1024', 'auto'
+                let size = "1080x1080"; // Padrão para Gemini
+                if (provider === "openai") {
+                  if (format.id === "story") {
+                    size = "1024x1536"; // Vertical 9:16 (mais próximo de 1080x1920)
+                  } else if (format.id === "landscape") {
+                    size = "1536x1024"; // Horizontal 16:9 (mais próximo de 1080x566)
+                  } else {
+                    size = "1024x1024"; // Quadrado 1:1 (post, carousel)
+                  }
                 } else {
-                  size = "1080x1080"; // Quadrado 1:1 (post, carousel)
+                  // Gemini aceita outros tamanhos
+                  if (format.id === "story") {
+                    size = "1080x1920"; // Vertical 9:16
+                  } else if (format.id === "landscape") {
+                    size = "1080x566"; // Horizontal 1.91:1
+                  } else {
+                    size = "1080x1080"; // Quadrado 1:1 (post, carousel)
+                  }
                 }
                 
                 return {
@@ -604,8 +693,8 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
         // Continuar mesmo se falhar o processamento imediato - o worker agendado vai processar
       }
       
-      // Limpar prompt, imagens e máscara
-      setPrompt("");
+      // Não limpar o prompt - deixar visível junto com as imagens geradas
+      // Apenas limpar imagens de entrada e máscara
       setInputImages([]);
       setMask(null);
     } catch (error: any) {
@@ -788,23 +877,17 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
     // As imagens aparecerão automaticamente quando prontas
   };
 
-  const handlePromptSelected = (selectedPrompt: string) => {
+  const handleSelectAlternative = (index: number) => {
+    const selectedPrompt = promptAlternatives[index].prompt;
     setPrompt(selectedPrompt);
-    setShowPromptExpander(false);
-    setHasGeneratedPrompt(true); // Marcar que já gerou o prompt
+    setSelectedAlternativeIndex(index);
     toast.success("Prompt selecionado! Agora você pode gerar o conteúdo.");
   };
 
-  if (showPromptExpander) {
-    return (
-      <PromptExpander
-        originalPrompt={prompt}
-        onSelectPrompt={handlePromptSelected}
-        onCancel={() => setShowPromptExpander(false)}
-        storeId={storeId}
-      />
-    );
-  }
+  const handleUseOriginal = () => {
+    setSelectedAlternativeIndex(null);
+    toast.success("Usando prompt original! Agora você pode gerar o conteúdo.");
+  };
 
   return (
     <div className="space-y-4">
@@ -922,11 +1005,20 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
             // Se ainda não gerou o prompt, mostrar botão "Gerar Prompt"
             <Button
               onClick={handleGeneratePrompt}
-              disabled={isGenerating || !prompt.trim() || !hasStoreId}
+              disabled={isGeneratingAlternatives || !prompt.trim() || !hasStoreId}
               className="w-full"
             >
-              <Sparkles className="h-4 w-4 mr-2" />
-              Gerar Prompt
+              {isGeneratingAlternatives ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Gerando Alternativas...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Gerar Prompt
+                </>
+              )}
             </Button>
           ) : (
             // Se já gerou o prompt, mostrar botão "Gerar Imagem"
@@ -963,60 +1055,88 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
             </CardContent>
           </Card>
 
-          {/* Mostrar imagens geradas */}
-          {generatedAssets.length > 0 && (
-            <Card className="mt-4">
+          {/* Mostrar alternativas de prompt geradas */}
+          {promptAlternatives.length > 0 && (
+            <Card className="mt-4" data-prompt-alternatives>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Resultados Gerados</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  Alternativas de Prompt Geradas
+                </CardTitle>
+                <CardDescription>
+                  Selecione uma alternativa ou mantenha o prompt original
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Opção de usar o prompt original */}
+                <div
+                  className={`rounded-lg border p-4 cursor-pointer transition-all ${
+                    selectedAlternativeIndex === null ? "border-primary bg-primary/5" : "hover:border-primary/50"
+                  }`}
+                  onClick={handleUseOriginal}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Prompt Original
+                        </span>
+                        {selectedAlternativeIndex === null && (
+                          <CheckCircle2 className="h-4 w-4 text-primary" />
+                        )}
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap">{prompt}</p>
+                    </div>
+                  </div>
                   <Button
-                    variant="outline"
                     size="sm"
-                    onClick={() => {
-                      setGeneratedAssets([]);
-                      setProcessingJobId(null);
-                      setHasUsedPromptExpander(false);
-                      setPrompt("");
+                    variant={selectedAlternativeIndex === null ? "default" : "outline"}
+                    className="w-full mt-3"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUseOriginal();
                     }}
                   >
-                    Limpar e Começar Novamente
+                    {selectedAlternativeIndex === null ? "Selecionado" : "Usar Este"}
                   </Button>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {generatedAssets.map((asset) => (
-                    <div
-                      key={asset.id}
-                      className="rounded-lg border overflow-hidden hover:shadow-lg transition-all"
-                    >
-                      {asset.url ? (
-                        <div className="aspect-square relative bg-muted">
-                          <img
-                            src={asset.url}
-                            alt="Imagem gerada"
-                            className="w-full h-full object-cover"
-                          />
+
+                {/* Alternativas geradas */}
+                {promptAlternatives.map((alt, index) => (
+                  <div
+                    key={index}
+                    className={`rounded-lg border p-4 transition-all ${
+                      selectedAlternativeIndex === index ? "border-primary bg-primary/5" : "hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Alternativa {index + 1}
+                          </span>
+                          {selectedAlternativeIndex === index && (
+                            <CheckCircle2 className="h-4 w-4 text-primary" />
+                          )}
                         </div>
-                      ) : (
-                        <div className="aspect-square bg-muted flex items-center justify-center">
-                          <ImageIcon className="h-12 w-12 text-muted-foreground" />
-                        </div>
-                      )}
-                      <div className="p-3">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full"
-                          onClick={() => asset.url && window.open(asset.url, "_blank")}
-                        >
-                          <Download className="h-3 w-3 mr-2" />
-                          Abrir
-                        </Button>
+                        <p className="text-sm whitespace-pre-wrap">{alt.prompt}</p>
+                        {alt.reasoning && (
+                          <p className="text-xs text-muted-foreground mt-2 italic">
+                            💡 {alt.reasoning}
+                          </p>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <Button
+                      size="sm"
+                      variant={selectedAlternativeIndex === index ? "default" : "outline"}
+                      className="w-full mt-3"
+                      onClick={() => handleSelectAlternative(index)}
+                    >
+                      {selectedAlternativeIndex === index ? "Selecionado" : "Usar Este"}
+                    </Button>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           )}
@@ -1029,6 +1149,77 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   <p className="text-sm font-medium">Gerando imagens...</p>
                   <p className="text-xs text-muted-foreground">Aguarde enquanto processamos sua solicitação</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Mostrar imagens geradas - Logo após o formulário */}
+          {generatedAssets.length > 0 && (
+            <Card className="mt-4" data-generated-results>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Imagens Geradas</CardTitle>
+                    <CardDescription className="text-sm mt-1">
+                      {generatedAssets.length} imagem{generatedAssets.length > 1 ? 'ns' : ''} gerada{generatedAssets.length > 1 ? 's' : ''} com sucesso
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setGeneratedAssets([]);
+                      setProcessingJobId(null);
+                      setHasGeneratedPrompt(false);
+                      setPrompt("");
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Limpar e Começar Novamente
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {generatedAssets.map((asset, index) => (
+                    <div
+                      key={asset.id}
+                      className="rounded-lg border overflow-hidden hover:shadow-lg transition-all bg-card"
+                    >
+                      {asset.url ? (
+                        <div className="aspect-square relative bg-muted">
+                          <img
+                            src={asset.url}
+                            alt={`Imagem gerada ${index + 1}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      ) : (
+                        <div className="aspect-square bg-muted flex items-center justify-center">
+                          <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Variação {index + 1}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {generatedAssets.length} de {generatedAssets.length}
+                          </Badge>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => asset.url && window.open(asset.url, "_blank")}
+                        >
+                          <Download className="h-3 w-3 mr-2" />
+                          Abrir em Nova Aba
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
