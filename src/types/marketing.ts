@@ -7,7 +7,8 @@ export type Provider = 'gemini' | 'openai';
 export type JobStatus = 'queued' | 'processing' | 'done' | 'failed' | 'canceled';
 
 // Modelos permitidos (sem descontinuados)
-export type GeminiImageModel = 'gemini-2.5-flash-image';
+// Documentação: https://ai.google.dev/docs/generate_images
+export type GeminiImageModel = 'gemini-2.5-flash-image' | 'gemini-3-pro-image-preview';
 export type GeminiVideoModel = 'veo-2.0-generate-001' | 'veo-3.0-generate-001' | 'veo-3.1-generate-preview';
 export type OpenAIImageModel = `gpt-image-${string}`; // gpt-image-001, etc
 export type OpenAIVideoModel = `sora-${string}`; // sora-2-pro, etc

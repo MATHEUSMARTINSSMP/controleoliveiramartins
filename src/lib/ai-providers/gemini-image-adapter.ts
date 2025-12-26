@@ -1,20 +1,26 @@
 /**
- * Gemini Image Adapter (Nano Banana)
+ * Gemini Image Adapter (Nano Banana / Nano Banana Pro)
  * 
- * Geração de imagens usando Gemini 2.5 Flash Image
+ * Geração de imagens usando Gemini Image Models
  * Suporta: texto apenas, texto + imagem, múltiplas imagens
+ * 
+ * Documentação: https://ai.google.dev/docs/generate_images
  */
 
 import type { ImageGenerationResult, CreateMediaInput } from '@/types/marketing';
 import { normalizeBase64 } from './image-utils';
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
-const MODEL = 'gemini-2.5-flash-image';
+const DEFAULT_MODEL = 'gemini-2.5-flash-image';
+
+// Aspect ratios suportados conforme documentação Gemini
+export type GeminiAspectRatio = '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9';
 
 export interface GeminiImageOptions {
   prompt: string;
   inputImages?: string[]; // Array de base64 (sem prefixo data:)
-  aspectRatio?: '1:1' | '9:16' | '16:9';
+  aspectRatio?: GeminiAspectRatio;
+  model?: string; // gemini-2.5-flash-image ou gemini-3-pro-image-preview
   apiKey: string;
 }
 
@@ -68,18 +74,21 @@ export async function generateImageWithGemini(
     },
   };
 
-  // Adicionar aspect ratio se fornecido (se a API suportar)
+  // Adicionar image_config com aspect_ratio conforme documentação Gemini
+  // Documentação: https://ai.google.dev/docs/generate_images#aspect-ratio
   if (aspectRatio) {
-    // Nota: Verificar documentação da API Gemini para suporte a aspect ratio
-    // Por enquanto, incluir no prompt se necessário
-    if (!payload.generationConfig.responseModalities) {
-      payload.generationConfig.responseModalities = ['IMAGE'];
-    }
+    payload.generationConfig.imageConfig = {
+      aspectRatio: aspectRatio,
+    };
+    
+    // Para gemini-3-pro-image-preview, também pode incluir image_size (1K, 2K, 4K)
+    // Por padrão usa 1K (1024px)
+    // Se quiséssemos suportar 2K/4K, poderíamos adicionar aqui
   }
 
   // Fazer requisição
   const response = await fetch(
-    `${BASE_URL}/models/${MODEL}:generateContent?key=${apiKey}`,
+    `${BASE_URL}/models/${model}:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: {
@@ -118,19 +127,12 @@ export async function generateImageWithGemini(
   // Converter base64 para Buffer
   const imageBuffer = Buffer.from(imageBase64, 'base64');
 
-  // Obter dimensões (assumir padrão, ou extrair se disponível)
-  let width = 1024;
-  let height = 1024;
+  // Obter dimensões baseadas no aspect ratio
+  const dimensions = getDimensionsFromAspectRatio(aspectRatio);
+  let width = dimensions.width;
+  let height = dimensions.height;
 
-  if (aspectRatio === '9:16') {
-    width = 768;
-    height = 1344;
-  } else if (aspectRatio === '16:9') {
-    width = 1920;
-    height = 1080;
-  }
-
-  // Tentar extrair dimensões do metadata se disponível
+  // Tentar extrair dimensões do metadata se disponível (tem prioridade)
   if (candidate.metadata?.dimensions) {
     width = candidate.metadata.dimensions.width || width;
     height = candidate.metadata.dimensions.height || height;
@@ -154,7 +156,8 @@ export function convertToGeminiImageOptions(
   return {
     prompt: input.prompt,
     inputImages: input.inputImages || [],
-    aspectRatio: input.output?.aspectRatio,
+    aspectRatio: input.output?.aspectRatio as GeminiAspectRatio | undefined,
+    model: input.model || DEFAULT_MODEL,
     apiKey,
   };
 }

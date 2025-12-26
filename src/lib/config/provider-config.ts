@@ -9,11 +9,15 @@ export const PROVIDER_CONFIG = {
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || '',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-    // Modelos de imagem
+    // Modelos de imagem conforme documentação oficial Gemini
+    // Documentação: https://ai.google.dev/docs/generate_images
+    // gemini-2.5-flash-image (Nano Banana): rápido e eficiente, 1024px, até 3 imagens de entrada
+    // gemini-3-pro-image-preview (Nano Banana Pro): produção profissional, até 4K, até 14 imagens de entrada
     imageModels: [
-      'gemini-2.5-flash-image', // Nano Banana
+      'gemini-2.5-flash-image', // Nano Banana - rápido e eficiente
+      'gemini-3-pro-image-preview', // Nano Banana Pro - produção profissional
     ] as const,
-    defaultImageModel: 'gemini-2.5-flash-image' as const,
+    defaultImageModel: 'gemini-2.5-flash-image' as const, // Melhor custo/benefício
     // Modelos de vídeo
     videoModels: [
       'veo-2.0-generate-001', // Estável
