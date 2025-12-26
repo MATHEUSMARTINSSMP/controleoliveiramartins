@@ -739,8 +739,14 @@ async function generateImageWithOpenAIDirect(input) {
     // Construir prompt enriquecido
     if (formatInfo.length > 0) {
       const formatDetails = formatInfo.join('\n');
-      enrichedPrompt = `${input.prompt}\n\n=== ESPECIFICAÇÕES DO FORMATO ===\n${formatDetails}\n\nIMPORTANTE: A imagem deve ser gerada exatamente nestas especificações. Garanta que a composição, elementos visuais e layout estejam completamente otimizados para este formato específico do Instagram.`;
+      enrichedPrompt = `${input.prompt}\n\n=== CONTEXTO COMERCIAL ===\nEsta é uma imagem para POST COMERCIAL profissional em redes sociais de empresa. O objetivo é GERAR VENDAS e ENGAJAMENTO. A imagem deve ser profissional, comercialmente eficaz, com composição que direciona atenção para pontos importantes e reforça branding.\n\n=== ESPECIFICAÇÕES DO FORMATO ===\n${formatDetails}\n\nIMPORTANTE: A imagem deve ser gerada exatamente nestas especificações. Garanta que a composição, elementos visuais e layout estejam completamente otimizados para este formato específico do Instagram como um POST COMERCIAL PROFISSIONAL que vende e engaja.`;
+    } else {
+      // Adicionar contexto comercial mesmo sem formato específico
+      enrichedPrompt = `${input.prompt}\n\nCONTEXTO: Esta é uma imagem para POST COMERCIAL profissional em redes sociais de empresa. O objetivo é GERAR VENDAS e ENGAJAMENTO. A imagem deve ser profissional, comercialmente eficaz e adequada para redes sociais de empresas.`;
     }
+  } else {
+    // Adicionar contexto comercial mesmo sem output
+    enrichedPrompt = `${input.prompt}\n\nCONTEXTO: Esta é uma imagem para POST COMERCIAL profissional em redes sociais de empresa. O objetivo é GERAR VENDAS e ENGAJAMENTO. A imagem deve ser profissional, comercialmente eficaz e adequada para redes sociais de empresas.`;
   }
 
   // Geração normal (texto apenas)
