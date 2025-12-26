@@ -78,7 +78,6 @@ export async function generateImageWithOpenAI(
     formData.append('prompt', prompt);
     formData.append('size', size || getSizeFromAspectRatio(aspectRatio));
     formData.append('n', '1');
-    formData.append('response_format', 'b64_json'); // Base64 para consistência
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -96,10 +95,32 @@ export async function generateImageWithOpenAI(
     }
 
     const data = await response.json();
-    const imageBase64 = data.data[0].b64_json;
+    
+    // Validar resposta da API
+    if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
+      throw new Error('Resposta da API OpenAI não contém dados de imagem');
+    }
+    
+    // OpenAI retorna URL, não base64 - fazer download
+    const imageUrl = data.data[0].url;
+    if (!imageUrl) {
+      throw new Error('URL da imagem não encontrada na resposta da API');
+    }
+    
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      throw new Error(`Erro ao baixar imagem da URL: ${imageResponse.status} ${imageResponse.statusText}`);
+    }
+    
+    const imageArrayBuffer = await imageResponse.arrayBuffer();
+    const imageBuffer = Buffer.from(imageArrayBuffer);
+    
+    if (!imageBuffer || imageBuffer.length === 0) {
+      throw new Error('Imagem baixada está vazia ou inválida');
+    }
 
     return {
-      imageData: Buffer.from(imageBase64, 'base64'),
+      imageData: imageBuffer,
       width: parseInt((size || '1024x1024').split('x')[0]),
       height: parseInt((size || '1024x1024').split('x')[1]),
       mimeType: 'image/png',
@@ -118,7 +139,6 @@ export async function generateImageWithOpenAI(
       prompt: enrichedPrompt,
       size: size || getSizeFromAspectRatio(aspectRatio),
       n: 1,
-      response_format: 'b64_json',
       // Se a API suportar, incluir imagem
       // image: inputImage (verificar documentação)
     };
@@ -131,7 +151,6 @@ export async function generateImageWithOpenAI(
       prompt,
       size: size || getSizeFromAspectRatio(aspectRatio),
       n: 1,
-      response_format: 'b64_json',
     };
   }
 
@@ -154,13 +173,35 @@ export async function generateImageWithOpenAI(
     }
 
     const data = await response.json();
-    const imageBase64 = data.data[0].b64_json;
+    
+    // Validar resposta da API
+    if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
+      throw new Error('Resposta da API OpenAI não contém dados de imagem');
+    }
+    
+    // OpenAI retorna URL, não base64 - fazer download
+    const imageUrl = data.data[0].url;
+    if (!imageUrl) {
+      throw new Error('URL da imagem não encontrada na resposta da API');
+    }
+    
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      throw new Error(`Erro ao baixar imagem da URL: ${imageResponse.status} ${imageResponse.statusText}`);
+    }
+    
+    const imageArrayBuffer = await imageResponse.arrayBuffer();
+    const imageBuffer = Buffer.from(imageArrayBuffer);
+    
+    if (!imageBuffer || imageBuffer.length === 0) {
+      throw new Error('Imagem baixada está vazia ou inválida');
+    }
 
     const finalSize = size || getSizeFromAspectRatio(aspectRatio);
     const [width, height] = finalSize.split('x').map(Number);
 
     return {
-      imageData: Buffer.from(imageBase64, 'base64'),
+      imageData: imageBuffer,
       width,
       height,
       mimeType: 'image/png',

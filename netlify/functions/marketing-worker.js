@@ -563,7 +563,7 @@ async function generateImageWithGeminiDirect(input) {
  */
 async function generateImageWithOpenAIDirect(input) {
   const BASE_URL = 'https://api.openai.com/v1';
-  const MODEL = input.model || 'gpt-image-001';
+  const MODEL = input.model || 'gpt-image-1-mini';
 
   // Se tem máscara e imagem de entrada, usar inpainting
   if (input.mask && input.inputImages && input.inputImages.length > 0) {
@@ -625,7 +625,6 @@ async function generateImageWithOpenAIDirect(input) {
     formData.append('prompt', enrichedPrompt);
     formData.append('size', input.output?.size || '1024x1024');
     formData.append('n', '1');
-    formData.append('response_format', 'b64_json');
 
     const response = await fetch(`${BASE_URL}/images/edits`, {
       method: 'POST',
@@ -642,8 +641,30 @@ async function generateImageWithOpenAIDirect(input) {
     }
 
     const data = await response.json();
-    const imageBase64Result = data.data[0].b64_json;
-    const imageBufferResult = Buffer.from(imageBase64Result, 'base64');
+    
+    // Validar resposta da API
+    if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
+      throw new Error('Resposta da API OpenAI não contém dados de imagem');
+    }
+    
+    // OpenAI retorna URL, não base64 - fazer download
+    const imageUrl = data.data[0].url;
+    if (!imageUrl) {
+      throw new Error('URL da imagem não encontrada na resposta da API');
+    }
+    
+    console.log(`[marketing-worker] Baixando imagem da URL: ${imageUrl.substring(0, 50)}...`);
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      throw new Error(`Erro ao baixar imagem da URL: ${imageResponse.status} ${imageResponse.statusText}`);
+    }
+    
+    const imageBufferResult = Buffer.from(await imageResponse.arrayBuffer());
+    if (!imageBufferResult || imageBufferResult.length === 0) {
+      throw new Error('Imagem baixada está vazia ou inválida');
+    }
+    
+    console.log(`[marketing-worker] Imagem baixada com sucesso (${imageBufferResult.length} bytes)`);
 
     const [width, height] = (input.output?.size || '1024x1024').split('x').map(Number);
 
@@ -692,7 +713,6 @@ async function generateImageWithOpenAIDirect(input) {
     prompt: enrichedPrompt,
     size: input.output?.size || '1024x1024',
     n: 1,
-    response_format: 'b64_json',
   };
 
   const response = await fetch(`${BASE_URL}/images/generations`, {
@@ -710,8 +730,30 @@ async function generateImageWithOpenAIDirect(input) {
   }
 
   const data = await response.json();
-  const imageBase64 = data.data[0].b64_json;
-  const imageBuffer = Buffer.from(imageBase64, 'base64');
+  
+  // Validar resposta da API
+  if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
+    throw new Error('Resposta da API OpenAI não contém dados de imagem');
+  }
+  
+  // OpenAI retorna URL, não base64 - fazer download
+  const imageUrl = data.data[0].url;
+  if (!imageUrl) {
+    throw new Error('URL da imagem não encontrada na resposta da API');
+  }
+  
+  console.log(`[marketing-worker] Baixando imagem da URL: ${imageUrl.substring(0, 50)}...`);
+  const imageResponse = await fetch(imageUrl);
+  if (!imageResponse.ok) {
+    throw new Error(`Erro ao baixar imagem da URL: ${imageResponse.status} ${imageResponse.statusText}`);
+  }
+  
+  const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+  if (!imageBuffer || imageBuffer.length === 0) {
+    throw new Error('Imagem baixada está vazia ou inválida');
+  }
+  
+  console.log(`[marketing-worker] Imagem baixada com sucesso (${imageBuffer.length} bytes)`);
 
   const [width, height] = (payload.size || '1024x1024').split('x').map(Number);
 
