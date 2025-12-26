@@ -1168,9 +1168,9 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Imagens Geradas</CardTitle>
+                    <CardTitle>{type === "image" ? "Imagens Geradas" : "Vídeos Gerados"}</CardTitle>
                     <CardDescription className="text-sm mt-1">
-                      {generatedAssets.length} imagem{generatedAssets.length > 1 ? 'ns' : ''} gerada{generatedAssets.length > 1 ? 's' : ''} com sucesso
+                      {generatedAssets.length} {type === "image" ? `imagem${generatedAssets.length > 1 ? 'ns' : ''} gerada${generatedAssets.length > 1 ? 's' : ''}` : `vídeo${generatedAssets.length > 1 ? 's' : ''} gerado${generatedAssets.length > 1 ? 's' : ''}`} com sucesso
                     </CardDescription>
                   </div>
                   <Button
@@ -1199,7 +1199,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
                         <div className="aspect-square relative bg-muted">
                           <img
                             src={asset.url}
-                            alt={`Imagem gerada ${index + 1}`}
+                            alt={`${type === "image" ? "Imagem" : "Vídeo"} gerado ${index + 1}`}
                             className="w-full h-full object-cover"
                             loading="lazy"
                           />
