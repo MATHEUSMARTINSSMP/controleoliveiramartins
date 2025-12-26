@@ -271,8 +271,7 @@ export function ReviewReplyDialog({ review, siteSlug }: ReviewReplyDialogProps) 
                   Enviando...
                 </>
               ) : (
-              ): (
-                  review.reply ? "Atualizar Resposta" : "Enviar Resposta"
+                review.reply ? "Atualizar Resposta" : "Enviar Resposta"
               )}
             </Button>
           </div>
