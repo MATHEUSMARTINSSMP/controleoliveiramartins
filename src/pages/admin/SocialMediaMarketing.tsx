@@ -479,8 +479,21 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
     }, 100);
 
     try {
-      // Obter token de autenticação
-      const { data: { session } } = await supabase.auth.getSession();
+      // Obter token de autenticação (com renovação automática se necessário)
+      let { data: { session } } = await supabase.auth.getSession();
+      
+      // Se não tem sessão ou está expirada, tentar renovar
+      if (!session || (session.expires_at && session.expires_at * 1000 < Date.now())) {
+        console.log("[GenerateContentTab] Sessão expirada ou ausente, tentando renovar...");
+        const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) {
+          console.error("[GenerateContentTab] Erro ao renovar sessão:", refreshError);
+          toast.error("Sessão expirada. Por favor, faça login novamente.");
+          return;
+        }
+        session = refreshedSession;
+      }
+      
       if (!session) {
         toast.error("Sessão expirada. Faça login novamente.");
         return;

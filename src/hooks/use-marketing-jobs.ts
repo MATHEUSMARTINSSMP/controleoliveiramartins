@@ -65,6 +65,44 @@ export function useMarketingJobs(storeId: string | undefined) {
 
       if (fetchError) {
         console.error("[useMarketingJobs] Erro na query:", fetchError);
+        
+        // Se JWT expirou, tentar renovar a sessão
+        if (fetchError.code === 'PGRST303' || fetchError.message?.includes('JWT expired')) {
+          console.log("[useMarketingJobs] JWT expirado, tentando renovar sessão...");
+          try {
+            const { data: { session: newSession }, error: refreshError } = await supabase.auth.refreshSession();
+            if (refreshError) {
+              console.error("[useMarketingJobs] Erro ao renovar sessão:", refreshError);
+              throw fetchError; // Lançar erro original
+            }
+            if (newSession) {
+              console.log("[useMarketingJobs] Sessão renovada, tentando novamente...");
+              // Tentar novamente após renovar
+              const { data: retryData, error: retryError } = await supabase
+                .schema("sistemaretiradas")
+                .from("marketing_jobs")
+                .select("*")
+                .eq("store_id", storeId)
+                .order("created_at", { ascending: false })
+                .limit(50);
+              
+              if (retryError) {
+                throw retryError;
+              }
+              
+              const mappedJobs = (retryData || []).map((job: any) => ({
+                ...job,
+                result_asset_id: job.result?.assetId || job.result?.assetIds?.[0] || null,
+              }));
+              
+              setJobs(mappedJobs as MarketingJob[]);
+              return; // Sucesso após retry
+            }
+          } catch (refreshErr) {
+            console.error("[useMarketingJobs] Erro ao renovar sessão:", refreshErr);
+          }
+        }
+        
         throw fetchError;
       }
 
