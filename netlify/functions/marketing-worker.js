@@ -243,6 +243,9 @@ async function processImageJob(supabase, job) {
       throw new Error(`Erro: uploadResult não retornou URL válida (publicUrl: ${uploadResult.publicUrl}, signedUrl: ${uploadResult.signedUrl})`);
     }
 
+    // Extrair filename do path (último componente)
+    const filename = uploadResult.path.split('/').pop() || `${assetId}.${extension}`;
+
     // Criar registro de asset
     const { data: asset, error: assetError } = await supabase
       .from('marketing_assets')
@@ -256,6 +259,8 @@ async function processImageJob(supabase, job) {
         prompt: adapterInput.prompt,
         storage_path: uploadResult.path,
         url: assetUrl, // Coluna obrigatória (legacy)
+        filename: filename, // Coluna obrigatória
+        mime_type: imageResult.mimeType,
         public_url: uploadResult.publicUrl,
         signed_url: uploadResult.signedUrl,
         signed_expires_at: uploadResult.signedExpiresAt?.toISOString(),
@@ -399,6 +404,9 @@ async function processVideoJob(supabase, job) {
     throw new Error(`Erro: uploadResult não retornou URL válida para vídeo (publicUrl: ${uploadResult.publicUrl}, signedUrl: ${uploadResult.signedUrl})`);
   }
 
+  // Extrair filename do path (último componente)
+  const filename = uploadResult.path.split('/').pop() || `${assetId}.mp4`;
+
   // Criar registro de asset
   const { data: asset, error: assetError } = await supabase
     .from('marketing_assets')
@@ -412,6 +420,8 @@ async function processVideoJob(supabase, job) {
       prompt: input.prompt || job.prompt_final,
       storage_path: uploadResult.path,
       url: assetUrl, // Coluna obrigatória (legacy)
+      filename: filename, // Coluna obrigatória
+      mime_type: 'video/mp4',
       public_url: uploadResult.publicUrl,
       signed_url: uploadResult.signedUrl,
       signed_expires_at: uploadResult.signedExpiresAt?.toISOString(),
