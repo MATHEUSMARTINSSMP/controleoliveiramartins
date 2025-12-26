@@ -26,7 +26,7 @@ export const INSTAGRAM_IMAGE_FORMATS: InstagramFormat[] = [
     description: 'Formato clássico do feed',
     dimensions: '1080 x 1080 px',
     aspectRatio: '1:1',
-    icon: <Square className="h-6 w-6" />,
+            icon: <Square className="h-4 w-4" />,
     color: 'bg-primary',
     examples: ['Feed principal', 'Melhor para produtos', 'Mais visualizado'],
   },
@@ -36,7 +36,7 @@ export const INSTAGRAM_IMAGE_FORMATS: InstagramFormat[] = [
     description: 'Conteúdo vertical temporário',
     dimensions: '1080 x 1920 px',
     aspectRatio: '9:16',
-    icon: <RectangleVertical className="h-6 w-6" />,
+            icon: <RectangleVertical className="h-4 w-4" />,
     color: 'bg-primary',
     examples: ['24 horas de duração', 'Ideal para promoções', 'Alta interação'],
   },
@@ -46,7 +46,7 @@ export const INSTAGRAM_IMAGE_FORMATS: InstagramFormat[] = [
     description: 'Múltiplas imagens em um post',
     dimensions: '1080 x 1080 px (cada)',
     aspectRatio: '1:1',
-    icon: <Square className="h-6 w-6" />,
+            icon: <Square className="h-4 w-4" />,
     color: 'bg-primary',
     examples: ['Até 10 imagens', 'Conta histórias', 'Mais informações'],
   },
@@ -56,7 +56,7 @@ export const INSTAGRAM_IMAGE_FORMATS: InstagramFormat[] = [
     description: 'Formato paisagem',
     dimensions: '1080 x 566 px',
     aspectRatio: '1.91:1',
-    icon: <RectangleHorizontal className="h-6 w-6" />,
+            icon: <RectangleHorizontal className="h-4 w-4" />,
     color: 'bg-primary',
     examples: ['Feed principal', 'Boa para paisagens', 'Menos comum'],
   },
@@ -70,7 +70,7 @@ export const INSTAGRAM_VIDEO_FORMATS: InstagramFormat[] = [
     description: 'Vídeos curtos verticais',
     dimensions: '1080 x 1920 px',
     aspectRatio: '9:16',
-    icon: <RectangleVertical className="h-6 w-6" />,
+            icon: <RectangleVertical className="h-4 w-4" />,
     color: 'bg-primary',
     examples: ['Até 90 segundos', 'Algoritmo prioriza', 'Máximo engajamento'],
   },
@@ -80,7 +80,7 @@ export const INSTAGRAM_VIDEO_FORMATS: InstagramFormat[] = [
     description: 'Vídeos verticais temporários',
     dimensions: '1080 x 1920 px',
     aspectRatio: '9:16',
-    icon: <RectangleVertical className="h-6 w-6" />,
+            icon: <RectangleVertical className="h-4 w-4" />,
     color: 'bg-primary',
     examples: ['24 horas de duração', 'Ideal para promoções', 'Alta interação'],
   },
@@ -116,54 +116,50 @@ export function InstagramFormatSelector({ type, selectedFormat, onFormatSelect }
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="flex gap-3 overflow-x-auto pb-2">
         {formats.map((format) => (
           <Card
             key={format.id}
-            className={`cursor-pointer transition-all hover:shadow-lg ${
-              selectedFormat === format.id ? 'ring-2 ring-primary' : ''
+            className={`cursor-pointer transition-all hover:shadow-lg flex-shrink-0 w-[200px] ${
+              currentFormat === format.id ? 'ring-2 ring-primary' : ''
             }`}
             onClick={() => onFormatSelect(format.id)}
           >
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className={`p-2 rounded-lg ${format.color} text-primary-foreground`}>
-                    {format.icon}
-                  </div>
-                  <div>
-                    <CardTitle className="text-base">{format.name}</CardTitle>
-                    <CardDescription className="text-xs mt-1">
-                      {format.description}
-                    </CardDescription>
-                  </div>
+            <CardHeader className="pb-2 px-3 pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className={`p-1.5 rounded-md ${format.color} text-primary-foreground`}>
+                  {format.icon}
                 </div>
-                {selectedFormat === format.id && (
-                  <Badge variant="default">Selecionado</Badge>
+                {currentFormat === format.id && (
+                  <Badge variant="default" className="text-xs px-1.5 py-0">✓</Badge>
                 )}
               </div>
+              <CardTitle className="text-sm leading-tight">{format.name}</CardTitle>
+              <CardDescription className="text-xs mt-0.5 leading-tight">
+                {format.description}
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="px-3 pb-3 space-y-2">
               {/* Ilustração do formato */}
-              <div className="flex items-center justify-center bg-muted rounded-lg p-4">
+              <div className="flex items-center justify-center bg-muted rounded-md p-2">
                 <div
-                  className={`${format.color} rounded shadow-lg border border-border`}
+                  className={`${format.color} rounded shadow-sm border border-border`}
                   style={{
                     width:
                       format.aspectRatio === '1:1'
-                        ? '80px'
+                        ? '50px'
                         : format.aspectRatio === '9:16'
-                        ? '45px'
-                        : '120px',
+                        ? '28px'
+                        : '70px',
                     height:
                       format.aspectRatio === '1:1'
-                        ? '80px'
+                        ? '50px'
                         : format.aspectRatio === '9:16'
-                        ? '80px'
-                        : '63px',
+                        ? '50px'
+                        : '37px',
                   }}
                 >
-                  <div className="h-full w-full flex items-center justify-center text-primary-foreground text-xs font-bold">
+                  <div className="h-full w-full flex items-center justify-center text-primary-foreground text-[10px] font-bold">
                     {format.aspectRatio}
                   </div>
                 </div>
@@ -171,17 +167,17 @@ export function InstagramFormatSelector({ type, selectedFormat, onFormatSelect }
 
               {/* Dimensões */}
               <div className="text-center">
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                   {format.dimensions}
                 </Badge>
               </div>
 
-              {/* Exemplos de uso */}
-              <div className="space-y-1">
-                {format.examples.map((example, idx) => (
-                  <div key={idx} className="text-xs text-muted-foreground flex items-center gap-1">
-                    <div className="h-1 w-1 rounded-full bg-muted-foreground" />
-                    {example}
+              {/* Exemplos de uso (limitado a 2) */}
+              <div className="space-y-0.5">
+                {format.examples.slice(0, 2).map((example, idx) => (
+                  <div key={idx} className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <div className="h-0.5 w-0.5 rounded-full bg-muted-foreground" />
+                    <span className="leading-tight">{example}</span>
                   </div>
                 ))}
               </div>
