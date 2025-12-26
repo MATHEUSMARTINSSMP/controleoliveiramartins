@@ -1034,14 +1034,14 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
           )}
 
           {/* Templates Section */}
-          <Card className="mt-4">
-            <CardHeader>
-              <CardTitle>Templates de Prompt</CardTitle>
-              <CardDescription>
+          <Card className="mt-3">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Templates de Prompt</CardTitle>
+              <CardDescription className="text-xs">
                 Use templates prontos para começar mais rápido
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <PromptTemplates
                 type={type}
                 provider={provider}
