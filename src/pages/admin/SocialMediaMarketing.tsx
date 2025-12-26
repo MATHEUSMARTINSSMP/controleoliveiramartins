@@ -400,6 +400,10 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
         return;
       }
 
+      // Buscar informações do formato selecionado
+      const formats = getInstagramFormats(type);
+      const selectedFormatInfo = formats.find(f => f.id === selectedFormat);
+      
       const response = await fetch("/.netlify/functions/marketing-prompt-expand", {
         method: "POST",
         headers: {
@@ -408,7 +412,28 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
         },
         body: JSON.stringify({
           prompt: prompt.trim(),
-          context: storeId ? { storeId, type } : { type },
+          context: storeId 
+            ? { 
+                storeId, 
+                type,
+                format: selectedFormatInfo ? {
+                  id: selectedFormatInfo.id,
+                  name: selectedFormatInfo.name,
+                  dimensions: selectedFormatInfo.dimensions,
+                  aspectRatio: selectedFormatInfo.aspectRatio,
+                  description: selectedFormatInfo.description,
+                } : undefined,
+              } 
+            : { 
+                type,
+                format: selectedFormatInfo ? {
+                  id: selectedFormatInfo.id,
+                  name: selectedFormatInfo.name,
+                  dimensions: selectedFormatInfo.dimensions,
+                  aspectRatio: selectedFormatInfo.aspectRatio,
+                  description: selectedFormatInfo.description,
+                } : undefined,
+              },
         }),
       });
 

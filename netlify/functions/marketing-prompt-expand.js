@@ -160,8 +160,9 @@ async function expandWithGemini(prompt, count, context) {
   );
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Gemini API error: ${response.status} - ${error}`);
+    // Clonar response para poder ler o body sem consumir
+    const errorText = await response.clone().text().catch(() => '');
+    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
@@ -212,8 +213,9 @@ async function expandWithOpenAI(prompt, count, context) {
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`OpenAI API error: ${response.status} - ${error}`);
+    // Clonar response para poder ler o body sem consumir
+    const errorText = await response.clone().text().catch(() => '');
+    throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
@@ -234,6 +236,20 @@ function buildExpansionPrompt(originalPrompt, count, context) {
   const contentType = context.type === 'video' ? 'vídeo' : 'imagem';
   const contentTypePlural = context.type === 'video' ? 'vídeos' : 'imagens';
   
+  // Informações do formato (se disponível)
+  const formatInfo = context.format ? `
+FORMATO ESPECÍFICO DO INSTAGRAM:
+- Nome do formato: ${context.format.name || context.format.id || 'Não especificado'}
+- Dimensões: ${context.format.dimensions || 'Não especificado'}
+- Aspect Ratio: ${context.format.aspectRatio || 'Não especificado'}
+- Descrição: ${context.format.description || 'Não especificado'}
+
+⚠️ CRÍTICO: O prompt deve ser criado considerando EXATAMENTE este formato e dimensões. A composição visual deve ser otimizada para este formato específico do Instagram. Por exemplo:
+- Se for formato vertical (Stories, 9:16), o prompt deve descrever uma composição vertical com elementos posicionados de cima para baixo
+- Se for formato quadrado (Post, 1:1), o prompt deve descrever uma composição equilibrada e centralizada
+- Se for formato horizontal (Landscape, 16:9), o prompt deve descrever uma composição horizontal com elementos distribuídos lateralmente
+` : '';
+  
   let systemPrompt = `Você é o MELHOR SOCIAL MEDIA MANAGER do mundo, especializado em criação de conteúdo comercial de alta performance para redes sociais de empresas. Seu trabalho é criar posts profissionais com intenção de VENDAS e ENGAJAMENTO.
 
 CONTEXTO COMERCIAL CRÍTICO:
@@ -248,6 +264,7 @@ O usuário forneceu um prompt simples/incompleto: "${originalPrompt}"
 
 TIPO DE CONTEÚDO: ${context.type === 'video' ? 'VÍDEO' : 'IMAGEM'}
 ${context.type === 'video' ? 'Você está criando prompts para GERAÇÃO DE VÍDEOS. Os prompts devem descrever movimento, câmera, transições, ação e elementos dinâmicos.' : 'Você está criando prompts para GERAÇÃO DE IMAGENS. Os prompts devem descrever composição visual, cores, iluminação e elementos estáticos.'}
+${formatInfo}
 
 Sua tarefa é trabalhar como o MELHOR SOCIAL MEDIA MANAGER e gerar ${count} alternativas de prompts DETALHADOS, COMPLETOS e PROFISSIONAIS em PORTUGUÊS DO BRASIL que uma IA de geração de ${contentTypePlural} entenderá perfeitamente.
 
