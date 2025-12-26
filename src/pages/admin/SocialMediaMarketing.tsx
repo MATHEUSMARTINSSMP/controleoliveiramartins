@@ -3,7 +3,7 @@ import { useMarketingJobStatus } from "@/hooks/use-marketing-job-status";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Image, Video, Sparkles, ImageIcon, VideoIcon, Loader2, X, CheckCircle2, XCircle, Clock, Download, AlertCircle, ArrowLeft, RefreshCw } from "lucide-react";
+import { Image, Video, Sparkles, ImageIcon, VideoIcon, Loader2, X, CheckCircle2, XCircle, Clock, Download, AlertCircle, ArrowLeft, RefreshCw, Pencil } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +22,9 @@ import { MarketingAnalytics } from "@/components/marketing/MarketingAnalytics";
 import { InstagramFormatSelector, getInstagramFormats, InstagramFormat } from "@/components/marketing/InstagramFormatSelector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { PROVIDER_CONFIG, getDefaultModel, getAllowedModels } from "@/lib/config/provider-config";
 import { fileToBase64 } from "@/lib/ai-providers/image-utils";
 import { getStoreIdFromProfile } from "@/lib/storeLogo";
@@ -251,6 +254,9 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
   const [generatedAssets, setGeneratedAssets] = useState<Array<{ id: string; url: string; jobId: string }>>([]);
   const [processingJobId, setProcessingJobId] = useState<string | null>(null);
   const [promptAlternatives, setPromptAlternatives] = useState<Array<{ prompt: string; reasoning?: string }>>([]);
+  const [editingAsset, setEditingAsset] = useState<any | null>(null);
+  const [editPrompt, setEditPrompt] = useState("");
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isGeneratingAlternatives, setIsGeneratingAlternatives] = useState(false);
   const [selectedAlternativeIndex, setSelectedAlternativeIndex] = useState<number | null>(null);
   const { profile } = useAuth();
@@ -748,6 +754,128 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
       toast.error(error.message || "Erro ao gerar conteúdo");
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleEditAsset = (asset: any) => {
+    setEditingAsset(asset);
+    setEditPrompt("");
+    setIsEditDialogOpen(true);
+  };
+
+  const handleGenerateEdit = async () => {
+    if (!editingAsset || !editPrompt.trim()) {
+      toast.error("Digite o que deseja alterar na imagem");
+      return;
+    }
+
+    if (!storeId) {
+      toast.error("Loja não identificada");
+      return;
+    }
+
+    setIsGenerating(true);
+    setIsEditDialogOpen(false);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      // Buscar a imagem original como base64
+      const imageUrl = editingAsset.public_url || editingAsset.signed_url || editingAsset.url;
+      if (!imageUrl) {
+        toast.error("Não foi possível acessar a imagem original");
+        return;
+      }
+
+      // Baixar a imagem e converter para base64
+      const imageResponse = await fetch(imageUrl);
+      const imageBlob = await imageResponse.blob();
+      const reader = new FileReader();
+      const imageBase64 = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          // Remover o prefixo data:image/...;base64,
+          const base64 = result.includes(',') ? result.split(',')[1] : result;
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(imageBlob);
+      });
+
+      // Combinar prompt original com edição
+      const originalPrompt = editingAsset.prompt || "";
+      const combinedPrompt = `${originalPrompt}. ${editPrompt.trim()}`;
+
+      // Usar o mesmo provider e modelo da imagem original
+      const assetProvider = editingAsset.provider || "gemini";
+      const assetModel = editingAsset.provider_model || (assetProvider === "gemini" ? "gemini-2.5-flash-image" : "gpt-image-1-mini");
+
+      // Buscar formato original se disponível
+      const formats = getInstagramFormats("image");
+      const originalFormat = formats.find(f => 
+        editingAsset.meta?.formatName?.includes(f.name) || 
+        editingAsset.meta?.formatDimensions === f.dimensions
+      ) || formats[0];
+
+      // Chamar endpoint de criação de job com a imagem como input
+      const response = await fetch("/.netlify/functions/marketing-media", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          type: "image",
+          provider: assetProvider,
+          model: assetModel,
+          prompt: combinedPrompt,
+          storeId: storeId,
+          inputImages: [imageBase64],
+          variations: 1, // Gerar apenas 1 variação editada
+          output: {
+            size: originalFormat.id === "story" ? "1080x1920" : originalFormat.id === "landscape" ? "1080x566" : "1080x1080",
+            aspectRatio: originalFormat.aspectRatio,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erro ao criar job de edição");
+      }
+
+      const data = await response.json();
+      toast.loading(`Gerando variação editada...`, { id: "editing" });
+
+      // Processar job imediatamente
+      try {
+        const processResponse = await fetch(`/.netlify/functions/marketing-worker`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+
+        const processResult = await processResponse.json();
+        setProcessingJobId(data.jobId);
+        pollJobUntilComplete(data.jobId, session.access_token).catch(console.error);
+      } catch (processError) {
+        // Continuar mesmo se falhar o processamento imediato
+        setProcessingJobId(data.jobId);
+      }
+
+      setEditingAsset(null);
+      setEditPrompt("");
+    } catch (error: any) {
+      console.error("[GenerateContentTab] Erro ao editar imagem:", error);
+      toast.error(`Erro ao editar imagem: ${error.message || "Erro desconhecido"}`, { id: "editing" });
+      setIsGenerating(false);
+      setProcessingJobId(null);
     }
   };
 
@@ -1439,6 +1567,7 @@ function GalleryTab({ storeId: propStoreId, highlightAssetId }: { storeId?: stri
                       isHighlighted={asset.id === highlightAssetId}
                       showVariationBadge={true}
                       variationNumber={asset.metadata?.variation || null}
+                      onEdit={handleEditAsset}
                     />
                   ))}
                 </div>
@@ -1453,6 +1582,7 @@ function GalleryTab({ storeId: propStoreId, highlightAssetId }: { storeId?: stri
                     key={asset.id}
                     asset={asset}
                     isHighlighted={asset.id === highlightAssetId}
+                    onEdit={handleEditAsset}
                   />
                 ))}
               </div>
@@ -1533,11 +1663,25 @@ function AssetCard({
               <span className="text-xs font-medium text-primary">Novo!</span>
             </div>
           )}
+          {mediaUrl && asset.type === "image" && onEdit && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(asset);
+              }}
+            >
+              <Pencil className="h-3 w-3 mr-2" />
+              Editar
+            </Button>
+          )}
           {mediaUrl && (
             <Button
               size="sm"
               variant={isHighlighted ? "default" : "outline"}
-              className={isHighlighted ? "flex-1" : "w-full"}
+              className={isHighlighted && asset.type === "image" && onEdit ? "flex-1" : "w-full"}
               onClick={() => window.open(mediaUrl, "_blank")}
             >
               <Download className="h-3 w-3 mr-2" />
