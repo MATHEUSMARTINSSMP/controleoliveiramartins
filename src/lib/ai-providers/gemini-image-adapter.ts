@@ -166,6 +166,7 @@ export function convertToGeminiImageOptions(
  * Valida se o modelo é válido para Gemini Image
  */
 export function isValidGeminiImageModel(model: string): boolean {
-  return model === MODEL || model.startsWith('gemini-') && model.includes('image');
+  return model === DEFAULT_MODEL || model === 'gemini-3-pro-image-preview' || 
+    (model.startsWith('gemini-') && model.includes('image'));
 }
 
