@@ -112,12 +112,25 @@ export function useCreatePurchase() {
         compra_id: purchase.id, // Use the newly created purchase ID
       }));
 
-      const { error: parcelasError } = await supabase
+      // Log para debug
+      console.log('📦 Inserindo parcelas para compra:', purchase.id);
+      console.log('📦 Número de parcelas:', parcelasWithCompraId.length);
+      console.log('📦 Dados das parcelas:', parcelasWithCompraId);
+
+      const { error: parcelasError, data: parcelasData } = await supabase
         .schema('sistemaretiradas')
         .from('parcelas')
-        .insert(parcelasWithCompraId);
+        .insert(parcelasWithCompraId)
+        .select(); // Retornar dados inseridos para confirmação
 
-      if (parcelasError) throw parcelasError;
+      if (parcelasError) {
+        console.error('❌ Erro ao inserir parcelas:', parcelasError);
+        console.error('❌ Detalhes do erro:', JSON.stringify(parcelasError, null, 2));
+        throw parcelasError;
+      }
+
+      console.log('✅ Parcelas inseridas com sucesso:', parcelasData?.length || 0);
+      console.log('✅ IDs das parcelas:', parcelasData?.map(p => p.id));
 
       return purchase;
     },
@@ -128,12 +141,12 @@ export function useCreatePurchase() {
       queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
       queryClient.invalidateQueries({ queryKey: ['relatorios'] });
       queryClient.invalidateQueries({ queryKey: ['colaboradora'] }); // For dashboard updates
-      
+
       // Invalidate sales and daily revenue queries (for ERP integration)
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['kpis'] });
       queryClient.invalidateQueries({ queryKey: ['loja'] }); // For store dashboard metrics
-      
+
       toast.success('Compra criada com sucesso!');
     },
     onError: (error: any) => {
