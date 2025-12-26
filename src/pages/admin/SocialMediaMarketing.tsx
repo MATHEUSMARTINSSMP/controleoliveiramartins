@@ -246,6 +246,8 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
   const [mask, setMask] = useState<MaskFile | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPromptExpander, setShowPromptExpander] = useState(false);
+  const [generatedAssets, setGeneratedAssets] = useState<Array<{ id: string; url: string; jobId: string }>>([]);
+  const [processingJobId, setProcessingJobId] = useState<string | null>(null);
   const { profile } = useAuth();
   
   // Usar storeId passado via props ou obter do profile
@@ -347,23 +349,119 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
       }
 
       const data = await response.json();
-      toast.success(`Job criado! Você será redirecionado para acompanhar o progresso.`);
+      
+      if (!data.jobId) {
+        throw new Error("Job não foi criado corretamente");
+      }
+
+      // Processar imediatamente
+      setProcessingJobId(data.jobId);
+      toast.loading("Gerando imagens...", { id: "generating" });
+
+      // Processar job imediatamente
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          throw new Error("Sessão expirada");
+        }
+
+        const processResponse = await fetch(`/.netlify/functions/marketing-worker`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (!processResponse.ok) {
+          const error = await processResponse.json();
+          throw new Error(error.error || "Erro ao processar job");
+        }
+
+        // Polling para verificar quando o job estiver pronto
+        await pollJobUntilComplete(data.jobId, session.access_token);
+      } catch (processError: any) {
+        console.error("Erro ao processar job:", processError);
+        toast.error(processError.message || "Erro ao processar. O job foi criado e será processado em breve.", { id: "generating" });
+        // Continuar mesmo se falhar o processamento imediato
+      }
       
       // Limpar prompt, imagens e máscara
       setPrompt("");
       setInputImages([]);
       setMask(null);
-      
-      // Notificar componente pai para mudar de aba
-      if (onJobCreated && data.jobId) {
-        onJobCreated(data.jobId);
-      }
     } catch (error: any) {
       console.error("Erro ao gerar conteúdo:", error);
       toast.error(error.message || "Erro ao gerar conteúdo");
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const pollJobUntilComplete = async (jobId: string, token: string) => {
+    const maxAttempts = 60; // 60 tentativas (5 minutos máximo)
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+      try {
+        const response = await fetch(`/.netlify/functions/marketing-jobs?jobId=${jobId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Erro ao verificar status do job");
+        }
+
+        const jobData = await response.json();
+        
+        if (jobData.status === "done") {
+          // Buscar assets gerados
+          const assetIds = jobData.result?.assetIds || (jobData.result?.assetId ? [jobData.result.assetId] : []);
+          
+          if (assetIds.length > 0) {
+            // Buscar URLs dos assets
+            const { data: assets, error: assetsError } = await supabase
+              .schema("sistemaretiradas")
+              .from("marketing_assets")
+              .select("id, public_url, signed_url")
+              .in("id", assetIds);
+
+            if (!assetsError && assets) {
+              const assetUrls = assets.map((asset) => ({
+                id: asset.id,
+                url: asset.public_url || asset.signed_url || "",
+                jobId: jobId,
+              }));
+
+              setGeneratedAssets((prev) => [...prev, ...assetUrls]);
+              toast.success(`${assetUrls.length} imagem(ns) gerada(s) com sucesso!`, { id: "generating" });
+            }
+          }
+
+          setProcessingJobId(null);
+          return;
+        } else if (jobData.status === "failed") {
+          throw new Error(jobData.error_message || "Job falhou");
+        }
+
+        // Aguardar 5 segundos antes da próxima verificação
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        attempts++;
+      } catch (error: any) {
+        if (error.message.includes("Job falhou")) {
+          throw error;
+        }
+        // Continuar tentando em caso de erro de rede
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        attempts++;
+      }
+    }
+
+    // Timeout após 5 minutos
+    setProcessingJobId(null);
+    toast.warning("Processamento está demorando mais que o esperado. As imagens aparecerão quando prontas.", { id: "generating" });
   };
 
   const handlePromptSelected = (selectedPrompt: string) => {
