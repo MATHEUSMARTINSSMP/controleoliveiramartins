@@ -45,7 +45,7 @@ exports.handler = async (event) => {
 
     // Parse body
     const body = JSON.parse(event.body || '{}');
-    const { prompt, provider = 'gemini', count = 5, context = {} } = body;
+    const { prompt, provider = 'gemini', count = 5, context = {}, type = 'image' } = body;
 
     if (!prompt || prompt.trim().length < 3) {
       return {
@@ -88,7 +88,7 @@ exports.handler = async (event) => {
     const result = await expandPromptWithAI(prompt, {
       provider,
       count,
-      context: storeContext,
+      context: { ...storeContext, type },
     });
 
     return {
@@ -231,10 +231,13 @@ async function expandWithOpenAI(prompt, count, context) {
  * Construir prompt de sistema para expansão
  */
 function buildExpansionPrompt(originalPrompt, count, context) {
+  const contentType = context.type === 'video' ? 'vídeo' : 'imagem';
+  const contentTypePlural = context.type === 'video' ? 'vídeos' : 'imagens';
+  
   let systemPrompt = `Você é o MELHOR SOCIAL MEDIA MANAGER do mundo, especializado em criação de conteúdo comercial de alta performance para redes sociais de empresas. Seu trabalho é criar posts profissionais com intenção de VENDAS e ENGAJAMENTO.
 
 CONTEXTO COMERCIAL CRÍTICO:
-⚠️ IMPORTANTE: Estes NÃO são posts avulsos ou imagens casuais. São CONTEÚDOS COMERCIAIS PROFISSIONAIS criados para:
+⚠️ IMPORTANTE: Estes NÃO são posts avulsos ou ${contentTypePlural} casuais. São CONTEÚDOS COMERCIAIS PROFISSIONAIS criados para:
 - GERAR VENDAS diretas
 - AUMENTAR ENGAJAMENTO nas redes sociais
 - REFORÇAR BRANDING e identidade visual da marca
@@ -243,7 +246,10 @@ CONTEXTO COMERCIAL CRÍTICO:
 
 O usuário forneceu um prompt simples/incompleto: "${originalPrompt}"
 
-Sua tarefa é trabalhar como o MELHOR SOCIAL MEDIA MANAGER e gerar ${count} alternativas de prompts DETALHADOS, COMPLETOS e PROFISSIONAIS em PORTUGUÊS DO BRASIL que uma IA de geração de imagens entenderá perfeitamente.
+TIPO DE CONTEÚDO: ${context.type === 'video' ? 'VÍDEO' : 'IMAGEM'}
+${context.type === 'video' ? 'Você está criando prompts para GERAÇÃO DE VÍDEOS. Os prompts devem descrever movimento, câmera, transições, ação e elementos dinâmicos.' : 'Você está criando prompts para GERAÇÃO DE IMAGENS. Os prompts devem descrever composição visual, cores, iluminação e elementos estáticos.'}
+
+Sua tarefa é trabalhar como o MELHOR SOCIAL MEDIA MANAGER e gerar ${count} alternativas de prompts DETALHADOS, COMPLETOS e PROFISSIONAIS em PORTUGUÊS DO BRASIL que uma IA de geração de ${contentTypePlural} entenderá perfeitamente.
 
 IMPORTANTE: TODAS as respostas, prompts alternativos, descrições e recomendações DEVEM estar em PORTUGUÊS DO BRASIL (pt-BR). Nunca use inglês ou outros idiomas.
 
@@ -273,14 +279,24 @@ COMO O MELHOR SOCIAL MEDIA, VOCÊ DEVE CONSIDERAR:
    - Elementos que ressoam com a área de negócio
 
 Cada alternativa deve incluir (TUDO em português do Brasil):
-- Descrição detalhada da cena/composição COM INTENÇÃO COMERCIAL clara
+${context.type === 'video' ? 
+`- Descrição detalhada da cena/movimento COM INTENÇÃO COMERCIAL clara
+- Ação e movimento que destacam o produto/serviço/mensagem comercial
+- Estilo visual profissional (futurista, realista, minimalista, moderno, elegante, etc)
+- Movimento de câmera e transições adequadas para posts comerciais
+- Iluminação e atmosfera adequada para posts comerciais (luz natural, estúdio profissional, dramática, suave, etc)
+- Cores e paleta alinhadas ao branding e tendências de mercado
+- Qualidade técnica profissional (alta resolução, profissional, cinematográfico, adequado para redes sociais)
+- Elementos visuais que reforçam branding (espaço para logo, cores da marca, identidade visual)
+- Contexto e detalhes que tornam o post comercialmente eficaz` :
+`- Descrição detalhada da cena/composição COM INTENÇÃO COMERCIAL clara
 - Estilo visual profissional (futurista, realista, minimalista, moderno, elegante, etc)
 - Iluminação e atmosfera adequada para posts comerciais (luz natural, estúdio profissional, dramática, suave, etc)
 - Cores e paleta alinhadas ao branding e tendências de mercado
 - Ângulo e perspectiva que destacam o produto/serviço/mensagem comercial
 - Qualidade técnica profissional (alta resolução, profissional, cinematográfico, adequado para redes sociais)
 - Elementos visuais que reforçam branding (espaço para logo, cores da marca, identidade visual)
-- Contexto e detalhes que tornam o post comercialmente eficaz
+- Contexto e detalhes que tornam o post comercialmente eficaz`}
 
 `;
 

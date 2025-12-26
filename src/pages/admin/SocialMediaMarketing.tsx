@@ -326,7 +326,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
               console.log("[GenerateContentTab] Adicionando assets ao estado:", assetUrls);
               setGeneratedAssets((prev) => [...prev, ...assetUrls]);
               toast.dismiss("generating");
-              toast.success(`${assetUrls.length} imagem(ns) gerada(s) com sucesso!`);
+              toast.success(`${assetUrls.length} ${type === "image" ? "imagem(ns)" : "vídeo(s)"} gerado(s) com sucesso!`);
               setProcessingJobId(null);
               setIsGenerating(false);
               
@@ -408,7 +408,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
         },
         body: JSON.stringify({
           prompt: prompt.trim(),
-          context: storeId ? { storeId } : {},
+          context: storeId ? { storeId, type } : { type },
         }),
       });
 
@@ -591,7 +591,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
                   formatName: format.name,
                   formatDescription: format.description,
                   formatDimensions: format.dimensions,
-                  seconds: format.id === "reel" ? 90 : 8, // Reels até 90s, Stories 8s
+                  seconds: format.id === "reel" ? 8 : 8, // Gemini aceita apenas 5-8 segundos, Stories 8s
                 };
               }
             })(),
@@ -612,7 +612,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
       // Processar imediatamente
       setProcessingJobId(data.jobId);
       setIsGenerating(true);
-      toast.loading("Gerando imagens...", { id: "generating" });
+      toast.loading(`Gerando ${type === "image" ? "imagens" : "vídeo"}...`, { id: "generating" });
 
       // Processar job imediatamente
       try {
@@ -695,7 +695,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
         
         // Não mostrar erro se o job foi criado - ele será processado pelo worker agendado
         toast.warning(
-          processError.message || "Processamento iniciado. As imagens aparecerão automaticamente quando prontas.",
+          processError.message || `Processamento iniciado. ${type === "image" ? "As imagens" : "O vídeo"} aparecerá automaticamente quando pronto.`,
           { id: "generating", duration: 5000 }
         );
         // Continuar mesmo se falhar o processamento imediato - o worker agendado vai processar
@@ -789,7 +789,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
               console.log("[GenerateContentTab] Adicionando assets ao estado no polling:", assetUrls);
               setGeneratedAssets((prev) => [...prev, ...assetUrls]);
               toast.dismiss("generating");
-              toast.success(`${assetUrls.length} imagem(ns) gerada(s) com sucesso!`);
+              toast.success(`${assetUrls.length} ${type === "image" ? "imagem(ns)" : "vídeo(s)"} gerado(s) com sucesso!`);
               setProcessingJobId(null);
               setIsGenerating(false);
             } else {
@@ -1155,7 +1155,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
               <CardContent className="py-8">
                 <div className="flex flex-col items-center justify-center gap-3">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <p className="text-sm font-medium">Gerando imagens...</p>
+                  <p className="text-sm font-medium">Gerando {type === "image" ? "imagens" : "vídeo"}...</p>
                   <p className="text-xs text-muted-foreground">Aguarde enquanto processamos sua solicitação</p>
                 </div>
               </CardContent>

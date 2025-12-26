@@ -887,7 +887,13 @@ async function startVideoGenerationWithGeminiDirect(input) {
       body: JSON.stringify({
         instances: [{ prompt: enrichedPrompt }],
         parameters: {
-          durationSeconds: input.output?.seconds || 8,
+          durationSeconds: (() => {
+            const seconds = input.output?.seconds || 8;
+            // Gemini aceita apenas 5-8 segundos
+            if (seconds < 5) return 5;
+            if (seconds > 8) return 8;
+            return seconds;
+          })(),
           aspectRatio: input.output?.aspectRatio || '16:9',
         },
       }),
@@ -985,7 +991,14 @@ async function startVideoGenerationWithOpenAIDirect(input) {
   formData.append('prompt', enrichedPrompt);
   formData.append('model', MODEL);
   formData.append('size', input.output?.size || '1280x720');
-  formData.append('seconds', (input.output?.seconds || 8).toString());
+  // Gemini aceita apenas 5-8 segundos
+  const seconds = (() => {
+    const sec = input.output?.seconds || 8;
+    if (sec < 5) return 5;
+    if (sec > 8) return 8;
+    return sec;
+  })();
+  formData.append('seconds', seconds.toString());
 
   const response = await fetch(`${BASE_URL}/videos`, {
     method: 'POST',
