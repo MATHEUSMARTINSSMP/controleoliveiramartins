@@ -956,16 +956,22 @@ async function pollVideoStatusGeminiDirect(operationId) {
     hasError: !!data.error,
     hasResponse: !!data.response,
     metadata: data.metadata,
+    operationId: operationId,
   });
 
   if (data.done) {
     if (data.error) {
-      return { done: true, error: data.error.message };
+      console.error(`[marketing-worker] Erro na geração do vídeo:`, data.error);
+      return { done: true, error: data.error.message || JSON.stringify(data.error) };
     }
 
     const videoUri = data.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri;
     if (videoUri) {
+      console.log(`[marketing-worker] Vídeo gerado com sucesso! URI: ${videoUri.substring(0, 50)}...`);
       return { done: true, videoUri };
+    } else {
+      console.warn(`[marketing-worker] Vídeo marcado como done mas sem URI. Response:`, JSON.stringify(data.response).substring(0, 200));
+      return { done: true, error: 'Vídeo concluído mas URI não encontrada na resposta' };
     }
   }
 
