@@ -529,7 +529,7 @@ const AdminDashboard = () => {
                   </CardHeader>
                   <CardContent>
                     <Button 
-                      onClick={() => navigate("/admin/campanhas")} 
+                      onClick={() => navigate("/admin/marketing")} 
                       className="w-full sm:w-auto"
                       size="lg"
                     >
