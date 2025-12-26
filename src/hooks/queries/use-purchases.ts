@@ -126,11 +126,43 @@ export function useCreatePurchase() {
       if (parcelasError) {
         console.error('❌ Erro ao inserir parcelas:', parcelasError);
         console.error('❌ Detalhes do erro:', JSON.stringify(parcelasError, null, 2));
-        throw parcelasError;
+
+        // ROLLBACK: Deletar a compra se parcelas falharam
+        console.warn('⚠️  Executando rollback: deletando compra sem parcelas');
+        await supabase
+          .schema('sistemaretiradas')
+          .from('purchases')
+          .delete()
+          .eq('id', purchase.id);
+
+        throw new Error(`Falha ao criar parcelas: ${parcelasError.message}. A compra foi cancelada para manter integridade dos dados.`);
       }
 
-      console.log('✅ Parcelas inseridas com sucesso:', parcelasData?.length || 0);
-      console.log('✅ IDs das parcelas:', parcelasData?.map(p => p.id));
+      // VERIFICAÇÃO: Garantir que o número correto de parcelas foi criado
+      if (!parcelasData || parcelasData.length !== purchaseData.parcelas.length) {
+        console.error('❌ ERRO CRÍTICO: Número incorreto de parcelas criadas!');
+        console.error(`   Esperado: ${purchaseData.parcelas.length}`);
+        console.error(`   Criado: ${parcelasData?.length || 0}`);
+
+        // ROLLBACK: Deletar tudo
+        console.warn('⚠️  Executando rollback completo');
+        await supabase
+          .schema('sistemaretiradas')
+          .from('parcelas')
+          .delete()
+          .eq('compra_id', purchase.id);
+        await supabase
+          .schema('sistemaretiradas')
+          .from('purchases')
+          .delete()
+          .eq('id', purchase.id);
+
+        throw new Error(`Erro de integridade: ${parcelasData?.length || 0} parcelas criadas, mas ${purchaseData.parcelas.length} eram esperadas. Operação cancelada.`);
+      }
+
+      console.log('✅ Parcelas inseridas com sucesso:', parcelasData.length);
+      console.log('✅ IDs das parcelas:', parcelasData.map(p => p.id));
+      console.log('✅ Verificação de integridade: PASSOU');
 
       return purchase;
     },
