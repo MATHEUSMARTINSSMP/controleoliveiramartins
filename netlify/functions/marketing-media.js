@@ -58,6 +58,7 @@ exports.handler = async (event) => {
       inputImages = [],
       mask,
       promptSpec, // PromptSpec completo (opcional, se veio do builder)
+      variations = 3, // Número de alternativas a gerar (padrão: 3)
     } = body;
 
     // Validar campos obrigatórios
@@ -222,6 +223,7 @@ exports.handler = async (event) => {
       inputImages,
       mask: mask || null,
       promptSpec: promptSpec || null,
+      variations: Math.min(Math.max(parseInt(variations) || 3, 1), 5), // Entre 1 e 5 alternativas
     };
 
     // Inserir job

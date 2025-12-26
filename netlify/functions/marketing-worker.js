@@ -140,6 +140,7 @@ async function processJob(supabase, job) {
 async function processImageJob(supabase, job) {
   const jobId = job.id;
   const input = job.input;
+  const variations = input.variations || 1; // Número de alternativas (padrão: 1)
 
   // Preparar input para adapter
   const adapterInput = {
@@ -152,93 +153,122 @@ async function processImageJob(supabase, job) {
     mask: input.mask,
   };
 
-  // Gerar imagem com retry
-  let imageResult;
-  let lastError;
+  // Gerar múltiplas variações
+  const assets = [];
+  const assetIds = [];
+  const mediaUrls = [];
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      console.log(`[marketing-worker] Tentativa ${attempt}/${MAX_RETRIES} para gerar imagem (job ${jobId})`);
+  for (let variation = 0; variation < variations; variation++) {
+    console.log(`[marketing-worker] Gerando variação ${variation + 1}/${variations} (job ${jobId})`);
 
-      imageResult = await generateImageWithRetry(adapterInput);
-      break; // Sucesso
-    } catch (error) {
-      lastError = error;
-      console.warn(`[marketing-worker] Tentativa ${attempt} falhou:`, error.message);
+    // Gerar imagem com retry
+    let imageResult;
+    let lastError;
 
-      if (attempt < MAX_RETRIES) {
-        // Backoff exponencial
-        const delay = Math.pow(2, attempt) * 1000;
-        await new Promise((resolve) => setTimeout(resolve, delay));
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[marketing-worker] Tentativa ${attempt}/${MAX_RETRIES} para gerar imagem variação ${variation + 1} (job ${jobId})`);
+
+        imageResult = await generateImageWithRetry(adapterInput);
+        break; // Sucesso
+      } catch (error) {
+        lastError = error;
+        console.warn(`[marketing-worker] Tentativa ${attempt} falhou para variação ${variation + 1}:`, error.message);
+
+        if (attempt < MAX_RETRIES) {
+          // Backoff exponencial
+          const delay = Math.pow(2, attempt) * 1000;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
       }
     }
+
+    if (!imageResult) {
+      throw lastError || new Error(`Falha ao gerar imagem variação ${variation + 1} após todas as tentativas`);
+    }
+
+    // Upload para storage
+    const assetId = uuidv4();
+    const uploadResult = await uploadMediaToSupabase(
+      supabase,
+      imageResult.imageData,
+      imageResult.mimeType,
+      job.store_id,
+      job.user_id,
+      assetId,
+      'image'
+    );
+
+    // Criar registro de asset
+    const { data: asset, error: assetError } = await supabase
+      .from('marketing_assets')
+      .insert({
+        id: assetId,
+        store_id: job.store_id,
+        user_id: job.user_id,
+        type: 'image',
+        provider: job.provider,
+        provider_model: job.provider_model,
+        prompt: adapterInput.prompt,
+        storage_path: uploadResult.path,
+        public_url: uploadResult.publicUrl,
+        signed_url: uploadResult.signedUrl,
+        signed_expires_at: uploadResult.signedExpiresAt?.toISOString(),
+        meta: {
+          width: imageResult.width,
+          height: imageResult.height,
+          mimeType: imageResult.mimeType,
+          variation: variation + 1,
+          totalVariations: variations,
+        },
+        job_id: jobId,
+      })
+      .select()
+      .single();
+
+    if (assetError) {
+      throw new Error(`Erro ao criar asset variação ${variation + 1}: ${assetError.message}`);
+    }
+
+    assets.push(asset);
+    assetIds.push(asset.id);
+    mediaUrls.push(uploadResult.publicUrl || uploadResult.signedUrl);
+
+    console.log(`[marketing-worker] Variação ${variation + 1}/${variations} gerada e salva: ${assetId}`);
   }
 
-  if (!imageResult) {
-    throw lastError || new Error('Falha ao gerar imagem após todas as tentativas');
-  }
+  // Atualizar job como done com todas as variações
+  const result = variations === 1
+    ? {
+        assetId: assetIds[0],
+        mediaUrl: mediaUrls[0],
+        meta: {
+          width: assets[0].meta?.width,
+          height: assets[0].meta?.height,
+        },
+      }
+    : {
+        assetIds,
+        mediaUrls,
+        meta: {
+          width: assets[0]?.meta?.width,
+          height: assets[0]?.meta?.height,
+          variations: variations,
+        },
+      };
 
-  // Upload para storage
-  const assetId = uuidv4();
-  const uploadResult = await uploadMediaToSupabase(
-    supabase,
-    imageResult.imageData,
-    imageResult.mimeType,
-    job.store_id,
-    job.user_id,
-    assetId,
-    'image'
-  );
-
-  // Criar registro de asset
-  const { data: asset, error: assetError } = await supabase
-    .from('marketing_assets')
-    .insert({
-      id: assetId,
-      store_id: job.store_id,
-      user_id: job.user_id,
-      type: 'image',
-      provider: job.provider,
-      provider_model: job.provider_model,
-      prompt: adapterInput.prompt,
-      storage_path: uploadResult.path,
-      public_url: uploadResult.publicUrl,
-      signed_url: uploadResult.signedUrl,
-      signed_expires_at: uploadResult.signedExpiresAt?.toISOString(),
-      meta: {
-        width: imageResult.width,
-        height: imageResult.height,
-        mimeType: imageResult.mimeType,
-      },
-      job_id: jobId,
-    })
-    .select()
-    .single();
-
-  if (assetError) {
-    throw new Error(`Erro ao criar asset: ${assetError.message}`);
-  }
-
-  // Atualizar job como done
   await supabase
     .from('marketing_jobs')
     .update({
       status: 'done',
       progress: 100,
-      result: {
-        assetId: asset.id,
-        mediaUrl: uploadResult.publicUrl || uploadResult.signedUrl,
-        meta: {
-          width: imageResult.width,
-          height: imageResult.height,
-        },
-      },
+      result,
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq('id', jobId);
 
-  console.log(`[marketing-worker] Imagem gerada e salva: ${assetId}`);
+  console.log(`[marketing-worker] Job ${jobId} concluído com ${variations} variação(ões)`);
 }
 
 /**
