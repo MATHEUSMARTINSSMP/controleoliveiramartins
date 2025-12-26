@@ -5,7 +5,7 @@ import { useGoogleReviews } from "@/hooks/use-google-reviews";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, MessageSquare } from "lucide-react";
+import { BarChart3, MessageSquare, MapPin, Activity, Settings, RefreshCw, Image as ImageIcon, MessageCircleQuestion, Search } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,8 +15,17 @@ import {
   ReviewsFilters,
   ReviewsList,
   ReviewsHeader,
-  StatsTab,
+  GoogleLocations,
+  ProfileHealth,
+  GoogleNotifications,
+  GoogleSettings
 } from "@/components/google-integration";
+import { GoogleStats } from "@/components/google-integration/GoogleStats";
+import { GooglePostsManager } from "@/components/google-integration/posts/GooglePostsManager";
+import { MediaManager } from "@/components/google-integration/media/MediaManager";
+import { QuestionsManager } from "@/components/google-integration/questions/QuestionsManager";
+import { useGoogleSync } from "@/hooks/use-google-sync";
+import { Button } from "@/components/ui/button";
 
 interface GoogleIntegrationProps {
   embedded?: boolean;
@@ -27,12 +36,16 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
   const { startAuth, checkStatus, disconnect, getProfileInfo: getProfileInfoFromHook, loading: authLoading } = useGoogleAuth();
   const {
     reviews,
-    stats,
     loading: reviewsLoading,
     fetchReviews,
     fetchStats,
     markAsRead,
+    markAllAsRead,
+    unreadCount,
+    fetchUnreadCount,
   } = useGoogleReviews();
+
+  const { syncReviews, syncing, getLastSyncLabel } = useGoogleSync();
 
   const [connectionStatus, setConnectionStatus] = useState<{
     connected: boolean;
@@ -40,6 +53,7 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
     hasRefreshToken: boolean;
     scopes?: string;
     email?: string;
+    profilePictureUrl?: string;
   } | null>(null);
   const [siteSlug, setSiteSlug] = useState<string>("elevea");
   const [statsPeriod, setStatsPeriod] = useState<string>("30d");
@@ -50,6 +64,7 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
   const [filterDateRange, setFilterDateRange] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<"all" | "responded" | "unresponded" | "unread">("all");
   const [searchText, setSearchText] = useState("");
+  const debouncedSearchText = useDebounce(searchText, 300);
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "highest" | "lowest">("newest");
 
   // Paginação
@@ -91,15 +106,17 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
       if (status) {
         // Buscar email do usuário
         const profileInfo = await getProfileInfoFromHook();
-        
+
         setConnectionStatus({
           ...status,
           email: profileInfo?.email,
+          profilePictureUrl: status.profilePictureUrl,
         });
-        
+
         if (status.connected) {
           fetchReviews(siteSlug);
           fetchStats(siteSlug, statsPeriod);
+          fetchUnreadCount(siteSlug);
         }
       }
     };
@@ -112,14 +129,33 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const gmb = urlParams.get("gmb");
+    const error = urlParams.get("error");
+
+    if (error) {
+      if (error === "access_denied") {
+        toast.error("Acesso negado pelo usuário.");
+      } else {
+        toast.error(`Erro na autenticação: ${error}`);
+      }
+      // Limpar URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
 
     if (gmb === "ok" && user?.email && siteSlug) {
       setTimeout(() => {
         checkStatus(siteSlug).then((status) => {
           if (status) {
-            setConnectionStatus(status);
+            setConnectionStatus({
+              ...status,
+              email: user.email, // Fallback
+            });
             fetchReviews(siteSlug);
             fetchStats(siteSlug, statsPeriod);
+            fetchUnreadCount(siteSlug);
+
+            // Limpar URL
+            window.history.replaceState({}, document.title, window.location.pathname);
           }
         });
       }, 2000);
@@ -144,6 +180,7 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
     if (!siteSlug) return;
     await fetchReviews(siteSlug);
     await fetchStats(siteSlug, statsPeriod);
+    await fetchUnreadCount(siteSlug);
   };
 
   const handleExportCSV = () => {
@@ -206,10 +243,10 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
         filterDateRange === "7d"
           ? 7
           : filterDateRange === "30d"
-          ? 30
-          : filterDateRange === "90d"
-          ? 90
-          : 365;
+            ? 30
+            : filterDateRange === "90d"
+              ? 90
+              : 365;
       const cutoffDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
       filtered = filtered.filter((r) => {
         if (!r.review_date) return false;
@@ -288,19 +325,43 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
     setCurrentPage(1);
   };
 
-  const handlePeriodChange = (period: string) => {
-    if (!siteSlug) return;
-    fetchStats(siteSlug, period);
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Integração Google My Business
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Integração Google My Business
+            </div>
+            {connectionStatus?.connected && (
+              <GoogleNotifications
+                unreadCount={unreadCount}
+                reviews={reviews}
+                onMarkAllAsRead={() => siteSlug && markAllAsRead(siteSlug)}
+                onMarkAsRead={(reviewId) => siteSlug && markAsRead(siteSlug, reviewId)}
+              />
+            )}
+            {connectionStatus?.connected && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground hidden sm:inline-block">
+                  {getLastSyncLabel()}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    await syncReviews();
+                    handleRefresh();
+                  }}
+                  disabled={syncing}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
+                  {syncing ? "Sincronizando..." : "Sincronizar"}
+                </Button>
+              </div>
+            )}
           </CardTitle>
         </CardHeader>
       </Card>
@@ -310,6 +371,7 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
         connected={connectionStatus?.connected || false}
         email={connectionStatus?.email}
         scopes={connectionStatus?.scopes}
+        profilePicture={connectionStatus?.profilePictureUrl}
         authLoading={authLoading}
         onConnect={handleConnect}
         onDisconnect={confirmDisconnect}
@@ -320,7 +382,7 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
       {/* Conteúdo principal - apenas se conectado */}
       {connectionStatus?.connected && (
         <Tabs defaultValue="reviews" className="space-y-4">
-          <TabsList>
+          <TabsList className="flex flex-wrap h-auto">
             <TabsTrigger value="reviews">
               <MessageSquare className="h-4 w-4 mr-2" />
               Reviews
@@ -328,6 +390,30 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
             <TabsTrigger value="stats">
               <BarChart3 className="h-4 w-4 mr-2" />
               Estatísticas
+            </TabsTrigger>
+            <TabsTrigger value="locations">
+              <MapPin className="h-4 w-4 mr-2" />
+              Locais
+            </TabsTrigger>
+            <TabsTrigger value="health">
+              <Activity className="h-4 w-4 mr-2" />
+              Saúde do Perfil
+            </TabsTrigger>
+            <TabsTrigger value="posts">
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Postagens
+            </TabsTrigger>
+            <TabsTrigger value="media">
+              <ImageIcon className="h-4 w-4 mr-2" />
+              Mídias
+            </TabsTrigger>
+            <TabsTrigger value="questions">
+              <MessageCircleQuestion className="h-4 w-4 mr-2" />
+              Perguntas
+            </TabsTrigger>
+            <TabsTrigger value="settings">
+              <Settings className="h-4 w-4 mr-2" />
+              Configurações
             </TabsTrigger>
           </TabsList>
 
@@ -373,19 +459,40 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
 
           {/* Tab: Estatísticas */}
           <TabsContent value="stats">
-            <StatsTab
-              stats={stats}
-              statsPeriod={statsPeriod}
-              setStatsPeriod={setStatsPeriod}
-              loading={reviewsLoading}
-              reviews={reviews}
-              onRefresh={handleRefresh}
-              onPeriodChange={handlePeriodChange}
-            />
+            <GoogleStats siteSlug={siteSlug} />
+          </TabsContent>
+
+          {/* Tab: Locations */}
+          <TabsContent value="locations">
+            <GoogleLocations siteSlug={siteSlug} />
+          </TabsContent>
+
+          {/* Tab: Health */}
+          <TabsContent value="health">
+            <ProfileHealth siteSlug={siteSlug} />
+          </TabsContent>
+
+          {/* Tab: Postagens */}
+          <TabsContent value="posts">
+            <GooglePostsManager locationId={reviews[0]?.location_id || undefined} />
+          </TabsContent>
+
+          {/* Tab: Mídias */}
+          <TabsContent value="media">
+            <MediaManager />
+          </TabsContent>
+
+          {/* Tab: Perguntas */}
+          <TabsContent value="questions">
+            <QuestionsManager />
+          </TabsContent>
+
+          {/* Tab: Configurações */}
+          <TabsContent value="settings">
+            <GoogleSettings siteSlug={siteSlug} />
           </TabsContent>
         </Tabs>
       )}
     </div>
   );
 }
-

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,25 +7,40 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { GoogleReview } from "@/hooks/use-google-reviews";
 import { ReviewReplyDialog } from "./ReviewReplyDialog";
+import { useGoogleReviews } from "@/hooks/use-google-reviews";
+import { toast } from "sonner";
+import { Loader2, Trash2 } from "lucide-react";
 
 interface ReviewCardProps {
   review: GoogleReview;
   siteSlug: string;
-  onMarkAsRead: (siteSlug: string, reviewId: string) => Promise<void>;
+  onMarkAsRead: (siteSlug: string, reviewId: string) => Promise<boolean | void>;
 }
 
 const MAX_PREVIEW_LENGTH = 200; // Caracteres para preview
 
-export function ReviewCard({ review, siteSlug, onMarkAsRead }: ReviewCardProps) {
+export const ReviewCard = memo(function ReviewCard({ review, siteSlug, onMarkAsRead }: ReviewCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  
+  const { deleteReply } = useGoogleReviews();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteReply = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteReply(siteSlug, review.review_id_external, review.account_id, review.location_id);
+    } catch (error) {
+      console.error("Erro ao deletar resposta:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }).map((_, i) => (
       <Star
         key={i}
-        className={`h-4 w-4 ${
-          i < rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
-        }`}
+        className={`h-4 w-4 ${i < rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+          }`}
       />
     ));
   };
@@ -131,9 +146,28 @@ export function ReviewCard({ review, siteSlug, onMarkAsRead }: ReviewCardProps) 
             {!review.reply && (
               <ReviewReplyDialog review={review} siteSlug={siteSlug} />
             )}
+            {review.reply && (
+              <div className="flex gap-2">
+                <ReviewReplyDialog review={review} siteSlug={siteSlug} />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  onClick={handleDeleteReply}
+                  disabled={isDeleting}
+                  title="Excluir resposta"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>
     </Card>
   );
-}
+});

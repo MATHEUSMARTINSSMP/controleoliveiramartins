@@ -16,6 +16,7 @@ interface GoogleAuthStatus {
   expiresAt?: string;
   hasRefreshToken: boolean;
   scopes?: string;
+  profilePictureUrl?: string;
 }
 
 export function useGoogleAuth() {
@@ -77,7 +78,7 @@ export function useGoogleAuth() {
       const { data, error } = await supabase
         .schema("sistemaretiradas")
         .from("google_credentials")
-        .select("expires_at, refresh_token, scopes, status")
+        .select("expires_at, refresh_token, scopes, status, profile_picture_url")
         .eq("customer_id", user.email)
         .eq("site_slug", siteSlug)
         .eq("status", "active")
@@ -94,7 +95,9 @@ export function useGoogleAuth() {
         connected: true,
         expiresAt,
         hasRefreshToken,
+        hasRefreshToken,
         scopes: data.scopes || undefined,
+        profilePictureUrl: data.profile_picture_url || undefined,
       };
     } catch (error) {
       console.error("Erro ao verificar status:", error);
@@ -113,59 +116,58 @@ export function useGoogleAuth() {
     try {
       // Usar o token para buscar informações do perfil
       // Por enquanto, retornar apenas o email do usuário
-      return {
-        email: user.email,
+      email: user.email,
         name: user.user_metadata?.full_name || user.user_metadata?.name,
-        picture: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+          picture: user.user_metadata?.avatar_url || user.user_metadata?.picture,
       };
-    } catch (error) {
-      console.error("Erro ao buscar informações do perfil:", error);
-      return null;
+  } catch (error) {
+    console.error("Erro ao buscar informações do perfil:", error);
+    return null;
+  }
+};
+
+/**
+ * Desconecta a conta Google (remove credenciais)
+ */
+const disconnect = async (siteSlug: string): Promise<boolean> => {
+  if (!user?.email) {
+    toast.error("É necessário estar logado");
+    return false;
+  }
+
+  setLoading(true);
+  try {
+    const { createClient } = await import("@/integrations/supabase/client");
+    const supabase = createClient();
+
+    const { error } = await supabase
+      .schema("sistemaretiradas")
+      .from("google_credentials")
+      .update({ status: "revoked" })
+      .eq("customer_id", user.email)
+      .eq("site_slug", siteSlug);
+
+    if (error) {
+      throw error;
     }
-  };
 
-  /**
-   * Desconecta a conta Google (remove credenciais)
-   */
-  const disconnect = async (siteSlug: string): Promise<boolean> => {
-    if (!user?.email) {
-      toast.error("É necessário estar logado");
-      return false;
-    }
+    toast.success("Conta Google desconectada com sucesso");
+    return true;
+  } catch (error: any) {
+    console.error("Erro ao desconectar:", error);
+    toast.error(error.message || "Erro ao desconectar conta Google");
+    return false;
+  } finally {
+    setLoading(false);
+  }
+};
 
-    setLoading(true);
-    try {
-      const { createClient } = await import("@/integrations/supabase/client");
-      const supabase = createClient();
-
-      const { error } = await supabase
-        .schema("sistemaretiradas")
-        .from("google_credentials")
-        .update({ status: "revoked" })
-        .eq("customer_id", user.email)
-        .eq("site_slug", siteSlug);
-
-      if (error) {
-        throw error;
-      }
-
-      toast.success("Conta Google desconectada com sucesso");
-      return true;
-    } catch (error: any) {
-      console.error("Erro ao desconectar:", error);
-      toast.error(error.message || "Erro ao desconectar conta Google");
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return {
-    startAuth,
-    checkStatus,
-    disconnect,
-    getProfileInfo,
-    loading,
-  };
+return {
+  startAuth,
+  checkStatus,
+  disconnect,
+  getProfileInfo,
+  loading,
+};
 }
 

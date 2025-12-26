@@ -53,6 +53,7 @@ export function useGoogleReviews() {
   const [loading, setLoading] = useState(false);
   const [reviews, setReviews] = useState<GoogleReview[]>([]);
   const [stats, setStats] = useState<GoogleStatsResponse | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   /**
    * Busca reviews do Google My Business
@@ -64,6 +65,27 @@ export function useGoogleReviews() {
     }
 
     setLoading(true);
+
+    // 1. Buscar do banco (Cache) primeiro para exibição imediata
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data: dbReviews } = await supabase
+        .schema("sistemaretiradas")
+        .from("google_reviews")
+        .select("*")
+        .eq("customer_id", user.email)
+        .eq("site_slug", siteSlug)
+        .order("review_date", { ascending: false })
+        .limit(100);
+
+      if (dbReviews && dbReviews.length > 0) {
+        setReviews(dbReviews as GoogleReview[]);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar cache de reviews:", error);
+    }
+
+    // 2. Buscar da API (Fresh data)
     try {
       const endpoint = `${NETLIFY_FUNCTIONS_BASE}/google-reviews-fetch`;
 
@@ -96,9 +118,8 @@ export function useGoogleReviews() {
         } else if (response.status === 404) {
           throw new Error("Recurso não encontrado. Verifique se a location está configurada corretamente.");
         } else if (response.status === 429) {
-          // Rate limit - tentar novamente após delay
           const retryAfter = response.headers.get("Retry-After");
-          const delay = retryAfter ? parseInt(retryAfter) * 1000 : 60000; // 1 minuto padrão
+          const delay = retryAfter ? parseInt(retryAfter) * 1000 : 60000;
           throw new Error(`Limite de requisições excedido. Tente novamente em ${Math.ceil(delay / 1000)} segundos.`);
         } else if (response.status >= 500) {
           throw new Error("Erro no servidor. Tente novamente mais tarde.");
@@ -109,7 +130,6 @@ export function useGoogleReviews() {
       const data: GoogleReviewsResponse = await response.json();
 
       if (!data.success || !data.ok) {
-        // Tratamento de erros específicos da API
         if (data.error?.includes("needsReauth") || data.error?.includes("token expirado")) {
           throw new Error("Token expirado. Reconecte sua conta Google.");
         } else if (data.error?.includes("rate limit")) {
@@ -118,40 +138,44 @@ export function useGoogleReviews() {
         throw new Error(data.error || "Erro ao buscar reviews");
       }
 
-      // Se não tem reviews no response, buscar do banco
-      if (!data.reviews || data.reviews.length === 0) {
-        const { createClient } = await import("@/integrations/supabase/client");
-        const supabase = createClient();
-
-        const { data: dbReviews, error } = await supabase
-          .schema("sistemaretiradas")
-          .from("google_reviews")
-          .select("*")
-          .eq("customer_id", user.email)
-          .eq("site_slug", siteSlug)
-          .order("review_date", { ascending: false })
-          .limit(100); // Limitar para performance
-
-        if (error) {
-          console.error("Erro ao buscar reviews do banco:", error);
-        } else if (dbReviews && dbReviews.length > 0) {
-          setReviews(dbReviews as GoogleReview[]);
-          return dbReviews as GoogleReview[];
-        }
-      } else {
+      if (data.reviews && data.reviews.length > 0) {
         setReviews(data.reviews);
         return data.reviews;
       }
 
-      // Se chegou aqui, não há reviews
-      setReviews([]);
       return [];
     } catch (error: any) {
-      console.error("Erro ao buscar reviews:", error);
-      toast.error(error.message || "Erro ao buscar reviews do Google");
+      console.error("Erro ao buscar reviews da API:", error);
+      // Não mostrar erro se já temos dados do cache, apenas logar
+      // toast.error(error.message || "Erro ao buscar reviews do Google");
       return null;
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * Busca contagem de reviews não lidas
+   */
+  const fetchUnreadCount = async (siteSlug: string) => {
+    if (!user?.email) return;
+
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+
+      const { count, error } = await supabase
+        .schema("sistemaretiradas")
+        .from("google_reviews")
+        .select("*", { count: "exact", head: true })
+        .eq("customer_id", user.email)
+        .eq("site_slug", siteSlug)
+        .eq("is_read", false);
+
+      if (error) throw error;
+
+      setUnreadCount(count || 0);
+    } catch (error) {
+      console.error("Erro ao buscar contagem de não lidas:", error);
     }
   };
 
@@ -216,8 +240,7 @@ export function useGoogleReviews() {
     }
 
     try {
-      const { createClient } = await import("@/integrations/supabase/client");
-      const supabase = createClient();
+      const { supabase } = await import("@/integrations/supabase/client");
 
       // Buscar location primária ou primeira disponível
       const { data, error } = await supabase
@@ -295,6 +318,30 @@ export function useGoogleReviews() {
         finalLocationId = accountLocation.locationId;
       }
 
+      // Salvar histórico se já existir uma resposta
+      const currentReview = reviews.find(r => r.review_id_external === reviewId);
+      if (currentReview?.reply) {
+        const { supabase } = await import("@/integrations/supabase/client");
+        // Buscar ID interno do review
+        const { data: reviewData } = await supabase
+          .schema("sistemaretiradas")
+          .from("google_reviews")
+          .select("review_id")
+          .eq("review_id_external", reviewId)
+          .single();
+
+        if (reviewData) {
+          await supabase
+            .schema("sistemaretiradas")
+            .from("google_reply_history")
+            .insert({
+              review_id: reviewData.review_id,
+              reply_content: currentReview.reply,
+              user_id: user.id
+            });
+        }
+      }
+
       const endpoint = `${NETLIFY_FUNCTIONS_BASE}/google-reviews-respond`;
       const response = await fetch(endpoint, {
         method: "POST",
@@ -333,7 +380,7 @@ export function useGoogleReviews() {
       }
 
       toast.success("Resposta enviada com sucesso");
-      
+
       // Atualizar review localmente
       setReviews((prev) =>
         prev.map((r) =>
@@ -345,6 +392,113 @@ export function useGoogleReviews() {
     } catch (error: any) {
       console.error("Erro ao responder review:", error);
       toast.error(error.message || "Erro ao responder review");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Deleta a resposta de um review
+   */
+  const deleteReply = async (
+    siteSlug: string,
+    reviewId: string,
+    accountId?: string,
+    locationId?: string
+  ): Promise<boolean> => {
+    if (!user?.email) {
+      toast.error("É necessário estar logado");
+      return false;
+    }
+
+    if (!confirm("Tem certeza que deseja excluir esta resposta?")) {
+      return false;
+    }
+
+    setLoading(true);
+    try {
+      // Para deletar, enviamos uma resposta vazia ou usamos endpoint específico
+      // A API do Google permite deletar enviando DELETE para o endpoint da resposta
+      // Mas nosso backend (n8n) pode não suportar DELETE ainda.
+      // Vamos tentar enviar string vazia ou null se o backend suportar, 
+      // ou implementar endpoint de delete.
+      // Assumindo que o backend trata delete se reply for vazio ou null.
+
+      // Se não fornecido, buscar do banco
+      let finalAccountId = accountId;
+      let finalLocationId = locationId;
+
+      if (!finalAccountId || !finalLocationId) {
+        const accountLocation = await getAccountAndLocation(siteSlug);
+        if (!accountLocation) {
+          toast.error("Não foi possível encontrar a location do Google.");
+          return false;
+        }
+        finalAccountId = accountLocation.accountId;
+        finalLocationId = accountLocation.locationId;
+      }
+
+      // Salvar histórico antes de deletar
+      const currentReview = reviews.find(r => r.review_id_external === reviewId);
+      if (currentReview?.reply) {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data: reviewData } = await supabase
+          .schema("sistemaretiradas")
+          .from("google_reviews")
+          .select("review_id")
+          .eq("review_id_external", reviewId)
+          .single();
+
+        if (reviewData) {
+          await supabase
+            .schema("sistemaretiradas")
+            .from("google_reply_history")
+            .insert({
+              review_id: reviewData.review_id,
+              reply_content: currentReview.reply,
+              user_id: user.id
+            });
+        }
+      }
+
+      const endpoint = `${NETLIFY_FUNCTIONS_BASE}/google-reviews-respond`;
+      const response = await fetch(endpoint, {
+        method: "POST", // Usando POST para update/delete via overwrite
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          customerId: user.email,
+          siteSlug,
+          accountId: finalAccountId,
+          locationId: finalLocationId,
+          reviewId,
+          reply: null, // Null indica deleção
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro ao excluir resposta: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (!data.success || !data.ok) {
+        throw new Error(data.error || "Erro ao excluir resposta");
+      }
+
+      toast.success("Resposta excluída com sucesso");
+
+      setReviews((prev) =>
+        prev.map((r) =>
+          r.review_id_external === reviewId ? { ...r, reply: undefined } : r
+        )
+      );
+
+      return true;
+    } catch (error: any) {
+      console.error("Erro ao excluir resposta:", error);
+      toast.error(error.message || "Erro ao excluir resposta");
       return false;
     } finally {
       setLoading(false);
@@ -370,8 +524,7 @@ export function useGoogleReviews() {
     }
 
     try {
-      const { createClient } = await import("@/integrations/supabase/client");
-      const supabase = createClient();
+      const { supabase } = await import("@/integrations/supabase/client");
 
       const { error } = await supabase
         .schema("sistemaretiradas")
@@ -391,10 +544,41 @@ export function useGoogleReviews() {
           r.review_id_external === reviewIdExternal ? { ...r, is_read: true } : r
         )
       );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
 
       return true;
     } catch (error) {
       console.error("Erro ao marcar review como lida:", error);
+      return false;
+    }
+  };
+
+  /**
+   * Marca todas as reviews como lidas
+   */
+  const markAllAsRead = async (siteSlug: string): Promise<boolean> => {
+    if (!user?.email) return false;
+
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+
+      const { error } = await supabase
+        .schema("sistemaretiradas")
+        .from("google_reviews")
+        .update({ is_read: true })
+        .eq("customer_id", user.email)
+        .eq("site_slug", siteSlug)
+        .eq("is_read", false);
+
+      if (error) throw error;
+
+      // Atualizar localmente
+      setReviews((prev) => prev.map((r) => ({ ...r, is_read: true })));
+      setUnreadCount(0);
+
+      return true;
+    } catch (error) {
+      console.error("Erro ao marcar todas como lidas:", error);
       return false;
     }
   };
@@ -406,9 +590,13 @@ export function useGoogleReviews() {
     fetchReviews,
     fetchStats,
     respondToReview,
+    deleteReply,
     saveReviews,
     getAccountAndLocation,
     markAsRead,
+    markAllAsRead,
+    unreadCount,
+    fetchUnreadCount,
   };
 }
 

@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CheckCircle2, LogIn, LogOut, Loader2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -9,6 +10,7 @@ interface ConnectionStatusProps {
   connected: boolean;
   email?: string;
   scopes?: string;
+  profilePicture?: string;
   authLoading: boolean;
   onConnect: () => void;
   onDisconnect: () => void;
@@ -20,6 +22,7 @@ export function ConnectionStatus({
   connected,
   email,
   scopes,
+  profilePicture,
   authLoading,
   onConnect,
   onDisconnect,
@@ -41,9 +44,15 @@ export function ConnectionStatus({
           </CardHeader>
           <CardContent className="space-y-4">
             {email && (
-              <div>
-                <p className="text-sm text-muted-foreground">Conta conectada:</p>
-                <p className="text-sm font-medium">{email}</p>
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={profilePicture} alt={email} />
+                  <AvatarFallback>{email.substring(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm text-muted-foreground">Conta conectada:</p>
+                  <p className="text-sm font-medium">{email}</p>
+                </div>
               </div>
             )}
             {scopes && (

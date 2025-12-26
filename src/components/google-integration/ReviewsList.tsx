@@ -14,7 +14,7 @@ interface ReviewsListProps {
   loading: boolean;
   siteSlug: string;
   onPageChange: (page: number) => void;
-  onMarkAsRead: (siteSlug: string, reviewId: string) => Promise<void>;
+  onMarkAsRead: (siteSlug: string, reviewId: string) => Promise<boolean | void>;
   hasFilters: boolean;
   onClearFilters: () => void;
 }
@@ -45,26 +45,24 @@ export function ReviewsList({
 
   if (paginatedReviews.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-8 text-center">
-          <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">
-            {reviews.length === 0
-              ? "Nenhum review encontrado"
-              : "Nenhum review corresponde aos filtros selecionados"}
-          </p>
-          {hasFilters && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-4"
-              onClick={onClearFilters}
-            >
-              Limpar filtros
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+      <div className="flex flex-col items-center justify-center py-16 text-center border rounded-lg bg-muted/10 border-dashed">
+        <div className="bg-background p-4 rounded-full mb-4 shadow-sm">
+          <MessageSquare className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-medium">
+          {reviews.length === 0 ? "Nenhum review encontrado" : "Nenhum review encontrado"}
+        </h3>
+        <p className="text-sm text-muted-foreground max-w-sm mt-2 mb-6">
+          {reviews.length === 0
+            ? "Ainda não há avaliações para este local. Incentive seus clientes a deixarem feedback!"
+            : "Tente ajustar seus filtros para encontrar o que procura."}
+        </p>
+        {hasFilters && (
+          <Button variant="outline" onClick={onClearFilters}>
+            Limpar filtros
+          </Button>
+        )}
+      </div>
     );
   }
 

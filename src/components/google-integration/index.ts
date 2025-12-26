@@ -13,4 +13,8 @@ export { RatingEvolutionChart } from "./RatingEvolutionChart";
 export { PeriodComparison } from "./PeriodComparison";
 export { StatsExportButton } from "./StatsExportButton";
 export { ReviewsExportPDF } from "./ReviewsExportPDF";
+export { GoogleLocations } from "./GoogleLocations";
+export { ProfileHealth } from "./ProfileHealth";
+export { GoogleNotifications } from "./GoogleNotifications";
+export { GoogleSettings } from "./GoogleSettings";
 

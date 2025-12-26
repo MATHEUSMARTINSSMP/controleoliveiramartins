@@ -7,6 +7,7 @@ import { MessageSquare, Loader2, ExternalLink, Star } from "lucide-react";
 import type { GoogleReview } from "@/hooks/use-google-reviews";
 import { useGoogleReviews } from "@/hooks/use-google-reviews";
 import { toast } from "sonner";
+import { useGoogleAI } from "@/hooks/use-google-ai";
 
 interface ReviewReplyDialogProps {
   review: GoogleReview;
@@ -21,33 +22,43 @@ const replyTemplates = [
   { id: "custom", label: "Personalizado", text: "" },
 ];
 
+const PROHIBITED_WORDS = ["palavrão", "ofensa", "spam", "idiota", "estúpido"];
+
 export function ReviewReplyDialog({ review, siteSlug }: ReviewReplyDialogProps) {
-  const [replyText, setReplyText] = useState("");
+  const [replyText, setReplyText] = useState(review.reply || "");
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [showPreview, setShowPreview] = useState(false);
   const [replying, setReplying] = useState(false);
+  const [aiTone, setAiTone] = useState<"formal" | "friendly" | "funny">("friendly");
   const { respondToReview } = useGoogleReviews();
+  const { generateReply, generating: aiGenerating } = useGoogleAI();
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }).map((_, i) => (
       <Star
         key={i}
-        className={`h-4 w-4 ${
-          i < rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
-        }`}
+        className={`h-4 w-4 ${i < rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+          }`}
       />
     ));
   };
 
   const handleReply = async () => {
     if (!replyText.trim()) return;
-    
+
     if (replyText.length > 4096) {
       toast.error("Resposta muito longa. Máximo 4096 caracteres.");
       return;
     }
     if (replyText.length < 10) {
       toast.error("Resposta muito curta. Mínimo 10 caracteres.");
+      return;
+    }
+
+    // Validação de palavras proibidas
+    const foundProhibited = PROHIBITED_WORDS.find(word => replyText.toLowerCase().includes(word));
+    if (foundProhibited) {
+      toast.error(`Sua resposta contém palavras não permitidas: ${foundProhibited}`);
       return;
     }
 
@@ -72,9 +83,28 @@ export function ReviewReplyDialog({ review, siteSlug }: ReviewReplyDialogProps) 
   };
 
   const handleClose = () => {
-    setReplyText("");
-    setSelectedTemplate("");
+    // Reset apenas se não estiver editando (ou manter estado se quiser persistir rascunho)
+    if (!review.reply) {
+      setReplyText("");
+      setSelectedTemplate("");
+    }
     setShowPreview(false);
+  };
+
+  const generateAiSuggestion = () => {
+    // Simulação de IA baseada na nota
+    let templateId = "";
+    if (review.rating === 5) templateId = "thank_you_5";
+    else if (review.rating === 4) templateId = "thank_you_4";
+    else if (review.rating === 3) templateId = "apology_3";
+    else templateId = "apology_1_2";
+
+    const template = replyTemplates.find(t => t.id === templateId);
+    if (template) {
+      setReplyText(template.text);
+      setSelectedTemplate(templateId);
+      toast.success("Sugestão gerada com sucesso!");
+    }
   };
 
   return (
@@ -84,13 +114,13 @@ export function ReviewReplyDialog({ review, siteSlug }: ReviewReplyDialogProps) 
           variant="outline"
           size="sm"
           onClick={() => {
-            setReplyText("");
+            setReplyText(review.reply || "");
             setSelectedTemplate("");
             setShowPreview(false);
           }}
         >
           <MessageSquare className="h-4 w-4 mr-2" />
-          Responder
+          {review.reply ? "Editar Resposta" : "Responder"}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
@@ -141,6 +171,47 @@ export function ReviewReplyDialog({ review, siteSlug }: ReviewReplyDialogProps) 
                   <option key={t.id} value={t.id}>{t.label}</option>
                 ))}
               </select>
+              <div className="flex flex-col gap-2 mt-2 p-3 bg-purple-50 rounded-md border border-purple-100">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-purple-700">Assistente de IA</span>
+                  <select
+                    value={aiTone}
+                    onChange={(e) => setAiTone(e.target.value as any)}
+                    className="px-2 py-1 text-xs border rounded-md bg-white"
+                  >
+                    <option value="formal">Formal</option>
+                    <option value="friendly">Amigável</option>
+                    <option value="funny">Descontraído</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs text-purple-600 border-purple-200 hover:bg-purple-100 justify-start"
+                    onClick={async () => {
+                      const text = await generateReply(review.comment || "", review.rating, aiTone);
+                      setReplyText(text);
+                    }}
+                    disabled={aiGenerating}
+                  >
+                    {aiGenerating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : "✨ Gerar Resposta"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs text-purple-600 border-purple-200 hover:bg-purple-100 justify-start"
+                    onClick={async () => {
+                      const text = await generateReply(review.comment || "", review.rating, aiTone);
+                      setReplyText(`Olá ${review.author_name || "Cliente"}, \n\n${text}`);
+                    }}
+                    disabled={aiGenerating}
+                  >
+                    {aiGenerating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : "👤 Personalizada"}
+                  </Button>
+                </div>
+              </div>
             </div>
             <Textarea
               id="reply"
@@ -200,7 +271,8 @@ export function ReviewReplyDialog({ review, siteSlug }: ReviewReplyDialogProps) 
                   Enviando...
                 </>
               ) : (
-                "Enviar Resposta"
+              ): (
+                  review.reply ? "Atualizar Resposta" : "Enviar Resposta"
               )}
             </Button>
           </div>

@@ -292,7 +292,7 @@ const Lancamentos = () => {
   // Agrupar parcelas por mês (competência)
   const parcelasPorMes = useMemo(() => {
     const parcelasFiltradas = parcelas.filter(p => mesFiltro === "TODOS" || p.competencia === mesFiltro);
-    
+
     const agrupadas = parcelasFiltradas.reduce((acc, parcela) => {
       const mes = parcela.competencia;
       if (!acc[mes]) {
@@ -322,7 +322,7 @@ const Lancamentos = () => {
     return todosMeses.map(mes => {
       // Parcelas do mês
       const parcelasMes = parcelas.filter(p => p.competencia === mes);
-      
+
       // Adiantamentos do mês
       const adiantamentosMes = adiantamentos.filter(a => a.mes_competencia === mes);
 
@@ -355,7 +355,7 @@ const Lancamentos = () => {
         }
 
         const colaboradora = porColaboradora.get(colaboradoraId)!;
-        
+
         // Verificar se a compra já existe
         let compra = colaboradora.compras.find(c => c.compraId === parcela.compra_id);
         if (!compra) {
@@ -428,8 +428,27 @@ const Lancamentos = () => {
         .eq("id", parcelaId);
 
       if (error) throw error;
+
       toast.success("Parcela descontada com sucesso!");
-      fetchData();
+
+      // Atualizar estado localmente para evitar refresh
+      const dataBaixa = new Date().toISOString();
+
+      setParcelas(prev => prev.map(p =>
+        p.id === parcelaId
+          ? { ...p, status_parcela: "DESCONTADO", data_baixa: dataBaixa }
+          : p
+      ));
+
+      setCompras(prev => prev.map(c => ({
+        ...c,
+        parcelas: c.parcelas.map(p =>
+          p.id === parcelaId
+            ? { ...p, status_parcela: "DESCONTADO", data_baixa: dataBaixa }
+            : p
+        )
+      })));
+
     } catch (error: any) {
       toast.error("Erro ao descontar parcela");
     }
@@ -475,8 +494,18 @@ const Lancamentos = () => {
         .eq("id", adiantamentoId);
 
       if (error) throw error;
+
       toast.success("Adiantamento descontado com sucesso!");
-      fetchData();
+
+      // Atualizar estado localmente
+      const dataDesconto = new Date().toISOString();
+
+      setAdiantamentos(prev => prev.map(a =>
+        a.id === adiantamentoId
+          ? { ...a, status: "DESCONTADO", data_desconto: dataDesconto }
+          : a
+      ));
+
     } catch (error: any) {
       toast.error("Erro ao descontar adiantamento");
     }
@@ -750,7 +779,7 @@ const Lancamentos = () => {
                                   </div>
                                 </TableCell>
                               </TableRow>
-                              
+
                               {/* Parcelas expandidas */}
                               {isExpanded && (
                                 <>
@@ -758,7 +787,7 @@ const Lancamentos = () => {
                                     .sort((a, b) => a.n_parcela - b.n_parcela)
                                     .map((parcela) => {
                                       const competenciaFormatada = `${parcela.competencia.slice(0, 4)}/${parcela.competencia.slice(4)}`;
-                                      
+
                                       return (
                                         <TableRow key={parcela.id} className="bg-muted/20">
                                           <TableCell></TableCell>
@@ -1169,7 +1198,7 @@ const Lancamentos = () => {
                   <div className="space-y-6">
                     {dadosConsolidados.map(({ mes, colaboradoras }) => {
                       const mesFormatado = `${mes.slice(4)}/${mes.slice(0, 4)}`;
-                      
+
                       return (
                         <Card key={mes}>
                           <CardHeader>
@@ -1190,7 +1219,7 @@ const Lancamentos = () => {
                           <CardContent>
                             <div className="space-y-4">
                               {colaboradoras.map((colaboradora) => {
-                                const todasParcelas = colaboradora.compras.flatMap(c => 
+                                const todasParcelas = colaboradora.compras.flatMap(c =>
                                   c.parcelas.filter(p => p.status_parcela === "PENDENTE" || p.status_parcela === "AGENDADO")
                                 );
                                 const adiantamentosPendentes = colaboradora.adiantamentos.filter(
@@ -1242,7 +1271,7 @@ const Lancamentos = () => {
                                             })
                                             .map((parcela) => {
                                               const compraIdShort = parcela.compra_id.substring(0, 8).toUpperCase();
-                                              
+
                                               return (
                                                 <TableRow key={parcela.id}>
                                                   <TableCell className="text-muted-foreground text-sm">
@@ -1264,18 +1293,28 @@ const Lancamentos = () => {
                                                   <TableCell>
                                                     <Button
                                                       size="sm"
-                                                      variant="outline"
-                                                      onClick={() => handleDescontar(parcela.id)}
-                                                      className="border-primary/20"
+                                                      variant={parcela.status_parcela === "DESCONTADO" ? "ghost" : "outline"}
+                                                      onClick={() => parcela.status_parcela !== "DESCONTADO" && handleDescontar(parcela.id)}
+                                                      disabled={parcela.status_parcela === "DESCONTADO"}
+                                                      className={parcela.status_parcela === "DESCONTADO" ? "text-muted-foreground" : "border-primary/20"}
                                                     >
-                                                      <CheckCircle2 className="h-4 w-4 mr-1" />
-                                                      Descontar
+                                                      {parcela.status_parcela === "DESCONTADO" ? (
+                                                        <>
+                                                          <CheckCircle2 className="h-4 w-4 mr-1" />
+                                                          Descontado
+                                                        </>
+                                                      ) : (
+                                                        <>
+                                                          <CheckCircle2 className="h-4 w-4 mr-1" />
+                                                          Descontar
+                                                        </>
+                                                      )}
                                                     </Button>
                                                   </TableCell>
                                                 </TableRow>
                                               );
                                             })}
-                                          
+
                                           {/* Adiantamentos */}
                                           {adiantamentosPendentes.map((adiantamento) => (
                                             <TableRow key={adiantamento.id}>
