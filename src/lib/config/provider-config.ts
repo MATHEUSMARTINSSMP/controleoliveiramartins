@@ -25,16 +25,19 @@ export const PROVIDER_CONFIG = {
   openai: {
     apiKey: process.env.OPENAI_API_KEY || '',
     baseUrl: 'https://api.openai.com/v1',
-    // Modelos de imagem válidos conforme API OpenAI
+    // Modelos de imagem válidos conforme documentação oficial OpenAI
+    // Documentação: https://platform.openai.com/docs/guides/images-vision
+    // gpt-image-1 é o modelo principal nativo multimodal
+    // DALL·E 2 e 3 são modelos especializados
     imageModels: [
-      'gpt-image-1',
+      'gpt-image-1', // Modelo principal (multimodal LLM)
       'gpt-image-1-mini',
       'gpt-image-1.5',
       'chatgpt-image-latest',
-      'dall-e-2',
-      'dall-e-3',
+      'dall-e-2', // Modelo especializado
+      'dall-e-3', // Modelo especializado
     ] as const,
-    defaultImageModel: 'gpt-image-1.5' as const,
+    defaultImageModel: 'gpt-image-1' as const, // Modelo principal conforme documentação
     // Modelos de vídeo (Sora - preview)
     videoModels: [
       'sora-2-pro', // Preview
