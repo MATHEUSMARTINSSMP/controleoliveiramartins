@@ -237,6 +237,12 @@ async function processImageJob(supabase, job) {
       'image'
     );
 
+    // Garantir que temos uma URL (public_url ou signed_url)
+    const assetUrl = uploadResult.publicUrl || uploadResult.signedUrl;
+    if (!assetUrl) {
+      throw new Error(`Erro: uploadResult não retornou URL válida (publicUrl: ${uploadResult.publicUrl}, signedUrl: ${uploadResult.signedUrl})`);
+    }
+
     // Criar registro de asset
     const { data: asset, error: assetError } = await supabase
       .from('marketing_assets')
@@ -249,6 +255,7 @@ async function processImageJob(supabase, job) {
         provider_model: job.provider_model,
         prompt: adapterInput.prompt,
         storage_path: uploadResult.path,
+        url: assetUrl, // Coluna obrigatória (legacy)
         public_url: uploadResult.publicUrl,
         signed_url: uploadResult.signedUrl,
         signed_expires_at: uploadResult.signedExpiresAt?.toISOString(),
@@ -386,6 +393,12 @@ async function processVideoJob(supabase, job) {
     'video'
   );
 
+  // Garantir que temos uma URL (para vídeos, geralmente signed_url)
+  const assetUrl = uploadResult.signedUrl || uploadResult.publicUrl;
+  if (!assetUrl) {
+    throw new Error(`Erro: uploadResult não retornou URL válida para vídeo (publicUrl: ${uploadResult.publicUrl}, signedUrl: ${uploadResult.signedUrl})`);
+  }
+
   // Criar registro de asset
   const { data: asset, error: assetError } = await supabase
     .from('marketing_assets')
@@ -398,6 +411,8 @@ async function processVideoJob(supabase, job) {
       provider_model: job.provider_model,
       prompt: input.prompt || job.prompt_final,
       storage_path: uploadResult.path,
+      url: assetUrl, // Coluna obrigatória (legacy)
+      public_url: uploadResult.publicUrl,
       signed_url: uploadResult.signedUrl,
       signed_expires_at: uploadResult.signedExpiresAt?.toISOString(),
       meta: {
