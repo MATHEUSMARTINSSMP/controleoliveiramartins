@@ -440,7 +440,7 @@ export default function Landing() {
             <a href="#precos" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-precos">Preços</a>
             <a href="#faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-faq">FAQ</a>
             <a href="#contato" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-contato">Contato</a>
-            <Link to="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-privacy-nav">Privacidade</Link>
+            <Link to="/politicas" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-privacy-nav">Privacidade</Link>
           </nav>
 
           <div className="flex items-center gap-3">
@@ -1274,9 +1274,9 @@ export default function Landing() {
               © 2024 EleveaOne. Todos os direitos reservados.
             </p>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <Link to="/terms" className="hover:text-foreground transition-colors" data-testid="link-footer-termos">Termos de Uso</Link>
-              <Link to="/privacy" className="hover:text-foreground transition-colors" data-testid="link-footer-privacidade">Privacidade</Link>
-              <Link to="/privacy" className="hover:text-foreground transition-colors" data-testid="link-footer-lgpd">LGPD</Link>
+              <Link to="/termos" className="hover:text-foreground transition-colors" data-testid="link-footer-termos">Termos de Uso</Link>
+              <Link to="/politicas" className="hover:text-foreground transition-colors" data-testid="link-footer-privacidade">Privacidade</Link>
+              <Link to="/politicas" className="hover:text-foreground transition-colors" data-testid="link-footer-lgpd">LGPD</Link>
             </div>
           </div>
         </div>
