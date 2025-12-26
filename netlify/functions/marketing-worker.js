@@ -23,8 +23,22 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const MAX_JOBS_PER_RUN = 5;
 const MAX_RETRIES = 3;
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+};
+
 exports.handler = async (event, context) => {
-  console.log('[marketing-worker] Iniciando processamento...');
+  // Handle CORS preflight
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers: corsHeaders, body: '' };
+  }
+
+  // Permitir chamada manual via POST ou GET (para scheduled functions)
+  const isManual = event.httpMethod === 'POST' || (event.httpMethod === 'GET' && event.queryStringParameters?.manual === 'true');
+  
+  console.log(`[marketing-worker] Iniciando processamento... (${isManual ? 'manual' : 'scheduled'})`);
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     db: { schema: 'sistemaretiradas' },
@@ -41,12 +55,20 @@ exports.handler = async (event, context) => {
 
     if (fetchError) {
       console.error('[marketing-worker] Erro ao buscar jobs:', fetchError);
-      return { statusCode: 500, body: 'Erro ao buscar jobs' };
+      return { 
+        statusCode: 500, 
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Erro ao buscar jobs', details: fetchError.message }) 
+      };
     }
 
     if (!jobs || jobs.length === 0) {
       console.log('[marketing-worker] Nenhum job pendente');
-      return { statusCode: 200, body: 'Nenhum job para processar' };
+      return { 
+        statusCode: 200, 
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Nenhum job para processar', processed: 0 }) 
+      };
     }
 
     console.log(`[marketing-worker] Processando ${jobs.length} jobs`);
@@ -63,16 +85,19 @@ exports.handler = async (event, context) => {
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({
         processed: jobs.length,
         successful,
         failed,
+        jobs: jobs.map(j => ({ id: j.id, type: j.type, provider: j.provider })),
       }),
     };
   } catch (error) {
     console.error('[marketing-worker] Erro crítico:', error);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({ error: error.message }),
     };
   }
