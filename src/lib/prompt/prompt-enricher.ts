@@ -124,7 +124,7 @@ async function expandPromptWithOpenAI(
     messages: [
       {
         role: 'system',
-        content: 'Você é um especialista em criação de prompts para geração de imagens. Gere alternativas detalhadas e profissionais.',
+        content: 'Você é um especialista em criação de prompts para geração de imagens. Gere alternativas detalhadas e profissionais. IMPORTANTE: TODAS as respostas, prompts e descrições DEVEM estar em PORTUGUÊS DO BRASIL (pt-BR). Nunca use inglês ou outros idiomas.',
       },
       {
         role: 'user',
@@ -193,29 +193,31 @@ Cada alternativa deve incluir:
   }
 
   systemPrompt += `
-Retorne um JSON com o seguinte formato:
+Retorne um JSON com o seguinte formato (TODOS os textos em PORTUGUÊS DO BRASIL):
 {
   "alternatives": [
     {
-      "prompt": "prompt detalhado e completo aqui",
-      "description": "breve descrição do que será gerado",
-      "style": "estilo visual",
-      "tags": ["tag1", "tag2"]
+      "prompt": "prompt detalhado e completo aqui em português do Brasil",
+      "description": "breve descrição do que será gerado em português",
+      "style": "estilo visual em português",
+      "tags": ["tag1 em português", "tag2 em português"]
     },
     ...mais ${options.count - 1} alternativas
   ],
   "recommendations": {
-    "bestFor": "qual alternativa é melhor para qual propósito",
-    "tips": ["dica 1", "dica 2"]
+    "bestFor": "qual alternativa é melhor para qual propósito (em português)",
+    "tips": ["dica 1 em português", "dica 2 em português"]
   }
 }
 
-IMPORTANTE: 
-- Cada prompt alternativo deve ser AUTOCONTIDO e COMPLETO
+IMPORTANTE CRÍTICO: 
+- TODAS as respostas DEVEM estar em PORTUGUÊS DO BRASIL (pt-BR). Nunca use inglês.
+- Cada prompt alternativo deve ser AUTOCONTIDO, COMPLETO e em PORTUGUÊS DO BRASIL
 - Seja específico com detalhes visuais
 - Inclua informações técnicas (resolução, qualidade, estilo)
 - Varie os estilos entre as alternativas (realista, artístico, minimalista, etc)
 - Mantenha a essência do prompt original
+- DESCRIÇÕES, TAGS e RECOMENDAÇÕES também devem estar em PORTUGUÊS DO BRASIL
 `;
 
   return systemPrompt;

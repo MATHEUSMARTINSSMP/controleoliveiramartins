@@ -199,7 +199,7 @@ async function expandWithOpenAI(prompt, count, context) {
         {
           role: 'system',
           content:
-            'Você é um especialista em criação de prompts para geração de imagens. Gere alternativas detalhadas e profissionais em JSON.',
+            'Você é um especialista em criação de prompts para geração de imagens. Gere alternativas detalhadas e profissionais em JSON. IMPORTANTE: TODAS as respostas, prompts e descrições DEVEM estar em PORTUGUÊS DO BRASIL (pt-BR). Nunca use inglês ou outros idiomas.',
         },
         {
           role: 'user',
@@ -233,16 +233,18 @@ async function expandWithOpenAI(prompt, count, context) {
 function buildExpansionPrompt(originalPrompt, count, context) {
   let systemPrompt = `Você é um especialista em criação de prompts detalhados para geração de imagens/vídeos com IA.
 
+IMPORTANTE: TODAS as respostas, prompts alternativos, descrições e recomendações DEVEM estar em PORTUGUÊS DO BRASIL (pt-BR). Nunca use inglês ou outros idiomas.
+
 O usuário forneceu um prompt simples/incompleto: "${originalPrompt}"
 
-Sua tarefa é gerar ${count} alternativas de prompts DETALHADOS, COMPLETOS e PROFISSIONAIS que uma IA de geração de imagens entenderá perfeitamente.
+Sua tarefa é gerar ${count} alternativas de prompts DETALHADOS, COMPLETOS e PROFISSIONAIS em PORTUGUÊS DO BRASIL que uma IA de geração de imagens entenderá perfeitamente.
 
-Cada alternativa deve incluir:
+Cada alternativa deve incluir (TUDO em português do Brasil):
 - Descrição detalhada da cena/composição
 - Estilo visual (futurista, realista, minimalista, vintage, artístico, etc)
 - Iluminação e atmosfera (luz natural, estúdio, dramática, suave, etc)
 - Cores e paleta (se relevante para o contexto)
-- Ângulo e perspectiva (close-up, wide shot, overhead, etc)
+- Ângulo e perspectiva (close-up, plano amplo, vista aérea, etc)
 - Qualidade técnica (4K, alta resolução, profissional, cinematográfico)
 - Contexto e detalhes adicionais que enriquecem a descrição
 
@@ -271,15 +273,17 @@ Cada alternativa deve incluir:
   }
 
   systemPrompt += `
-IMPORTANTE: 
-- Cada prompt alternativo deve ser AUTOCONTIDO e COMPLETO
+IMPORTANTE CRÍTICO: 
+- TODAS as respostas DEVEM estar em PORTUGUÊS DO BRASIL (pt-BR). Nunca use inglês.
+- Cada prompt alternativo deve ser AUTOCONTIDO, COMPLETO e em PORTUGUÊS DO BRASIL
 - Seja específico com detalhes visuais, composição e técnica
 - Inclua informações técnicas (resolução, qualidade, estilo fotográfico)
 - Varie os estilos entre as alternativas para dar opções ao usuário
 - Mantenha a essência do prompt original mas expanda significativamente
 - Use linguagem técnica e profissional adequada para IA de geração
+- DESCRIÇÕES, TAGS e RECOMENDAÇÕES também devem estar em PORTUGUÊS DO BRASIL
 
-Retorne APENAS um JSON válido com o seguinte formato (sem markdown, sem code blocks):
+Retorne APENAS um JSON válido com o seguinte formato (sem markdown, sem code blocks). TODOS os textos devem estar em PORTUGUÊS DO BRASIL:
 {
   "alternatives": [
     {
