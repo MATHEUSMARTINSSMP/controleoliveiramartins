@@ -201,8 +201,8 @@ export default function SocialMediaMarketing({ embedded = false }: SocialMediaMa
           <GenerateContentTab
             storeId={storeId}
             onJobCreated={(jobId) => {
-              // Quando um job é criado, mudar para aba de jobs
-              setSelectedTab("jobs");
+              // Não redirecionar mais - as imagens aparecerão na mesma tela
+              // setSelectedTab("jobs");
             }}
           />
         </TabsContent>
