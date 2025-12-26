@@ -322,8 +322,10 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
 
               console.log("[GenerateContentTab] Adicionando assets ao estado:", assetUrls);
               setGeneratedAssets((prev) => [...prev, ...assetUrls]);
-              toast.success(`${assetUrls.length} imagem(ns) gerada(s) com sucesso!`, { id: "generating" });
+              toast.dismiss("generating");
+              toast.success(`${assetUrls.length} imagem(ns) gerada(s) com sucesso!`);
               setProcessingJobId(null);
+              setIsGenerating(false);
             } else if (retries < maxRetries - 1) {
               // Tentar novamente
               await fetchAssetsWithRetry(retries + 1);
@@ -496,6 +498,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
 
       // Processar imediatamente
       setProcessingJobId(data.jobId);
+      setIsGenerating(true);
       toast.loading("Gerando imagens...", { id: "generating" });
 
       // Processar job imediatamente
@@ -672,7 +675,10 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
 
               console.log("[GenerateContentTab] Adicionando assets ao estado no polling:", assetUrls);
               setGeneratedAssets((prev) => [...prev, ...assetUrls]);
-              toast.success(`${assetUrls.length} imagem(ns) gerada(s) com sucesso!`, { id: "generating" });
+              toast.dismiss("generating");
+              toast.success(`${assetUrls.length} imagem(ns) gerada(s) com sucesso!`);
+              setProcessingJobId(null);
+              setIsGenerating(false);
             } else {
               console.warn("[GenerateContentTab] Nenhum asset encontrado no polling após todas as tentativas. Erro:", assetsError);
               if (assetsError) {
@@ -687,6 +693,8 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
           return;
         } else if (jobData.status === "failed") {
           setProcessingJobId(null);
+          setIsGenerating(false);
+          toast.dismiss("generating");
           
           // Extrair mensagem de erro (pode estar em diferentes campos)
           let errorMessage = "Job falhou sem mensagem de erro";
@@ -740,10 +748,10 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
             userMessage = `Erro ao fazer upload: ${errorMsg}`;
           }
           
-          toast.error(userMessage, { 
-            id: "generating",
-            duration: 8000,
-          });
+          toast.dismiss("generating");
+          toast.error(userMessage, { duration: 8000 });
+          setProcessingJobId(null);
+          setIsGenerating(false);
           throw error;
         }
         
@@ -756,15 +764,20 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
 
     // Timeout após 10 minutos - mas continua monitorando em background
     setProcessingJobId(null);
-    toast.warning("Processamento está demorando. Continuando monitoramento em background...", { id: "generating" });
+    setIsGenerating(false);
+    toast.dismiss("generating");
+    toast.warning("Processamento está demorando. Continuando monitoramento em background...");
     
     // Continuar monitorando em background usando o hook useMarketingJobs
     // As imagens aparecerão automaticamente quando prontas
   };
 
+  const [hasUsedPromptExpander, setHasUsedPromptExpander] = useState(false);
+
   const handlePromptSelected = (selectedPrompt: string) => {
     setPrompt(selectedPrompt);
     setShowPromptExpander(false);
+    setHasUsedPromptExpander(true);
     toast.success("Prompt selecionado! Agora você pode gerar o conteúdo.");
   };
 
@@ -959,68 +972,72 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
           </Card>
 
           {/* Mostrar imagens geradas */}
-          {(generatedAssets.length > 0 || processingJobId) && (
+          {generatedAssets.length > 0 && (
             <Card className="mt-4">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>Imagens Geradas</CardTitle>
-                  {generatedAssets.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setGeneratedAssets([]);
-                        setProcessingJobId(null);
-                      }}
-                    >
-                      Limpar
-                    </Button>
-                  )}
+                  <CardTitle>Resultados Gerados</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setGeneratedAssets([]);
+                      setProcessingJobId(null);
+                      setHasUsedPromptExpander(false);
+                      setPrompt("");
+                    }}
+                  >
+                    Limpar e Começar Novamente
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                {processingJobId && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Processando imagens... Aguarde.</span>
-                  </div>
-                )}
-
-                {generatedAssets.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {generatedAssets.map((asset) => (
-                      <div
-                        key={asset.id}
-                        className="rounded-lg border overflow-hidden hover:shadow-lg transition-all"
-                      >
-                        {asset.url ? (
-                          <div className="aspect-square relative bg-muted">
-                            <img
-                              src={asset.url}
-                              alt="Imagem gerada"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className="aspect-square bg-muted flex items-center justify-center">
-                            <ImageIcon className="h-12 w-12 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div className="p-3">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => asset.url && window.open(asset.url, "_blank")}
-                          >
-                            <Download className="h-3 w-3 mr-2" />
-                            Abrir
-                          </Button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {generatedAssets.map((asset) => (
+                    <div
+                      key={asset.id}
+                      className="rounded-lg border overflow-hidden hover:shadow-lg transition-all"
+                    >
+                      {asset.url ? (
+                        <div className="aspect-square relative bg-muted">
+                          <img
+                            src={asset.url}
+                            alt="Imagem gerada"
+                            className="w-full h-full object-cover"
+                          />
                         </div>
+                      ) : (
+                        <div className="aspect-square bg-muted flex items-center justify-center">
+                          <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="p-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => asset.url && window.open(asset.url, "_blank")}
+                        >
+                          <Download className="h-3 w-3 mr-2" />
+                          Abrir
+                        </Button>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Mostrar indicador de processamento */}
+          {processingJobId && generatedAssets.length === 0 && (
+            <Card className="mt-4">
+              <CardContent className="py-8">
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm font-medium">Gerando imagens...</p>
+                  <p className="text-xs text-muted-foreground">Aguarde enquanto processamos sua solicitação</p>
+                </div>
               </CardContent>
             </Card>
           )}

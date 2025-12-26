@@ -144,14 +144,17 @@ export function ImageUploadInput({
 
       {images.length === 0 && (
         <div
-          className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+          className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors bg-muted/30"
           onClick={handleOpenFileDialog}
         >
-          <ImageIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-          <p className="text-sm text-muted-foreground">
-            Clique para adicionar imagens de referência
+          <ImageIcon className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+          <p className="text-sm font-medium mb-2">
+            Adicione imagens de referência
           </p>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mb-3">
+            Adicione sua logo se precisar usar em alguma imagem ou coloque imagens de inspiração
+          </p>
+          <p className="text-xs text-muted-foreground">
             Máximo {maxImages} imagens
           </p>
         </div>
