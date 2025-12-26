@@ -475,22 +475,35 @@ async function generateImageWithGeminiDirect(input) {
   const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
   const MODEL = 'gemini-2.5-flash-image';
 
-  // Enriquecer prompt com informações de tamanho/formato
+  // Enriquecer prompt com informações completas do formato
   let enrichedPrompt = input.prompt;
-  if (input.output?.size) {
-    const [width, height] = input.output.size.split('x').map(Number);
-    const aspectRatio = width / height;
+  if (input.output) {
+    const formatInfo = [];
     
-    let formatDescription = '';
-    if (aspectRatio === 1) {
-      formatDescription = 'Formato quadrado (1:1), ideal para posts no feed do Instagram.';
-    } else if (aspectRatio < 1) {
-      formatDescription = 'Formato vertical (9:16), ideal para Stories e Reels do Instagram.';
-    } else {
-      formatDescription = 'Formato horizontal (16:9), ideal para posts paisagem no feed do Instagram.';
+    // Informações básicas de tamanho
+    if (input.output.size) {
+      const [width, height] = input.output.size.split('x').map(Number);
+      formatInfo.push(`Dimensões: ${width}x${height} pixels (${input.output.size})`);
     }
     
-    enrichedPrompt = `${input.prompt}\n\nIMPORTANTE: A imagem deve ser gerada no formato ${input.output.size} pixels (${width}x${height}). ${formatDescription} Garanta que a composição e elementos visuais estejam otimizados para este formato específico.`;
+    // Aspect ratio
+    if (input.output.aspectRatio) {
+      formatInfo.push(`Proporção: ${input.output.aspectRatio}`);
+    }
+    
+    // Nome e descrição do formato
+    if (input.output.formatName) {
+      formatInfo.push(`Formato: ${input.output.formatName}`);
+      if (input.output.formatDescription) {
+        formatInfo.push(`Descrição: ${input.output.formatDescription}`);
+      }
+    }
+    
+    // Construir prompt enriquecido
+    if (formatInfo.length > 0) {
+      const formatDetails = formatInfo.join('\n');
+      enrichedPrompt = `${input.prompt}\n\n=== ESPECIFICAÇÕES DO FORMATO ===\n${formatDetails}\n\nIMPORTANTE: A imagem deve ser gerada exatamente nestas especificações. Garanta que a composição, elementos visuais e layout estejam completamente otimizados para este formato específico do Instagram.`;
+    }
   }
 
   // Construir parts
@@ -572,22 +585,35 @@ async function generateImageWithOpenAIDirect(input) {
     const imageBlob = new Blob([imageBuffer], { type: 'image/png' });
     const maskBlob = new Blob([maskBuffer], { type: 'image/png' });
 
-    // Enriquecer prompt com informações de tamanho/formato
+    // Enriquecer prompt com informações completas do formato
     let enrichedPrompt = input.prompt;
-    if (input.output?.size) {
-      const [width, height] = input.output.size.split('x').map(Number);
-      const aspectRatio = width / height;
+    if (input.output) {
+      const formatInfo = [];
       
-      let formatDescription = '';
-      if (aspectRatio === 1) {
-        formatDescription = 'Formato quadrado (1:1), ideal para posts no feed do Instagram.';
-      } else if (aspectRatio < 1) {
-        formatDescription = 'Formato vertical (9:16), ideal para Stories e Reels do Instagram.';
-      } else {
-        formatDescription = 'Formato horizontal (16:9), ideal para posts paisagem no feed do Instagram.';
+      // Informações básicas de tamanho
+      if (input.output.size) {
+        const [width, height] = input.output.size.split('x').map(Number);
+        formatInfo.push(`Dimensões: ${width}x${height} pixels (${input.output.size})`);
       }
       
-      enrichedPrompt = `${input.prompt}\n\nIMPORTANTE: A imagem deve ser gerada no formato ${input.output.size} pixels (${width}x${height}). ${formatDescription} Garanta que a composição e elementos visuais estejam otimizados para este formato específico.`;
+      // Aspect ratio
+      if (input.output.aspectRatio) {
+        formatInfo.push(`Proporção: ${input.output.aspectRatio}`);
+      }
+      
+      // Nome e descrição do formato
+      if (input.output.formatName) {
+        formatInfo.push(`Formato: ${input.output.formatName}`);
+        if (input.output.formatDescription) {
+          formatInfo.push(`Descrição: ${input.output.formatDescription}`);
+        }
+      }
+      
+      // Construir prompt enriquecido
+      if (formatInfo.length > 0) {
+        const formatDetails = formatInfo.join('\n');
+        enrichedPrompt = `${input.prompt}\n\n=== ESPECIFICAÇÕES DO FORMATO ===\n${formatDetails}\n\nIMPORTANTE: A imagem deve ser gerada exatamente nestas especificações. Garanta que a composição, elementos visuais e layout estejam completamente otimizados para este formato específico do Instagram.`;
+      }
     }
 
     formData.append('image', imageBlob, 'image.png');
@@ -625,22 +651,35 @@ async function generateImageWithOpenAIDirect(input) {
     };
   }
 
-  // Enriquecer prompt com informações de tamanho/formato
+  // Enriquecer prompt com informações completas do formato
   let enrichedPrompt = input.prompt;
-  if (input.output?.size) {
-    const [width, height] = input.output.size.split('x').map(Number);
-    const aspectRatio = width / height;
+  if (input.output) {
+    const formatInfo = [];
     
-    let formatDescription = '';
-    if (aspectRatio === 1) {
-      formatDescription = 'Formato quadrado (1:1), ideal para posts no feed do Instagram.';
-    } else if (aspectRatio < 1) {
-      formatDescription = 'Formato vertical (9:16), ideal para Stories e Reels do Instagram.';
-    } else {
-      formatDescription = 'Formato horizontal (16:9), ideal para posts paisagem no feed do Instagram.';
+    // Informações básicas de tamanho
+    if (input.output.size) {
+      const [width, height] = input.output.size.split('x').map(Number);
+      formatInfo.push(`Dimensões: ${width}x${height} pixels (${input.output.size})`);
     }
     
-    enrichedPrompt = `${input.prompt}\n\nIMPORTANTE: A imagem deve ser gerada no formato ${input.output.size} pixels (${width}x${height}). ${formatDescription} Garanta que a composição e elementos visuais estejam otimizados para este formato específico.`;
+    // Aspect ratio
+    if (input.output.aspectRatio) {
+      formatInfo.push(`Proporção: ${input.output.aspectRatio}`);
+    }
+    
+    // Nome e descrição do formato
+    if (input.output.formatName) {
+      formatInfo.push(`Formato: ${input.output.formatName}`);
+      if (input.output.formatDescription) {
+        formatInfo.push(`Descrição: ${input.output.formatDescription}`);
+      }
+    }
+    
+    // Construir prompt enriquecido
+    if (formatInfo.length > 0) {
+      const formatDetails = formatInfo.join('\n');
+      enrichedPrompt = `${input.prompt}\n\n=== ESPECIFICAÇÕES DO FORMATO ===\n${formatDetails}\n\nIMPORTANTE: A imagem deve ser gerada exatamente nestas especificações. Garanta que a composição, elementos visuais e layout estejam completamente otimizados para este formato específico do Instagram.`;
+    }
   }
 
   // Geração normal (texto apenas)
@@ -765,8 +804,44 @@ async function startVideoGenerationWithOpenAIDirect(input) {
   const BASE_URL = 'https://api.openai.com/v1';
   const MODEL = input.model || 'sora-2-pro';
 
+  // Enriquecer prompt com informações completas do formato
+  let enrichedPrompt = input.prompt;
+  if (input.output) {
+    const formatInfo = [];
+    
+    // Aspect ratio
+    if (input.output.aspectRatio) {
+      formatInfo.push(`Proporção: ${input.output.aspectRatio}`);
+    }
+    
+    // Duração
+    if (input.output.seconds) {
+      formatInfo.push(`Duração: ${input.output.seconds} segundos`);
+    }
+    
+    // Nome e descrição do formato
+    if (input.output.formatName) {
+      formatInfo.push(`Formato: ${input.output.formatName}`);
+      if (input.output.formatDescription) {
+        formatInfo.push(`Descrição: ${input.output.formatDescription}`);
+      }
+    }
+    
+    // Dimensões (se disponível)
+    if (input.output.size) {
+      const [width, height] = input.output.size.split('x').map(Number);
+      formatInfo.push(`Dimensões: ${width}x${height} pixels (${input.output.size})`);
+    }
+    
+    // Construir prompt enriquecido
+    if (formatInfo.length > 0) {
+      const formatDetails = formatInfo.join('\n');
+      enrichedPrompt = `${input.prompt}\n\n=== ESPECIFICAÇÕES DO FORMATO ===\n${formatDetails}\n\nIMPORTANTE: O vídeo deve ser gerado exatamente nestas especificações. Garanta que a composição, movimento, câmera e elementos visuais estejam completamente otimizados para este formato específico do Instagram.`;
+    }
+  }
+
   const formData = new FormData();
-  formData.append('prompt', input.prompt);
+  formData.append('prompt', enrichedPrompt);
   formData.append('model', MODEL);
   formData.append('size', input.output?.size || '1280x720');
   formData.append('seconds', (input.output?.seconds || 8).toString());

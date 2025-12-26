@@ -412,32 +412,56 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
           inputImages: inputImagesBase64,
           mask: maskBase64,
           variations: type === "image" ? 3 : 1, // Gerar 3 alternativas para imagens
-          output: {
-            size: (() => {
-                if (type === "image") {
-                  // Ajustar tamanho baseado no formato do Instagram selecionado
-                  const formats = getInstagramFormats("image");
-                  const format = formats.find(f => f.id === selectedFormat);
-                  if (format?.id === "story") {
-                    return "1080x1920"; // Vertical 9:16
-                  } else if (format?.id === "landscape") {
-                    return "1080x566"; // Horizontal 1.91:1
-                  } else {
-                    return "1080x1080"; // Quadrado 1:1 (post, carousel)
-                  }
-                } else {
-                  // Para vídeos, ajustar baseado no formato selecionado
-                  const formats = getInstagramFormats("video");
-                  const format = formats.find(f => f.id === selectedFormat);
-                  if (format?.id === "reel" || format?.id === "story") {
-                    return "1080x1920"; // Vertical 9:16
-                  } else {
-                    return "1280x720"; // Padrão 16:9
-                  }
+          output: (() => {
+              if (type === "image") {
+                // Ajustar tamanho baseado no formato do Instagram selecionado
+                const formats = getInstagramFormats("image");
+                const format = formats.find(f => f.id === selectedFormat);
+                if (!format) {
+                  return { size: "1080x1080" };
                 }
-              })(),
-            seconds: type === "video" ? 8 : undefined,
-          },
+                
+                let size = "1080x1080";
+                if (format.id === "story") {
+                  size = "1080x1920"; // Vertical 9:16
+                } else if (format.id === "landscape") {
+                  size = "1080x566"; // Horizontal 1.91:1
+                } else {
+                  size = "1080x1080"; // Quadrado 1:1 (post, carousel)
+                }
+                
+                return {
+                  size,
+                  aspectRatio: format.aspectRatio,
+                  formatName: format.name,
+                  formatDescription: format.description,
+                  formatDimensions: format.dimensions,
+                };
+              } else {
+                // Para vídeos, ajustar baseado no formato selecionado
+                const formats = getInstagramFormats("video");
+                const format = formats.find(f => f.id === selectedFormat);
+                if (!format) {
+                  return { size: "1280x720", seconds: 8 };
+                }
+                
+                let size = "1280x720";
+                if (format.id === "reel" || format.id === "story") {
+                  size = "1080x1920"; // Vertical 9:16
+                } else {
+                  size = "1280x720"; // Padrão 16:9
+                }
+                
+                return {
+                  size,
+                  aspectRatio: format.aspectRatio,
+                  formatName: format.name,
+                  formatDescription: format.description,
+                  formatDimensions: format.dimensions,
+                  seconds: format.id === "reel" ? 90 : 8, // Reels até 90s, Stories 8s
+                };
+              }
+            })(),
         }),
       });
 
