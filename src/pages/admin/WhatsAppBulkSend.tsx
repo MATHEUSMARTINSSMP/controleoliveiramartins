@@ -96,7 +96,12 @@ interface MessageVariation {
   content: string;
 }
 
-export default function WhatsAppBulkSend() {
+interface WhatsAppBulkSendProps {
+  embedded?: boolean;
+  onCampaignCreated?: () => void;
+}
+
+export default function WhatsAppBulkSend({ embedded = false, onCampaignCreated }: WhatsAppBulkSendProps) {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   
@@ -1876,7 +1881,27 @@ export default function WhatsAppBulkSend() {
       }
 
       toast.success(`Campanha criada! ${messagesToInsert.length} mensagens agendadas`);
-      navigate("/admin");
+      
+      // Se está em modo embedded, notifica componente pai e limpa formulário
+      if (embedded) {
+        // Notificar componente pai para mudar de aba (opcional)
+        if (onCampaignCreated) {
+          onCampaignCreated();
+          toast.info("Redirecionando para a aba 'Gerenciar Campanhas'...");
+        }
+        
+        // Limpar formulário quando embedded para permitir criar nova campanha
+        setCurrentStep("store");
+        setSelectedStoreId("");
+        setSelectedContacts(new Set());
+        setMessageVariations([{ id: "1", content: "" }]);
+        setNumVariations(1);
+        setFilterConfig({ combineLogic: "AND" });
+        setFiltersApplied(false);
+        setSearchTerm("");
+      } else {
+        navigate("/admin");
+      }
     } catch (error: any) {
       console.error("Erro ao criar campanha:", error);
       toast.error("Erro ao criar campanha: " + (error.message || "Erro desconhecido"));
@@ -1894,16 +1919,23 @@ export default function WhatsAppBulkSend() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+    <div className={embedded ? "space-y-6" : "container mx-auto py-6 space-y-6"}>
+      {embedded ? (
         <div>
-          <h1 className="text-3xl font-bold">Envio em Massa - WhatsApp</h1>
-          <p className="text-muted-foreground">Envie mensagens para múltiplos clientes de uma vez</p>
+          <h2 className="text-2xl font-bold">Criar Campanha</h2>
+          <p className="text-sm text-muted-foreground">Envie mensagens para múltiplos clientes de uma vez</p>
         </div>
-      </div>
+      ) : (
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Envio em Massa - WhatsApp</h1>
+            <p className="text-muted-foreground">Envie mensagens para múltiplos clientes de uma vez</p>
+          </div>
+        </div>
+      )}
 
       <Tabs value={currentStep} onValueChange={(v) => setCurrentStep(v as any)} className="space-y-4">
         <TabsList className="grid w-full grid-cols-5">

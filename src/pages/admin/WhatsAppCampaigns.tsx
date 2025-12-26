@@ -25,7 +25,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export default function WhatsAppCampaigns() {
+interface WhatsAppCampaignsProps {
+  embedded?: boolean;
+  onNavigateToCreate?: () => void;
+}
+
+export default function WhatsAppCampaigns({ embedded = false, onNavigateToCreate }: WhatsAppCampaignsProps) {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { campaigns, loading: campaignsLoading, refetch } = useCampaigns(profile?.id);
@@ -297,7 +302,14 @@ export default function WhatsAppCampaigns() {
       toast.success("Campanha duplicada com sucesso!");
       refetch();
       setCampaignToDuplicate(null);
-      navigate(`/admin/whatsapp-bulk-send?campaignId=${newCampaign.id}`);
+      
+      // Se está em modo embedded, não navega - apenas mostra mensagem
+      // O usuário pode editar a campanha duplicada através da lista
+      if (!embedded) {
+        navigate(`/admin/whatsapp-bulk-send?campaignId=${newCampaign.id}`);
+      } else {
+        toast.info("Campanha duplicada criada. Você pode editá-la na lista acima.");
+      }
     } catch (error: any) {
       console.error("Erro ao duplicar campanha:", error);
       toast.error("Erro ao duplicar campanha: " + (error.message || "Erro desconhecido"));
@@ -352,30 +364,43 @@ export default function WhatsAppCampaigns() {
 
   if (authLoading || campaignsLoading) {
     return (
-      <div className="container mx-auto p-4 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className={embedded ? "space-y-6" : "container mx-auto p-4 space-y-6"}>
+        {embedded && (
           <div>
-            <h1 className="text-3xl font-bold">Campanhas WhatsApp</h1>
-            <p className="text-muted-foreground">Gerencie suas campanhas de envio em massa</p>
+            <h2 className="text-2xl font-bold">Campanhas WhatsApp</h2>
+            <p className="text-sm text-muted-foreground">Gerencie suas campanhas de envio em massa</p>
           </div>
-        </div>
+        )}
         <CampaignListSkeleton count={3} />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Campanhas WhatsApp</h1>
-          <p className="text-muted-foreground">Gerencie suas campanhas de envio em massa</p>
+    <div className={embedded ? "space-y-6" : "container mx-auto p-4 space-y-6"}>
+      {!embedded ? (
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Campanhas WhatsApp</h1>
+            <p className="text-muted-foreground">Gerencie suas campanhas de envio em massa</p>
+          </div>
+          <Button onClick={refetch} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Atualizar
+          </Button>
         </div>
-        <Button onClick={refetch} variant="outline">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Atualizar
-        </Button>
-      </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Campanhas WhatsApp</h2>
+            <p className="text-sm text-muted-foreground">Gerencie suas campanhas de envio em massa</p>
+          </div>
+          <Button onClick={refetch} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Atualizar
+          </Button>
+        </div>
+      )}
 
       {/* Filtros */}
       <CampaignFilters
@@ -408,7 +433,14 @@ export default function WhatsAppCampaigns() {
               onCancel={() => handleCancel(campaign.id, campaign.status)}
               onDuplicate={() => setCampaignToDuplicate(campaign)}
               onDelete={() => setCampaignToDelete(campaign)}
-              onEdit={() => navigate(`/admin/whatsapp-bulk-send?campaignId=${campaign.id}`)}
+              onEdit={() => {
+                if (!embedded) {
+                  navigate(`/admin/whatsapp-bulk-send?campaignId=${campaign.id}`);
+                } else {
+                  // Quando embedded, não navega - mostra mensagem informativa
+                  toast.info("Para editar campanhas, acesse a aba 'Criar Campanha' e use a URL com o ID da campanha, ou acesse diretamente pela rota /admin/whatsapp-bulk-send");
+                }
+              }}
               stats={allCampaignsStats[campaign.id] || undefined}
               loadingStats={loadingAllStats}
               loadingPause={loadingActions[campaign.id] === 'pause'}

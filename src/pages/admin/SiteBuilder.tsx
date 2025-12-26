@@ -7,13 +7,12 @@ import { SiteOnboarding, SiteEditor, useSiteData } from "@/components/admin/site
 
 interface SiteBuilderProps {
   embedded?: boolean;
-  storeId?: string | null;
 }
 
-export default function SiteBuilder({ embedded = false, storeId }: SiteBuilderProps) {
+export default function SiteBuilder({ embedded = false }: SiteBuilderProps) {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { hasSite, isLoading } = useSiteData({ tenantId: storeId });
+  const { hasSite, isLoading } = useSiteData();
 
   if (authLoading || isLoading) {
     return <PageLoader />;
@@ -26,11 +25,20 @@ export default function SiteBuilder({ embedded = false, storeId }: SiteBuilderPr
     return null;
   }
 
-  // Se está embedded (dentro de tabs), não mostra header
+  // Se está embedded (dentro de tabs), não mostra header mas adiciona título
   if (embedded) {
     return (
       <div className="space-y-6">
-        {hasSite ? <SiteEditor /> : <SiteOnboarding tenantId={storeId} />}
+        <div>
+          <h2 className="text-2xl font-bold">Gestão de Site</h2>
+          <p className="text-sm text-muted-foreground">
+            {hasSite 
+              ? 'Gerencie seu site institucional'
+              : 'Crie seu site institucional em minutos'
+            }
+          </p>
+        </div>
+        {hasSite ? <SiteEditor /> : <SiteOnboarding />}
       </div>
     );
   }
@@ -56,7 +64,7 @@ export default function SiteBuilder({ embedded = false, storeId }: SiteBuilderPr
         </div>
       </div>
 
-      {hasSite ? <SiteEditor /> : <SiteOnboarding tenantId={storeId} />}
+      {hasSite ? <SiteEditor /> : <SiteOnboarding />}
     </div>
   );
 }

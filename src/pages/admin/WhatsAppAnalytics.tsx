@@ -15,7 +15,11 @@ import { PageLoader } from "@/components/ui/page-loader";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
-export default function WhatsAppAnalytics() {
+interface WhatsAppAnalyticsProps {
+  embedded?: boolean;
+}
+
+export default function WhatsAppAnalytics({ embedded = false }: WhatsAppAnalyticsProps) {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [selectedStoreId, setSelectedStoreId] = useState<string>("all");
@@ -75,21 +79,33 @@ export default function WhatsAppAnalytics() {
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+    <div className={embedded ? "space-y-6" : "container mx-auto p-4 space-y-6"}>
+      {embedded ? (
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <TrendingUp className="h-8 w-8" />
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <TrendingUp className="h-6 w-6" />
             Analytics de Campanhas WhatsApp
-          </h1>
-          <p className="text-muted-foreground">
+          </h2>
+          <p className="text-sm text-muted-foreground">
             Análise profunda do desempenho das campanhas e comportamento dos clientes
           </p>
         </div>
-      </div>
+      ) : (
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <TrendingUp className="h-8 w-8" />
+              Analytics de Campanhas WhatsApp
+            </h1>
+            <p className="text-muted-foreground">
+              Análise profunda do desempenho das campanhas e comportamento dos clientes
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Filtros */}
       <Card>

@@ -27,12 +27,16 @@ interface QuotaInfo {
   monthly_remaining: number;
 }
 
+interface MarketingAnalyticsProps {
+  storeId?: string | null;
+}
+
 /**
  * Componente de Analytics para o módulo de marketing
  */
-export function MarketingAnalytics() {
+export function MarketingAnalytics({ storeId: propStoreId }: MarketingAnalyticsProps = {} as MarketingAnalyticsProps) {
   const { profile } = useAuth();
-  const storeId = profile ? getStoreIdFromProfile(profile) : null;
+  const storeId = propStoreId !== undefined ? propStoreId : (profile ? getStoreIdFromProfile(profile) : null);
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("monthly");
   const [usageData, setUsageData] = useState<UsageData[]>([]);
   const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);

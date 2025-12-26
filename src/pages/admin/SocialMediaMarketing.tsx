@@ -3,7 +3,7 @@ import { useMarketingJobStatus } from "@/hooks/use-marketing-job-status";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Image, Video, Sparkles, ImageIcon, VideoIcon, Loader2, X, CheckCircle2, XCircle, Clock, Download, AlertCircle } from "lucide-react";
+import { Image, Video, Sparkles, ImageIcon, VideoIcon, Loader2, X, CheckCircle2, XCircle, Clock, Download, AlertCircle, ArrowLeft } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,23 +20,24 @@ import { MaskUploadInput, MaskFile } from "@/components/marketing/MaskUploadInpu
 import { PromptTemplates, PromptTemplate } from "@/components/marketing/PromptTemplates";
 import { MarketingAnalytics } from "@/components/marketing/MarketingAnalytics";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PROVIDER_CONFIG, getDefaultModel, getAllowedModels } from "@/lib/config/provider-config";
 import { fileToBase64 } from "@/lib/ai-providers/image-utils";
 import { getStoreIdFromProfile } from "@/lib/storeLogo";
+import { useNavigate } from "react-router-dom";
 
 interface SocialMediaMarketingProps {
-  storeId?: string | null;
+  embedded?: boolean;
 }
 
-export default function SocialMediaMarketing({ storeId: propStoreId }: SocialMediaMarketingProps = {}) {
+export default function SocialMediaMarketing({ embedded = false }: SocialMediaMarketingProps) {
   const { profile, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [selectedTab, setSelectedTab] = useState("generate");
   const [newlyCompletedJobId, setNewlyCompletedJobId] = useState<string | null>(null);
   const [highlightAssetId, setHighlightAssetId] = useState<string | null>(null);
 
-  // Usar storeId passado via props ou obter do profile
-  const storeId = propStoreId || (profile ? getStoreIdFromProfile(profile) : null);
+  // Obter store_id usando função que lida com diferentes roles
+  const storeId = profile ? getStoreIdFromProfile(profile) : null;
   const hasStoreId = !!storeId;
 
   return (
@@ -69,48 +70,70 @@ export default function SocialMediaMarketing({ storeId: propStoreId }: SocialMed
       ) : (
         <>
       {/* Header */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5" />
-            Gestão de Redes Sociais
-          </CardTitle>
-          <CardDescription>
-            Crie imagens e vídeos profissionais para Instagram, TikTok e outras redes sociais usando IA
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-lg border p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <ImageIcon className="h-4 w-4 text-blue-500" />
-                <h4 className="font-semibold">Geração de Imagens</h4>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Crie imagens personalizadas com IA usando Gemini ou OpenAI
-              </p>
-            </div>
-            <div className="rounded-lg border p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <VideoIcon className="h-4 w-4 text-purple-500" />
-                <h4 className="font-semibold">Geração de Vídeos</h4>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Produza vídeos curtos para Reels e Stories com IA
-              </p>
-            </div>
-            <div className="rounded-lg border p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="h-4 w-4 text-yellow-500" />
-                <h4 className="font-semibold">Prompts Inteligentes</h4>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Use IA para expandir e melhorar seus prompts antes de gerar
+      {embedded ? (
+        <div>
+          <h2 className="text-2xl font-bold">Gestão de Redes Sociais</h2>
+          <p className="text-sm text-muted-foreground">
+            Gere imagens e vídeos com IA para suas redes sociais
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Gestão de Redes Sociais</h1>
+              <p className="text-muted-foreground">
+                Gere imagens e vídeos com IA para suas redes sociais
               </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                Recursos Disponíveis
+              </CardTitle>
+              <CardDescription>
+                Crie imagens e vídeos profissionais para Instagram, TikTok e outras redes sociais usando IA
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ImageIcon className="h-4 w-4 text-blue-500" />
+                    <h4 className="font-semibold">Geração de Imagens</h4>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Crie imagens personalizadas com IA usando Gemini ou OpenAI
+                  </p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <VideoIcon className="h-4 w-4 text-purple-500" />
+                    <h4 className="font-semibold">Geração de Vídeos</h4>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Produza vídeos curtos para Reels e Stories com IA
+                  </p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-4 w-4 text-yellow-500" />
+                    <h4 className="font-semibold">Prompts Inteligentes</h4>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Use IA para expandir e melhorar seus prompts antes de gerar
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Main Content Tabs */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-4">
@@ -149,7 +172,7 @@ export default function SocialMediaMarketing({ storeId: propStoreId }: SocialMed
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
-          <MarketingAnalytics />
+          <MarketingAnalytics storeId={storeId} />
         </TabsContent>
       </Tabs>
         </>
@@ -877,6 +900,22 @@ function JobCard({ job, onCancel }: { job: any; onCancel: (jobId: string) => voi
         return "Na Fila";
       default:
         return job.status;
+    }
+  };
+
+  const getStatusColor = () => {
+    switch (job.status) {
+      case "done":
+        return "text-green-600";
+      case "failed":
+        return "text-destructive";
+      case "canceled":
+        return "text-muted-foreground";
+      case "processing":
+      case "queued":
+        return "text-blue-600";
+      default:
+        return "text-muted-foreground";
     }
   };
 
