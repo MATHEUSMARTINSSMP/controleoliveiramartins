@@ -42,6 +42,9 @@ export default function SocialMediaMarketing({ embedded = false }: SocialMediaMa
   const [highlightAssetId, setHighlightAssetId] = useState<string | null>(null);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
+  const [editingAsset, setEditingAsset] = useState<any | null>(null);
+  const [editPrompt, setEditPrompt] = useState("");
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // Buscar lojas do admin quando embedded
   useEffect(() => {
@@ -1501,7 +1504,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
 /**
  * Tab de Galeria
  */
-function GalleryTab({ storeId: propStoreId, highlightAssetId }: { storeId?: string | null; highlightAssetId?: string | null }) {
+function GalleryTab({ storeId: propStoreId, highlightAssetId, onEditAsset }: { storeId?: string | null; highlightAssetId?: string | null; onEditAsset?: (asset: any) => void }) {
   const { profile } = useAuth();
   const storeId = propStoreId || (profile ? getStoreIdFromProfile(profile) : null);
   const [filterType, setFilterType] = useState<"image" | "video" | undefined>(undefined);
@@ -1636,7 +1639,7 @@ function GalleryTab({ storeId: propStoreId, highlightAssetId }: { storeId?: stri
                       isHighlighted={asset.id === highlightAssetId}
                       showVariationBadge={true}
                       variationNumber={asset.metadata?.variation || null}
-                      onEdit={handleEditAsset}
+                      onEdit={onEditAsset}
                     />
                   ))}
                 </div>
