@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Globe, Instagram, ArrowLeft } from "lucide-react";
+import { MessageSquare, Globe, Instagram, ArrowLeft, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageLoader } from "@/components/ui/page-loader";
 import WhatsAppBulkSend from "@/pages/admin/WhatsAppBulkSend";
@@ -10,6 +10,7 @@ import WhatsAppCampaigns from "@/pages/admin/WhatsAppCampaigns";
 import WhatsAppAnalytics from "@/pages/admin/WhatsAppAnalytics";
 import SiteBuilder from "@/pages/admin/SiteBuilder";
 import SocialMediaMarketing from "@/pages/admin/SocialMediaMarketing";
+import GoogleIntegration from "@/pages/admin/GoogleIntegration";
 
 export default function GestaoMarketing() {
   const { profile, loading: authLoading } = useAuth();
@@ -39,7 +40,7 @@ export default function GestaoMarketing() {
       </div>
 
       <Tabs defaultValue="whatsapp" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="whatsapp" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
             Campanhas WhatsApp
@@ -51,6 +52,10 @@ export default function GestaoMarketing() {
           <TabsTrigger value="redes-sociais" className="flex items-center gap-2">
             <Instagram className="h-4 w-4" />
             Gestão de Redes Sociais
+          </TabsTrigger>
+          <TabsTrigger value="google" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Google
           </TabsTrigger>
         </TabsList>
 
@@ -67,6 +72,11 @@ export default function GestaoMarketing() {
         {/* Tab 3: Gestão de Redes Sociais */}
         <TabsContent value="redes-sociais" className="space-y-4">
           <SocialMediaMarketing embedded />
+        </TabsContent>
+
+        {/* Tab 4: Google My Business */}
+        <TabsContent value="google" className="space-y-4">
+          <GoogleIntegration embedded />
         </TabsContent>
       </Tabs>
     </div>

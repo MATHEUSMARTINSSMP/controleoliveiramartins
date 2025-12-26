@@ -82,9 +82,8 @@
 ### 6. OAuth Client - URIs
 
 - [ ] Origens JavaScript autorizadas:
-  - [ ] `https://eleveaagencia.netlify.app`
-  - [ ] `https://fluxos.eleveaagencia.com.br`
   - [ ] `https://eleveaone.com.br`
+  - [ ] `https://fluxos.eleveaagencia.com.br`
 - [ ] URIs de redirecionamento:
   - [ ] `https://fluxos.eleveaagencia.com.br/webhook/api/auth/google/callback`
 
@@ -103,7 +102,7 @@ Conforme [documentação do Google](https://support.google.com/cloud/answer/1380
 
 ### 8. Teste do Fluxo OAuth
 
-- [ ] Endpoint de start funciona: `https://fluxos.eleveaagencia.com.br/webhook/api/auth/google/start?customerId=TEST&siteSlug=test`
+- [ ] Endpoint de start funciona: `https://eleveaone.com.br/.netlify/functions/google-oauth-start?customerId=TEST&siteSlug=test`
 - [ ] Retorna `authUrl` corretamente
 - [ ] `authUrl` abre a tela de consentimento do Google
 - [ ] Após autorizar, redireciona para callback
