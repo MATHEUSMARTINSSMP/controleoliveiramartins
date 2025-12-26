@@ -336,6 +336,7 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
           storeId: storeId,
           inputImages: inputImagesBase64,
           mask: maskBase64,
+          variations: type === "image" ? 3 : 1, // Gerar 3 alternativas para imagens
           output: {
             size: type === "image" ? "1024x1024" : "1280x720",
             seconds: type === "video" ? 8 : undefined,
