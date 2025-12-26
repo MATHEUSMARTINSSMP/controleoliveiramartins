@@ -296,29 +296,47 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
         console.log("[GenerateContentTab] Novos assetIds:", newAssetIds);
         
         if (newAssetIds.length > 0) {
-          // Buscar URLs dos novos assets
-          supabase
-            .schema("sistemaretiradas")
-            .from("marketing_assets")
-            .select("id, public_url, signed_url")
-            .in("id", newAssetIds)
-            .then(({ data: assets, error: assetsError }) => {
-              console.log("[GenerateContentTab] Assets buscados:", assets, "Erro:", assetsError);
-              if (!assetsError && assets && assets.length > 0) {
-                const assetUrls = assets.map((asset) => ({
-                  id: asset.id,
-                  url: asset.public_url || asset.signed_url || "",
-                  jobId: processingJobId,
-                }));
+          // Buscar URLs dos novos assets com retry
+          const fetchAssetsWithRetry = async (retries = 0) => {
+            const maxRetries = 5;
+            
+            if (retries > 0) {
+              // Aguardar antes de tentar novamente (exponencial backoff)
+              await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+            }
+            
+            const { data: assets, error: assetsError } = await supabase
+              .schema("sistemaretiradas")
+              .from("marketing_assets")
+              .select("id, url, public_url, signed_url")
+              .in("id", newAssetIds);
+            
+            console.log(`[GenerateContentTab] Tentativa ${retries + 1}/${maxRetries} - Assets buscados:`, assets, "Erro:", assetsError);
+            
+            if (!assetsError && assets && assets.length > 0) {
+              const assetUrls = assets.map((asset) => ({
+                id: asset.id,
+                url: asset.url || asset.public_url || asset.signed_url || "",
+                jobId: processingJobId,
+              }));
 
-                console.log("[GenerateContentTab] Adicionando assets ao estado:", assetUrls);
-                setGeneratedAssets((prev) => [...prev, ...assetUrls]);
-                toast.success(`${assetUrls.length} imagem(ns) gerada(s) com sucesso!`, { id: "generating" });
-                setProcessingJobId(null);
-              } else {
-                console.warn("[GenerateContentTab] Nenhum asset encontrado ou erro na busca");
+              console.log("[GenerateContentTab] Adicionando assets ao estado:", assetUrls);
+              setGeneratedAssets((prev) => [...prev, ...assetUrls]);
+              toast.success(`${assetUrls.length} imagem(ns) gerada(s) com sucesso!`, { id: "generating" });
+              setProcessingJobId(null);
+            } else if (retries < maxRetries - 1) {
+              // Tentar novamente
+              await fetchAssetsWithRetry(retries + 1);
+            } else {
+              console.warn("[GenerateContentTab] Nenhum asset encontrado após todas as tentativas. Erro:", assetsError);
+              if (assetsError) {
+                console.error("[GenerateContentTab] Erro detalhado:", assetsError);
               }
-            });
+              setProcessingJobId(null);
+            }
+          };
+          
+          fetchAssetsWithRetry();
         } else {
           console.log("[GenerateContentTab] Todos os assets já estão no estado");
           setProcessingJobId(null);
@@ -615,19 +633,40 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
           console.log("[GenerateContentTab] AssetIds extraídos no polling:", assetIds);
           
           if (assetIds.length > 0) {
-            // Buscar URLs dos assets
-            const { data: assets, error: assetsError } = await supabase
-              .schema("sistemaretiradas")
-              .from("marketing_assets")
-              .select("id, public_url, signed_url")
-              .in("id", assetIds);
-
-            console.log("[GenerateContentTab] Assets buscados no polling:", assets, "Erro:", assetsError);
+            // Buscar URLs dos assets com retry (pode haver delay na criação)
+            let assets = null;
+            let assetsError = null;
+            let retries = 0;
+            const maxRetries = 5;
+            
+            while (retries < maxRetries && (!assets || assets.length === 0)) {
+              if (retries > 0) {
+                // Aguardar antes de tentar novamente (exponencial backoff)
+                await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+              }
+              
+              const result = await supabase
+                .schema("sistemaretiradas")
+                .from("marketing_assets")
+                .select("id, url, public_url, signed_url")
+                .in("id", assetIds);
+              
+              assets = result.data;
+              assetsError = result.error;
+              
+              console.log(`[GenerateContentTab] Tentativa ${retries + 1}/${maxRetries} - Assets buscados no polling:`, assets, "Erro:", assetsError);
+              
+              if (assets && assets.length > 0) {
+                break; // Encontrou os assets, sair do loop
+              }
+              
+              retries++;
+            }
 
             if (!assetsError && assets && assets.length > 0) {
               const assetUrls = assets.map((asset) => ({
                 id: asset.id,
-                url: asset.public_url || asset.signed_url || "",
+                url: asset.url || asset.public_url || asset.signed_url || "",
                 jobId: jobId,
               }));
 
@@ -635,7 +674,10 @@ function GenerateContentTab({ storeId: propStoreId, onJobCreated }: { storeId?: 
               setGeneratedAssets((prev) => [...prev, ...assetUrls]);
               toast.success(`${assetUrls.length} imagem(ns) gerada(s) com sucesso!`, { id: "generating" });
             } else {
-              console.warn("[GenerateContentTab] Nenhum asset encontrado no polling ou erro na busca");
+              console.warn("[GenerateContentTab] Nenhum asset encontrado no polling após todas as tentativas. Erro:", assetsError);
+              if (assetsError) {
+                console.error("[GenerateContentTab] Erro detalhado:", assetsError);
+              }
             }
           } else {
             console.warn("[GenerateContentTab] Nenhum assetId encontrado no result do polling");
