@@ -23,7 +23,10 @@ export interface CreateMediaInput {
   model: string;
   prompt: string;
   output?: {
-    aspectRatio?: '1:1' | '9:16' | '16:9';
+    // Aspect ratios suportados conforme documentação Gemini/OpenAI
+    // Gemini: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9
+    // OpenAI: 1:1, 9:16, 16:9 (limitações dependem do modelo)
+    aspectRatio?: '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9';
     size?: string; // "1024x1024", "1280x720"
     seconds?: number; // Para vídeos
   };
