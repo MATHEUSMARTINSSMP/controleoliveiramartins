@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { MessageSquare, Globe, Instagram, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageLoader } from "@/components/ui/page-loader";
-import AdminStoreSelector from "@/components/admin/AdminStoreSelector";
 import WhatsAppBulkSend from "@/pages/admin/WhatsAppBulkSend";
 import WhatsAppCampaigns from "@/pages/admin/WhatsAppCampaigns";
 import WhatsAppAnalytics from "@/pages/admin/WhatsAppAnalytics";
@@ -15,7 +14,6 @@ import SocialMediaMarketing from "@/pages/admin/SocialMediaMarketing";
 export default function GestaoMarketing() {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
 
   if (authLoading) {
     return <PageLoader />;
@@ -28,24 +26,16 @@ export default function GestaoMarketing() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Gestão de Marketing</h1>
-            <p className="text-muted-foreground">
-              Gerencie campanhas WhatsApp, seu site e conteúdos para redes sociais
-            </p>
-          </div>
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold">Gestão de Marketing</h1>
+          <p className="text-muted-foreground">
+            Gerencie campanhas WhatsApp, seu site e conteúdos para redes sociais
+          </p>
         </div>
-        <AdminStoreSelector
-          value={selectedStoreId}
-          onChange={setSelectedStoreId}
-          showLabel={false}
-          className="w-[280px]"
-        />
       </div>
 
       <Tabs defaultValue="whatsapp" className="space-y-4">
@@ -71,24 +61,12 @@ export default function GestaoMarketing() {
 
         {/* Tab 2: Gestão de Site */}
         <TabsContent value="site" className="space-y-4">
-          {selectedStoreId ? (
-            <SiteBuilder embedded storeId={selectedStoreId} />
-          ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <p>Selecione uma loja para gerenciar o site</p>
-            </div>
-          )}
+          <SiteBuilder embedded />
         </TabsContent>
 
         {/* Tab 3: Gestão de Redes Sociais */}
         <TabsContent value="redes-sociais" className="space-y-4">
-          {selectedStoreId ? (
-            <SocialMediaMarketing embedded storeId={selectedStoreId} />
-          ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <p>Selecione uma loja para gerenciar redes sociais</p>
-            </div>
-          )}
+          <SocialMediaMarketing embedded />
         </TabsContent>
       </Tabs>
     </div>

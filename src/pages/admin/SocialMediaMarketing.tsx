@@ -27,18 +27,53 @@ import { useNavigate } from "react-router-dom";
 
 interface SocialMediaMarketingProps {
   embedded?: boolean;
-  storeId?: string | null;
 }
 
-export default function SocialMediaMarketing({ embedded = false, storeId: propStoreId }: SocialMediaMarketingProps) {
+export default function SocialMediaMarketing({ embedded = false }: SocialMediaMarketingProps) {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [selectedTab, setSelectedTab] = useState("generate");
   const [newlyCompletedJobId, setNewlyCompletedJobId] = useState<string | null>(null);
   const [highlightAssetId, setHighlightAssetId] = useState<string | null>(null);
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
 
-  // Se storeId foi passado como prop, usar ele; senão, tentar obter do profile
-  const storeId = propStoreId !== undefined ? propStoreId : (profile ? getStoreIdFromProfile(profile) : null);
+  // Buscar lojas do admin quando embedded
+  useEffect(() => {
+    const fetchStores = async () => {
+      if (!embedded || !profile?.id || profile.role !== "ADMIN") return;
+
+      try {
+        const { data, error } = await supabase
+          .schema("sistemaretiradas")
+          .from("stores")
+          .select("id, name")
+          .eq("admin_id", profile.id)
+          .eq("active", true)
+          .order("name");
+
+        if (error) throw error;
+        
+        const fetchedStores = data || [];
+        setStores(fetchedStores);
+        
+        // Selecionar primeira loja por padrão se não houver seleção E há lojas disponíveis
+        if (fetchedStores.length > 0 && !selectedStoreId) {
+          setSelectedStoreId(fetchedStores[0].id);
+        }
+      } catch (error: any) {
+        console.error("Erro ao buscar lojas:", error);
+      }
+    };
+
+    fetchStores();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [embedded, profile?.id, profile?.role]);
+
+  // Quando não está embedded, tentar obter do profile; quando embedded, usar selectedStoreId
+  const storeId = embedded 
+    ? selectedStoreId 
+    : (profile ? getStoreIdFromProfile(profile) : null);
   const hasStoreId = !!storeId;
 
   return (
@@ -72,11 +107,44 @@ export default function SocialMediaMarketing({ embedded = false, storeId: propSt
         <>
       {/* Header */}
       {embedded ? (
-        <div>
-          <h2 className="text-2xl font-bold">Gestão de Redes Sociais</h2>
-          <p className="text-sm text-muted-foreground">
-            Gere imagens e vídeos com IA para suas redes sociais
-          </p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold">Gestão de Redes Sociais</h2>
+            <p className="text-sm text-muted-foreground">
+              Gere imagens e vídeos com IA para suas redes sociais
+            </p>
+          </div>
+          {stores.length > 1 && selectedStoreId && (
+            <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+              <SelectTrigger className="w-[280px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {stores.map((store) => (
+                  <SelectItem key={store.id} value={store.id}>
+                    {store.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {stores.length > 0 && !selectedStoreId && (
+            <div className="w-[280px]">
+              <label className="text-sm font-medium mb-2 block">Selecione a Loja</label>
+              <Select value={selectedStoreId || ""} onValueChange={setSelectedStoreId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma loja" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stores.map((store) => (
+                    <SelectItem key={store.id} value={store.id}>
+                      {store.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       ) : (
         <>
