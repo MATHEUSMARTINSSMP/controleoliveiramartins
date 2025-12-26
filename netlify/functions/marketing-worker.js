@@ -957,6 +957,16 @@ async function pollVideoStatusGeminiDirect(operationId) {
     hasResponse: !!data.response,
     metadata: data.metadata,
     operationId: operationId,
+    responseKeys: data.response ? Object.keys(data.response) : null,
+    generateVideoResponse: data.response?.generateVideoResponse ? {
+      hasGeneratedSamples: !!data.response.generateVideoResponse.generatedSamples,
+      samplesLength: data.response.generateVideoResponse.generatedSamples?.length || 0,
+      firstSample: data.response.generateVideoResponse.generatedSamples?.[0] ? {
+        hasVideo: !!data.response.generateVideoResponse.generatedSamples[0].video,
+        videoKeys: data.response.generateVideoResponse.generatedSamples[0].video ? Object.keys(data.response.generateVideoResponse.generatedSamples[0].video) : null,
+        videoUri: data.response.generateVideoResponse.generatedSamples[0].video?.uri,
+      } : null,
+    } : null,
   });
 
   if (data.done) {
