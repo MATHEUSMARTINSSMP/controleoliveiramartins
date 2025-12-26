@@ -24,13 +24,31 @@ export interface GeminiImageOptions {
   apiKey: string;
 }
 
+// Mapear aspect ratio para dimensões conforme documentação Gemini
+// Documentação: https://ai.google.dev/docs/generate_images
+function getDimensionsFromAspectRatio(aspectRatio?: GeminiAspectRatio): { width: number; height: number } {
+  switch (aspectRatio) {
+    case '1:1': return { width: 1024, height: 1024 };
+    case '2:3': return { width: 832, height: 1248 };
+    case '3:2': return { width: 1248, height: 832 };
+    case '3:4': return { width: 864, height: 1184 };
+    case '4:3': return { width: 1184, height: 864 };
+    case '4:5': return { width: 896, height: 1152 };
+    case '5:4': return { width: 1152, height: 896 };
+    case '9:16': return { width: 768, height: 1344 };
+    case '16:9': return { width: 1344, height: 768 };
+    case '21:9': return { width: 1536, height: 672 };
+    default: return { width: 1024, height: 1024 }; // Padrão 1:1
+  }
+}
+
 /**
- * Gerar imagem usando Gemini (Nano Banana)
+ * Gerar imagem usando Gemini (Nano Banana / Nano Banana Pro)
  */
 export async function generateImageWithGemini(
   options: GeminiImageOptions
 ): Promise<ImageGenerationResult> {
-  const { prompt, inputImages = [], aspectRatio, apiKey } = options;
+  const { prompt, inputImages = [], aspectRatio, model = DEFAULT_MODEL, apiKey } = options;
 
   // Construir parts: texto + imagens
   const parts: any[] = [
