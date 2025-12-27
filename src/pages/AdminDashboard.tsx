@@ -30,7 +30,6 @@ import { TimeClockManagement } from "@/components/timeclock/TimeClockManagement"
 import { DailyGoalCheckReports } from "@/components/admin/DailyGoalCheckReports";
 import { ConditionalsAdjustmentsManager } from "@/components/admin/ConditionalsAdjustmentsManager";
 import GestaoMetasTab from "@/components/admin/GestaoMetasTab";
-import { AdminSiteManager } from "@/components/admin/AdminSiteManager";
 import { BillingManagement } from "@/components/admin/BillingManagement";
 import { AdminDailyTasksConfig } from "@/components/admin/AdminDailyTasksConfig";
 import { BillingAccessGuard } from "@/components/BillingAccessGuard";
