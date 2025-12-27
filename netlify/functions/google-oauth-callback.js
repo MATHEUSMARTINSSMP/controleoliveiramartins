@@ -13,6 +13,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+const { normalizeAccountName, normalizeLocationName } = require('./utils/googleBusinessProfileHelpers');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,22 +60,26 @@ async function fetchAccounts(accessToken) {
 }
 
 /**
- * Buscar locations de uma account
+ * Buscar locations de uma account usando Business Information API v1
+ * Documentação: https://developers.google.com/my-business/reference/businessinformation/rest/v1/accounts.locations/list
  */
 async function fetchLocations(accessToken, accountName) {
   try {
-    // Usar API v4 (mybusiness.googleapis.com) conforme documentação oficial
-    // accountName deve estar no formato: accounts/123456789
-    const response = await fetch(
-      `https://mybusiness.googleapis.com/v4/${accountName}/locations`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    // Extrair accountId numérico do accountName (formato: accounts/123456789)
+    const accountId = accountName.replace(/^accounts\//, '');
+    
+    // Business Information API v1 - readMask é obrigatório
+    // Documentação: https://developers.google.com/my-business/reference/businessinformation/rest/v1/accounts.locations/list
+    const readMask = 'name,title,storefrontAddress,phoneNumbers,websiteUri,primaryCategory,openInfo,latlng';
+    const url = `https://mybusinessbusinessinformation.googleapis.com/v1/accounts/${accountId}/locations?readMask=${encodeURIComponent(readMask)}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
@@ -92,28 +97,28 @@ async function fetchLocations(accessToken, accountName) {
 
 /**
  * Salvar account/location no banco
+ * Salva account_name e location_name separadamente (formato v1)
  */
 async function saveAccountLocation(supabase, customerId, siteSlug, account, location, isPrimary = false) {
   try {
-    // Business Information API retorna location.name no formato: locations/123456789
-    // Precisamos extrair apenas o ID numérico
-    const locationName = location.name || '';
-    const locationId = locationName.replace('locations/', '') || location.location_id || '';
+    // Business Information API v1 retorna location.name no formato: locations/987654321
+    // Salvar EXATAMENTE como vem (não extrair ID)
+    const locationName = normalizeLocationName(location.name || location.locationName || '');
     
-    // Extrair accountId do account.name (formato: accounts/123456789)
-    const accountName = account.name || '';
-    const accountId = accountName || account.account_id || '';
+    // Account Management API v1 retorna account.name no formato: accounts/123456789
+    // Salvar EXATAMENTE como vem
+    const accountName = normalizeAccountName(account.name || account.accountName || '');
     
     const { error } = await supabase
       .from('google_business_accounts')
       .upsert({
         customer_id: customerId,
         site_slug: siteSlug,
-        account_id: accountId,
+        account_id: accountName, // Salvar account_name completo
         account_name: account.accountName || account.name || '',
         account_type: account.type || 'PERSONAL',
-        location_id: locationId,
-        location_name: location.locationName || location.title || location.name || '',
+        location_id: locationName, // Salvar location_name completo (locations/987654321)
+        location_name: location.title || location.name || location.locationName || '',
         location_address: location.storefrontAddress?.addressLines?.join(', ') || 
                           location.storefrontAddress?.postalCode || '',
         location_phone: location.phoneNumbers?.primaryPhone || 

@@ -7,6 +7,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+const { normalizeAccountName, normalizeLocationName } = require('./utils/googleBusinessProfileHelpers');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -78,20 +79,20 @@ async function fetchLocations(accessToken, accountName) {
 
 /**
  * Salvar ou atualizar location no banco
+ * Salva account_name e location_name separadamente (formato v1)
  */
 async function saveAccountLocation(supabase, customerId, siteSlug, account, location, isPrimary) {
   try {
-    // Business Information API retorna location.name no formato: locations/123456789
-    // Precisamos extrair apenas o ID numérico
-    const locationName = location.name || '';
-    const locationId = locationName.replace('locations/', '') || '';
+    // Business Information API v1 retorna location.name no formato: locations/987654321
+    // Salvar EXATAMENTE como vem (não extrair ID)
+    const locationName = normalizeLocationName(location.name || location.locationName || '');
     
-    // Extrair accountId do account.name (formato: accounts/123456789)
-    const accountName = account.name || '';
-    const accountId = accountName || '';
+    // Account Management API v1 retorna account.name no formato: accounts/123456789
+    // Salvar EXATAMENTE como vem
+    const accountName = normalizeAccountName(account.name || account.accountName || '');
 
-    if (!locationId || !accountId) {
-      console.warn('[Google Locations Refresh] Location ou Account sem ID válido');
+    if (!locationName || !accountName) {
+      console.warn('[Google Locations Refresh] Location ou Account sem nome válido');
       return false;
     }
 
@@ -102,16 +103,16 @@ async function saveAccountLocation(supabase, customerId, siteSlug, account, loca
       .select('id')
       .eq('customer_id', customerId)
       .eq('site_slug', siteSlug)
-      .eq('location_id', locationId)
+      .eq('location_id', locationName)
       .maybeSingle();
 
     const locationData = {
       customer_id: customerId,
       site_slug: siteSlug,
-      account_id: accountId,
+      account_id: accountName, // Salvar account_name completo
       account_name: account.accountName || account.name || '',
-      location_id: locationId,
-      location_name: location.locationName || location.title || location.name || '',
+      location_id: locationName, // Salvar location_name completo (locations/987654321)
+      location_name: location.title || location.name || location.locationName || '',
       location_address: location.storefrontAddress?.addressLines?.join(', ') || 
                         location.storefrontAddress?.postalCode || '',
       location_phone: location.phoneNumbers?.primaryPhone || 

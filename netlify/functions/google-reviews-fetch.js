@@ -7,6 +7,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+const { buildV4Parent } = require('./utils/googleBusinessProfileHelpers');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -316,12 +317,15 @@ exports.handler = async (event) => {
         const accountId = account.name || '';
         if (!accountId) continue;
 
+        // Business Information API v1 - readMask é obrigatório
+        const readMask = 'name,title,storefrontAddress,phoneNumbers,websiteUri,primaryCategory,openInfo,latlng';
         const locationsResponse = await fetch(
-          `https://mybusinessbusinessinformation.googleapis.com/v1/${accountId}/locations`,
+          `https://mybusinessbusinessinformation.googleapis.com/v1/${accountId}/locations?readMask=${encodeURIComponent(readMask)}`,
           {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
             },
           }
         );

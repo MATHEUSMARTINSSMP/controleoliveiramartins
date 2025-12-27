@@ -7,6 +7,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+const { buildV4Parent } = require('./utils/googleBusinessProfileHelpers');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

@@ -7,6 +7,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+const { buildV4Parent } = require('./utils/googleBusinessProfileHelpers');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -165,19 +166,22 @@ exports.handler = async (event) => {
     // Obter/renovar access token
     const accessToken = await refreshAccessTokenIfNeeded(supabase, userEmail, siteSlug);
 
-    // Buscar location_id se não fornecido
+    // Buscar account_id e location_id se não fornecido
     let finalLocationId = locationId;
+    let accountId = null;
+    
     if (!finalLocationId) {
-      const { data: locations, error: locError } = await supabase
+      const { data: locationData, error: locError } = await supabase
+        .schema('sistemaretiradas')
         .from('google_business_accounts')
-        .select('location_id')
+        .select('account_id, location_id')
         .eq('customer_id', userEmail)
         .eq('site_slug', siteSlug)
         .not('location_id', 'is', null)
         .limit(1)
         .maybeSingle();
 
-      if (locError || !locations) {
+      if (locError || !locationData) {
         return {
           statusCode: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -188,7 +192,29 @@ exports.handler = async (event) => {
         };
       }
 
-      finalLocationId = locations.location_id;
+      accountId = locationData.account_id;
+      finalLocationId = locationData.location_id;
+    } else {
+      // Se locationId foi fornecido, buscar account_id correspondente
+      const { data: locationData, error: locError } = await supabase
+        .schema('sistemaretiradas')
+        .from('google_business_accounts')
+        .select('account_id')
+        .eq('customer_id', userEmail)
+        .eq('site_slug', siteSlug)
+        .eq('location_id', finalLocationId)
+        .limit(1)
+        .maybeSingle();
+
+      if (!locError && locationData) {
+        accountId = locationData.account_id;
+      }
+    }
+
+    // Construir formato v4 se temos account_id e location_id
+    let locationIdForV4 = finalLocationId;
+    if (accountId && finalLocationId) {
+      locationIdForV4 = buildV4Parent(accountId, finalLocationId);
     }
 
     // Buscar mídias
@@ -199,7 +225,7 @@ exports.handler = async (event) => {
     const maxPages = 10; // Limite de segurança
 
     while (hasMore && pageCount < maxPages) {
-      const result = await fetchLocationMedia(accessToken, finalLocationId, pageToken);
+      const result = await fetchLocationMedia(accessToken, locationIdForV4, pageToken);
       allMediaItems.push(...result.mediaItems);
       pageToken = result.nextPageToken;
       hasMore = !!result.nextPageToken;
