@@ -25,7 +25,10 @@ async function fetchLocationInsights(accessToken, locationIds, startDate, endDat
     // Google My Business API v4 - reportInsights
     // Documentação: https://developers.google.com/my-business/content/insights
     // NOTA: Este endpoint pode estar deprecated, mas ainda funciona
-    const url = `https://mybusiness.googleapis.com/v4/${locationIds[0].split('/locations/')[0]}/locations:reportInsights`;
+    // Extrair accountName do primeiro locationId (formato: accounts/123/locations/456)
+    const firstLocationId = locationIds[0] || '';
+    const accountName = firstLocationId.split('/locations/')[0] || '';
+    const url = `https://mybusiness.googleapis.com/v4/${accountName}/locations:reportInsights`;
 
     const requestBody = {
       locationNames: locationIds,
@@ -311,11 +314,8 @@ exports.handler = async (event) => {
         };
       }
 
-      // Construir location names no formato correto: accounts/{accountId}/locations/{locationId}
-      locationIds = locations.map(loc => {
-        const accountId = loc.account_id.split('/').pop() || loc.account_id;
-        return `accounts/${accountId}/locations/${loc.location_id}`;
-      });
+      // Construir location names no formato v4 usando buildV4Parent
+      locationIds = locations.map(loc => buildV4Parent(loc.account_id, loc.location_id));
     }
 
     if (locationIds.length === 0) {
