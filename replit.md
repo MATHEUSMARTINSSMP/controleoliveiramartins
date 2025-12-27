@@ -40,6 +40,7 @@ The system is built with a modern web stack, emphasizing a chic, minimalist, and
         -   Hooks: useDailyTasks, useTaskStatistics, useTasksRealtime
         -   Components: AdminTasksCalendarView, LojaTasksTab, TaskOverdueNotification
         -   Migration: docs/tasks-whatsapp-notification-migration.sql
+        -   Database field: Uses `tasks_ativo` (consolidated, removed duplicate `tasks_module_enabled`)
     -   Store Task Alerts System: Allows admins to schedule recurring WhatsApp task reminders for stores.
     -   Daily Goal Check Module: Gamified system for collaborators to confirm daily goal viewing, with configurable bonuses and time limits.
     -   WhatsApp Global Fallback System: Ensures notifications can be sent from a global number if a store lacks its own connected WhatsApp credentials.

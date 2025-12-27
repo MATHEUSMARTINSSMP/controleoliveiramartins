@@ -21,7 +21,7 @@ interface Store {
   ajustes_condicionais_ativo: boolean;
   caixa_ativo: boolean;
   lista_da_vez_ativo: boolean;
-  tasks_module_enabled: boolean;
+  tasks_ativo: boolean;
   tasks_whatsapp_notificacoes_ativas: boolean;
   whatsapp: string | null;
   whatsapp_notificacoes_ajustes_condicionais: string | null;
@@ -38,7 +38,7 @@ interface ModuleInfo {
   name: string;
   description: string;
   icon: React.ReactNode;
-  field: 'cashback_ativo' | 'crm_ativo' | 'wishlist_ativo' | 'ponto_ativo' | 'ajustes_condicionais_ativo' | 'daily_goal_check_ativo' | 'caixa_ativo' | 'lista_da_vez_ativo' | 'tasks_module_enabled';
+  field: 'cashback_ativo' | 'crm_ativo' | 'wishlist_ativo' | 'ponto_ativo' | 'ajustes_condicionais_ativo' | 'daily_goal_check_ativo' | 'caixa_ativo' | 'lista_da_vez_ativo' | 'tasks_ativo';
   color: string;
   hasConfig?: boolean;
 }
@@ -124,7 +124,7 @@ const modules: ModuleInfo[] = [
     name: 'Tarefas do Dia',
     description: 'Sistema de gerenciamento de tarefas diárias por turno. Permite configurar tarefas organizadas por horário/turno e acompanhar a execução pelas colaboradoras com relatórios de desempenho.',
     icon: <CheckSquare2 className="h-5 w-5" />,
-    field: 'tasks_module_enabled',
+    field: 'tasks_ativo',
     color: 'text-violet-600 dark:text-violet-400',
     hasConfig: true
   }
@@ -158,14 +158,14 @@ export const ModulesStoreConfig = () => {
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, tasks_module_enabled, tasks_whatsapp_notificacoes_ativas, whatsapp, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, whatsapp_caixa_numeros, whatsapp_caixa_usar_global, active')
+        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, tasks_ativo, tasks_whatsapp_notificacoes_ativas, whatsapp, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, whatsapp_caixa_numeros, whatsapp_caixa_usar_global, active')
         .eq('active', true)
         .order('name');
       
       if (data) {
         data.forEach(store => {
-          if (!('tasks_module_enabled' in store) || store.tasks_module_enabled === null) {
-            (store as any).tasks_module_enabled = true;
+          if (!('tasks_ativo' in store) || store.tasks_ativo === null) {
+            (store as any).tasks_ativo = false;
           }
           if (!('tasks_whatsapp_notificacoes_ativas' in store) || store.tasks_whatsapp_notificacoes_ativas === null) {
             (store as any).tasks_whatsapp_notificacoes_ativas = false;
@@ -228,9 +228,9 @@ export const ModulesStoreConfig = () => {
           const updated = store.id === storeId
             ? { ...store, [module.field]: newValue }
             : store;
-          // Garantir que tasks_module_enabled existe mesmo se não veio do banco
-          if (!('tasks_module_enabled' in updated)) {
-            (updated as any).tasks_module_enabled = true; // Default: habilitado
+          // Garantir que tasks_ativo existe mesmo se não veio do banco
+          if (!('tasks_ativo' in updated)) {
+            (updated as any).tasks_ativo = false;
           }
           return updated;
         })
@@ -538,10 +538,10 @@ export const ModulesStoreConfig = () => {
                         <span className="font-medium">Lista da Vez</span>
                         {store.lista_da_vez_ativo ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                       </div>
-                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded ${store.tasks_module_enabled ? 'bg-success/10 text-success' : 'text-muted-foreground'}`}>
+                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded ${store.tasks_ativo ? 'bg-success/10 text-success' : 'text-muted-foreground'}`}>
                         <CheckSquare2 className="h-3.5 w-3.5" />
                         <span className="font-medium">Tarefas</span>
-                        {store.tasks_module_enabled ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                        {store.tasks_ativo ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                       </div>
                     </div>
                   )}
