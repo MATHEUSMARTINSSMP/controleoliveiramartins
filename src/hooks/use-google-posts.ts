@@ -1,5 +1,9 @@
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { fetchWithRetry } from "@/lib/google-api-retry";
+
+const NETLIFY_FUNCTIONS_BASE = import.meta.env.VITE_NETLIFY_FUNCTIONS_BASE || "/.netlify/functions";
 
 export interface GooglePost {
     name: string; // resource name
@@ -14,74 +18,79 @@ export interface GooglePost {
         googleUrl: string;
         sourceUrl: string;
     }[];
-    topicType: "STANDARD" | "EVENT" | "OFFER" | "ALERT";
+    topicType?: "STANDARD" | "EVENT" | "OFFER" | "ALERT";
+}
+
+interface GooglePostsResponse {
+    success: boolean;
+    posts: GooglePost[];
+    total: number;
+    error?: string;
 }
 
 export function useGooglePosts() {
+    const { user } = useAuth();
     const [posts, setPosts] = useState<GooglePost[]>([]);
     const [loading, setLoading] = useState(false);
 
-    const fetchPosts = async (locationId: string) => {
+    const fetchPosts = async (locationId: string, siteSlug?: string) => {
+        if (!user?.email) {
+            toast.error("É necessário estar logado");
+            return;
+        }
+
         setLoading(true);
-        // Simulação de delay
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        try {
+            const endpoint = `${NETLIFY_FUNCTIONS_BASE}/google-posts-fetch`;
 
-        // Dados simulados
-        const mockPosts: GooglePost[] = [
-            {
-                name: "posts/1",
-                summary: "Venha conferir nossas ofertas de fim de ano! Descontos imperdíveis em toda a loja.",
-                callToAction: {
-                    actionType: "SHOP",
-                    url: "https://exemplo.com/ofertas",
+            const response = await fetchWithRetry(
+                endpoint,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        locationId,
+                        userEmail: user.email,
+                        siteSlug: siteSlug || "",
+                    }),
                 },
-                createTime: new Date().toISOString(),
-                state: "LIVE",
-                topicType: "OFFER",
-                media: [{ googleUrl: "https://placehold.co/600x400", sourceUrl: "https://placehold.co/600x400" }]
-            },
-            {
-                name: "posts/2",
-                summary: "Estamos com horário especial neste feriado. Abriremos das 09h às 18h.",
-                createTime: new Date(Date.now() - 86400000).toISOString(),
-                state: "LIVE",
-                topicType: "STANDARD",
-            }
-        ];
+                {
+                    maxRetries: 3,
+                    retryDelay: 1000,
+                }
+            );
 
-        setPosts(mockPosts);
-        setLoading(false);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `HTTP ${response.status}`);
+            }
+
+            const data: GooglePostsResponse = await response.json();
+
+            if (!data.success || !data.posts) {
+                throw new Error(data.error || "Resposta inválida da API");
+            }
+
+            setPosts(data.posts);
+        } catch (error: any) {
+            console.error("[useGooglePosts] Erro ao buscar posts:", error);
+            toast.error(error.message || "Erro ao buscar postagens do Google");
+            setPosts([]);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const createPost = async (post: Partial<GooglePost>) => {
-        setLoading(true);
-        // Simulação
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        const newPost: GooglePost = {
-            name: `posts/${Date.now()}`,
-            summary: post.summary || "",
-            callToAction: post.callToAction,
-            createTime: new Date().toISOString(),
-            state: "LIVE",
-            topicType: post.topicType || "STANDARD",
-            media: post.media,
-        };
-
-        setPosts([newPost, ...posts]);
-        setLoading(false);
-        toast.success("Postagem criada com sucesso! (Simulação)");
-        return newPost;
+        toast.error("Criação de postagens ainda não implementada");
+        throw new Error("Funcionalidade em desenvolvimento");
     };
 
     const deletePost = async (postName: string) => {
-        setLoading(true);
-        // Simulação
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        setPosts(posts.filter(p => p.name !== postName));
-        setLoading(false);
-        toast.success("Postagem removida com sucesso! (Simulação)");
+        toast.error("Exclusão de postagens ainda não implementada");
+        throw new Error("Funcionalidade em desenvolvimento");
     };
 
     return {

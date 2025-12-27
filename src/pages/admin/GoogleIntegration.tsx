@@ -558,7 +558,7 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
 
           {/* Tab: Mídias */}
           <TabsContent value="media">
-            <MediaManager />
+            <MediaManager siteSlug={siteSlug} />
           </TabsContent>
 
           {/* Tab: Perguntas */}

@@ -1,35 +1,44 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Image as ImageIcon, MoreVertical, Star } from "lucide-react";
+import { Plus, Trash2, Image as ImageIcon, MoreVertical, Star, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { useGoogleMedia, GoogleMediaItem } from "@/hooks/use-google-media";
+import { useGoogleLocations } from "@/hooks/use-google-locations";
 
-interface MediaItem {
-    id: string;
-    url: string;
-    type: "PHOTO" | "VIDEO";
-    category: "PROFILE" | "COVER" | "INTERIOR" | "EXTERIOR" | "PRODUCT" | "FOOD";
-    views: number;
-    uploadDate: string;
+interface MediaManagerProps {
+    siteSlug: string;
 }
 
-export function MediaManager() {
-    const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+// Remover interface MediaItem antiga - agora usando GoogleMediaItem do hook
+
+export function MediaManager({ siteSlug }: MediaManagerProps) {
+    const { mediaItems, loading, fetchMedia } = useGoogleMedia();
+    const { locations } = useGoogleLocations();
     const [isUploadOpen, setIsUploadOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>();
+
+    useEffect(() => {
+        if (siteSlug && locations.length > 0) {
+            const primaryLocation = locations.find(l => l.is_primary) || locations[0];
+            if (primaryLocation) {
+                setSelectedLocationId(primaryLocation.location_id);
+                fetchMedia(siteSlug, primaryLocation.location_id);
+            }
+        }
+    }, [siteSlug, locations]);
 
     const handleDelete = (id: string) => {
-        setMediaItems(mediaItems.filter(item => item.id !== id));
-        toast.success("Mídia removida com sucesso!");
+        toast.error("Exclusão de mídias ainda não implementada");
     };
 
     const handleSetProfile = (id: string) => {
-        toast.success("Foto definida como perfil!");
+        toast.error("Definir como foto de perfil ainda não implementado");
     };
 
     return (
@@ -90,6 +99,7 @@ export function MediaManager() {
                 <TabsContent value="all" className="mt-6">
                     {loading ? (
                         <div className="flex items-center justify-center py-12">
+                            <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
                             <p className="text-muted-foreground">Carregando mídias...</p>
                         </div>
                     ) : mediaItems.length === 0 ? (
@@ -97,8 +107,7 @@ export function MediaManager() {
                             <ImageIcon className="h-12 w-12 text-muted-foreground mb-4" />
                             <p className="text-lg font-medium mb-2">Nenhuma mídia encontrada</p>
                             <p className="text-sm text-muted-foreground text-center max-w-md">
-                                A integração com a API do Google My Business para buscar mídias ainda não foi implementada. 
-                                As fotos e vídeos aparecerão aqui quando a funcionalidade estiver disponível.
+                                Não há fotos ou vídeos cadastrados no Google My Business para esta location.
                             </p>
                         </div>
                     ) : (
@@ -106,9 +115,13 @@ export function MediaManager() {
                             {mediaItems.map((item) => (
                                 <div key={item.id} className="group relative aspect-square bg-muted rounded-lg overflow-hidden border">
                                     <img
-                                        src={item.url}
-                                        alt="Media item"
+                                        src={item.thumbnailUrl || item.url}
+                                        alt={item.description || "Media item"}
                                         className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                                        onError={(e) => {
+                                            const target = e.target as HTMLImageElement;
+                                            target.src = item.url; // Fallback para URL original
+                                        }}
                                     />
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                         <DropdownMenu>
@@ -128,7 +141,7 @@ export function MediaManager() {
                                         </DropdownMenu>
                                     </div>
                                     <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent text-white text-xs font-medium">
-                                        {item.views} visualizações
+                                        {item.views > 0 ? `${item.views} visualizações` : "Sem visualizações"}
                                     </div>
                                 </div>
                             ))}
