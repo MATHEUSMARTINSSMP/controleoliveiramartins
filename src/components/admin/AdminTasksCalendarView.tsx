@@ -70,7 +70,7 @@ export function AdminTasksCalendarView() {
     const [formData, setFormData] = useState({
         title: "",
         description: "",
-        shift_id: "",
+        shift_id: "none",
         due_time: "",
         priority: "MÉDIA",
         weekday: null as number | null,
@@ -194,7 +194,7 @@ export function AdminTasksCalendarView() {
             setFormData({
                 title: task.title,
                 description: task.description || "",
-                shift_id: task.shift_id || "",
+                shift_id: task.shift_id || "none",
                 due_time: task.due_time || "",
                 priority: task.priority || "MÉDIA",
                 weekday: task.weekday,
@@ -205,7 +205,7 @@ export function AdminTasksCalendarView() {
             setFormData({
                 title: "",
                 description: "",
-                shift_id: "",
+                shift_id: "none",
                 due_time: "",
                 priority: "MÉDIA",
                 weekday: weekday !== undefined ? weekday : null,
@@ -221,7 +221,7 @@ export function AdminTasksCalendarView() {
         setFormData({
             title: "",
             description: "",
-            shift_id: "",
+            shift_id: "none",
             due_time: "",
             priority: "MÉDIA",
             weekday: null,
@@ -246,7 +246,7 @@ export function AdminTasksCalendarView() {
                     .update({
                         title: formData.title.trim(),
                         description: formData.description.trim() || null,
-                        shift_id: formData.shift_id || null,
+                        shift_id: formData.shift_id === "none" ? null : formData.shift_id,
                         due_time: formData.due_time || null,
                         priority: formData.priority,
                         weekday: formData.weekday,
@@ -265,7 +265,7 @@ export function AdminTasksCalendarView() {
                         store_id: selectedStoreId,
                         title: formData.title.trim(),
                         description: formData.description.trim() || null,
-                        shift_id: formData.shift_id || null,
+                        shift_id: formData.shift_id === "none" ? null : formData.shift_id,
                         due_time: formData.due_time || null,
                         priority: formData.priority,
                         weekday: formData.weekday,
@@ -472,9 +472,9 @@ export function AdminTasksCalendarView() {
 
             {/* Dialog de Criar/Editar Tarefa */}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>
+                        <DialogTitle className="text-xl">
                             {editingTask ? 'Editar Tarefa' : 'Nova Tarefa'}
                         </DialogTitle>
                         <DialogDescription>
@@ -483,96 +483,126 @@ export function AdminTasksCalendarView() {
                                 : 'Preencha os dados para criar uma nova tarefa'}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div>
-                            <Label htmlFor="title">Título *</Label>
-                            <Input
-                                id="title"
-                                value={formData.title}
-                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                placeholder="Ex: Varrer a Loja"
-                            />
-                        </div>
-                        <div>
-                            <Label htmlFor="description">Descrição</Label>
-                            <Textarea
-                                id="description"
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                placeholder="Descrição opcional da tarefa"
-                                rows={3}
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="due_time">Horário</Label>
-                                <Input
-                                    id="due_time"
-                                    type="time"
-                                    value={formData.due_time}
-                                    onChange={(e) => setFormData({ ...formData, due_time: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="priority">Prioridade *</Label>
-                                <Select
-                                    value={formData.priority}
-                                    onValueChange={(value) => setFormData({ ...formData, priority: value })}
-                                >
-                                    <SelectTrigger id="priority">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {PRIORITIES.map(priority => (
-                                            <SelectItem key={priority.value} value={priority.value}>
-                                                {priority.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="weekday">Dia da Semana *</Label>
-                                <Select
-                                    value={formData.weekday === null ? 'all' : formData.weekday.toString()}
-                                    onValueChange={(value) => setFormData({ ...formData, weekday: value === 'all' ? null : parseInt(value) })}
-                                >
-                                    <SelectTrigger id="weekday">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {WEEKDAYS.map(weekday => (
-                                            <SelectItem
-                                                key={weekday.value === null ? 'all' : weekday.value.toString()}
-                                                value={weekday.value === null ? 'all' : weekday.value.toString()}
+                    <div className="py-4">
+                        {/* Estrutura tipo tabela para melhor organização visual */}
+                        <div className="border rounded-lg overflow-hidden bg-card">
+                            <Table>
+                                <TableBody>
+                                    <TableRow className="border-b">
+                                        <TableCell className="font-semibold bg-muted/50 w-[200px]">
+                                            Título *
+                                        </TableCell>
+                                        <TableCell>
+                                            <Input
+                                                id="title"
+                                                value={formData.title}
+                                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                                placeholder="Ex: Varrer a Loja"
+                                                className="w-full"
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                    <TableRow className="border-b">
+                                        <TableCell className="font-semibold bg-muted/50 align-top pt-4">
+                                            Descrição
+                                        </TableCell>
+                                        <TableCell>
+                                            <Textarea
+                                                id="description"
+                                                value={formData.description}
+                                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                                placeholder="Descrição opcional da tarefa"
+                                                rows={3}
+                                                className="w-full"
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                    <TableRow className="border-b">
+                                        <TableCell className="font-semibold bg-muted/50">
+                                            Horário
+                                        </TableCell>
+                                        <TableCell>
+                                            <Input
+                                                id="due_time"
+                                                type="time"
+                                                value={formData.due_time}
+                                                onChange={(e) => setFormData({ ...formData, due_time: e.target.value })}
+                                                className="w-full max-w-[200px]"
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                    <TableRow className="border-b">
+                                        <TableCell className="font-semibold bg-muted/50">
+                                            Prioridade *
+                                        </TableCell>
+                                        <TableCell>
+                                            <Select
+                                                value={formData.priority}
+                                                onValueChange={(value) => setFormData({ ...formData, priority: value })}
                                             >
-                                                {weekday.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label htmlFor="shift_id">Turno</Label>
-                                <Select
-                                    value={formData.shift_id}
-                                    onValueChange={(value) => setFormData({ ...formData, shift_id: value })}
-                                >
-                                    <SelectTrigger id="shift_id">
-                                        <SelectValue placeholder="Sem turno" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="">Sem turno</SelectItem>
-                                        {shifts.map(shift => (
-                                            <SelectItem key={shift.id} value={shift.id}>
-                                                {shift.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                                                <SelectTrigger id="priority" className="w-full max-w-[200px]">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {PRIORITIES.map(priority => (
+                                                        <SelectItem key={priority.value} value={priority.value}>
+                                                            {priority.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </TableCell>
+                                    </TableRow>
+                                    <TableRow className="border-b">
+                                        <TableCell className="font-semibold bg-muted/50">
+                                            Dia da Semana *
+                                        </TableCell>
+                                        <TableCell>
+                                            <Select
+                                                value={formData.weekday === null ? 'all' : formData.weekday.toString()}
+                                                onValueChange={(value) => setFormData({ ...formData, weekday: value === 'all' ? null : parseInt(value) })}
+                                            >
+                                                <SelectTrigger id="weekday" className="w-full max-w-[250px]">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {WEEKDAYS.map(weekday => (
+                                                        <SelectItem
+                                                            key={weekday.value === null ? 'all' : weekday.value.toString()}
+                                                            value={weekday.value === null ? 'all' : weekday.value.toString()}
+                                                        >
+                                                            {weekday.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell className="font-semibold bg-muted/50">
+                                            Turno
+                                        </TableCell>
+                                        <TableCell>
+                                            <Select
+                                                value={formData.shift_id}
+                                                onValueChange={(value) => setFormData({ ...formData, shift_id: value })}
+                                            >
+                                                <SelectTrigger id="shift_id" className="w-full max-w-[250px]">
+                                                    <SelectValue placeholder="Sem turno" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">Sem turno</SelectItem>
+                                                    {shifts.map(shift => (
+                                                        <SelectItem key={shift.id} value={shift.id}>
+                                                            {shift.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
                         </div>
                     </div>
                     <DialogFooter>

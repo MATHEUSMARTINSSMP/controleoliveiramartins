@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { format, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Download, Loader2, BarChart3, Users, Clock, DollarSign } from "lucide-react";
@@ -51,11 +51,27 @@ export const ListaDaVezAnalytics = () => {
         fetchStores();
     }, [profile]);
 
+    // Quando stores são carregadas, selecionar primeira loja se necessário
     useEffect(() => {
-        if (stores.length > 0 && selectedStoreId !== 'all') {
-            fetchAllAnalytics();
+        if (stores.length > 0 && (selectedStoreId === 'all' || !selectedStoreId)) {
+            setSelectedStoreId(stores[0].id);
         }
-    }, [selectedStoreId, period, startDate, endDate, stores]);
+    }, [stores]);
+
+    useEffect(() => {
+        if (stores.length > 0 && selectedStoreId && selectedStoreId !== 'all') {
+            fetchAllAnalytics();
+        } else {
+            // Limpar dados quando não há loja selecionada ou é 'all'
+            setStoreMetrics(null);
+            setTrends([]);
+            setLossReasons([]);
+            setHourlyData([]);
+            setRanking([]);
+            setComparison([]);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedStoreId, period, startDate, endDate, groupBy]);
 
     const fetchStores = async () => {
         if (!profile?.id) return;
@@ -70,9 +86,6 @@ export const ListaDaVezAnalytics = () => {
 
             if (error) throw error;
             setStores(data || []);
-            if (data && data.length > 0 && selectedStoreId === 'all') {
-                setSelectedStoreId(data[0].id);
-            }
         } catch (error: any) {
             console.error('[ListaDaVezAnalytics] Erro ao buscar lojas:', error);
         }
@@ -195,7 +208,7 @@ export const ListaDaVezAnalytics = () => {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Analytics Robusta - Lista da Vez</CardTitle>
+                    <CardTitle>Analytics Detalhada</CardTitle>
                     <CardDescription>
                         Análise detalhada de desempenho, tendências e métricas avançadas
                     </CardDescription>
@@ -553,16 +566,4 @@ export const ListaDaVezAnalytics = () => {
         </div>
     );
 };
-
-function endOfDay(date: Date): Date {
-    const d = new Date(date);
-    d.setHours(23, 59, 59, 999);
-    return d;
-}
-
-function startOfDay(date: Date): Date {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    return d;
-}
 
