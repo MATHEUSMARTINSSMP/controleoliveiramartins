@@ -147,30 +147,11 @@ export function TarefasModal({ storeId, open, onOpenChange }: TarefasModalProps)
 
         setCompletingTaskId(selectingForTask.id);
         try {
-            await completeTaskWithProfile(selectingForTask.id, selectedColaboradora);
+            await completeTask(selectingForTask.id, undefined, selectedColaboradora);
             setSelectingForTask(null);
             setSelectedColaboradora("");
         } finally {
             setCompletingTaskId(null);
-        }
-    };
-
-    const completeTaskWithProfile = async (taskId: string, profileId: string): Promise<boolean> => {
-        try {
-            const { error: completeError } = await supabase.rpc('complete_task_execution', {
-                p_task_id: taskId,
-                p_profile_id: profileId,
-                p_notes: null,
-                p_completion_date: selectedDate.toISOString().split('T')[0]
-            });
-
-            if (completeError) throw completeError;
-            toast.success('Tarefa marcada como completa!');
-            return true;
-        } catch (err: any) {
-            console.error('[TarefasModal] Erro ao completar tarefa:', err);
-            toast.error('Erro ao marcar tarefa: ' + (err.message || 'Erro desconhecido'));
-            return false;
         }
     };
 

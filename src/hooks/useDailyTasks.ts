@@ -42,7 +42,7 @@ interface UseDailyTasksReturn {
     loading: boolean;
     error: string | null;
     refresh: () => Promise<void>;
-    completeTask: (taskId: string, notes?: string) => Promise<boolean>;
+    completeTask: (taskId: string, notes?: string, customProfileId?: string) => Promise<boolean>;
     uncompleteTask: (taskId: string) => Promise<boolean>;
 }
 
@@ -84,12 +84,16 @@ export function useDailyTasks({
         }
     }, [storeId, date, enabled]);
 
-    const completeTask = useCallback(async (taskId: string, notes?: string): Promise<boolean> => {
+    const completeTask = useCallback(async (taskId: string, notes?: string, customProfileId?: string): Promise<boolean> => {
         if (!storeId) return false;
 
         try {
-            const { data: userData } = await supabase.auth.getUser();
-            const profileId = userData?.user?.id;
+            let profileId = customProfileId;
+            
+            if (!profileId) {
+                const { data: userData } = await supabase.auth.getUser();
+                profileId = userData?.user?.id;
+            }
             
             if (!profileId) {
                 toast.error('Usuário não autenticado');
@@ -105,10 +109,10 @@ export function useDailyTasks({
 
             if (completeError) throw completeError;
 
-            // Atualizar lista localmente
+            // Atualizar lista localmente imediatamente
             setTasks(prev => prev.map(task => 
                 task.id === taskId 
-                    ? { ...task, completed_by: profileId, completed_at: new Date().toISOString(), completion_notes: notes || null }
+                    ? { ...task, completed_by: profileId, completed_at: new Date().toISOString(), completion_notes: notes || null, status: 'CONCLUÍDA' }
                     : task
             ));
 
