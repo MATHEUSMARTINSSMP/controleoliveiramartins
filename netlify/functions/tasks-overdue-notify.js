@@ -157,7 +157,7 @@ exports.handler = async (event, context) => {
                 phone: store.whatsapp,
                 message: whatsappMessage,
                 store_id: store.id,
-                useGlobalWhatsApp: true, // Forçar uso de número global
+                use_global_whatsapp: true, // Forçar uso de número global
               }),
             });
 
