@@ -13,6 +13,7 @@ interface TaskSectionProps {
     tasks: DailyTask[];
     onToggleComplete: (taskId: string, completed: boolean) => void;
     onCompleteClick?: (task: DailyTask) => void;
+    completedByNames?: Map<string, string>;
     loading?: boolean;
 }
 
@@ -47,6 +48,7 @@ export function TaskSection({
     tasks,
     onToggleComplete,
     onCompleteClick,
+    completedByNames = new Map(),
     loading = false
 }: TaskSectionProps) {
     if (tasks.length === 0) return null;

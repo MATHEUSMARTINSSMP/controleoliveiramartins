@@ -13,7 +13,7 @@ interface TaskCardProps {
     loading?: boolean;
 }
 
-export function TaskCard({ task, onToggleComplete, onCompleteClick, loading = false }: TaskCardProps) {
+export function TaskCard({ task, onToggleComplete, onCompleteClick, completedByName, loading = false }: TaskCardProps) {
     const isCompleted = task.completed_by !== null;
     
     // Verificar se está próximo do horário limite (15 minutos antes)
@@ -137,9 +137,19 @@ export function TaskCard({ task, onToggleComplete, onCompleteClick, loading = fa
                     
                     {/* Informações de Conclusão */}
                     {isCompleted && task.completed_at && (
-                        <div className="mt-2 text-xs text-muted-foreground">
+                        <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                            {completedByName && (
+                                <p className="font-medium text-emerald-700 dark:text-emerald-400">
+                                    ✅ Concluída por: {completedByName}
+                                </p>
+                            )}
+                            {task.completed_at && (
+                                <p className="text-muted-foreground">
+                                    às {format(new Date(task.completed_at), 'HH:mm', { locale: ptBR })}
+                                </p>
+                            )}
                             {task.completion_notes && (
-                                <p className="italic">"{task.completion_notes}"</p>
+                                <p className="italic mt-1">"{task.completion_notes}"</p>
                             )}
                         </div>
                     )}

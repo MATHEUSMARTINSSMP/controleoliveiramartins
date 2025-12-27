@@ -15,9 +15,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckSquare2, Calendar } from "lucide-react";
+import { Loader2, CheckSquare2, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { DailyTask } from "@/hooks/useDailyTasks";
-import { format } from "date-fns";
+import { format, addDays, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface LojaTasksTabProps {
@@ -28,12 +28,52 @@ export function LojaTasksTab({ storeId }: LojaTasksTabProps) {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [completionDialogOpen, setCompletionDialogOpen] = useState(false);
     const [selectedTaskForCompletion, setSelectedTaskForCompletion] = useState<DailyTask | null>(null);
+    const [completedByNames, setCompletedByNames] = useState<Map<string, string>>(new Map());
     
     const { tasks, loading, completeTask, uncompleteTask } = useDailyTasks({
         storeId,
         date: selectedDate,
         enabled: !!storeId
     });
+
+    // Buscar nomes das pessoas que completaram as tarefas
+    useEffect(() => {
+        const fetchCompletedByNames = async () => {
+            const completedByIds = tasks
+                .filter(t => t.completed_by)
+                .map(t => t.completed_by)
+                .filter(Boolean) as string[];
+
+            if (completedByIds.length === 0) {
+                setCompletedByNames(new Map());
+                return;
+            }
+
+            const uniqueIds = [...new Set(completedByIds)];
+            const { data, error } = await supabase
+                .schema('sistemaretiradas')
+                .from('profiles')
+                .select('id, name')
+                .in('id', uniqueIds);
+
+            if (error) {
+                console.error('[LojaTasksTab] Erro ao buscar nomes:', error);
+                return;
+            }
+
+            const namesMap = new Map<string, string>();
+            data?.forEach(profile => {
+                if (profile.id && profile.name) {
+                    namesMap.set(profile.id, profile.name);
+                }
+            });
+            setCompletedByNames(namesMap);
+        };
+
+        if (tasks.length > 0) {
+            fetchCompletedByNames();
+        }
+    }, [tasks]);
 
     const { statistics, loading: statsLoading } = useTaskStatistics({
         storeId,
@@ -168,22 +208,60 @@ export function LojaTasksTab({ storeId }: LojaTasksTabProps) {
         setSelectedDate(new Date());
     };
 
+    const goToPreviousDay = () => {
+        setSelectedDate(prev => subDays(prev, 1));
+    };
+
+    const goToNextDay = () => {
+        setSelectedDate(prev => addDays(prev, 1));
+    };
+
     const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
 
     return (
         <div className="space-y-6">
-            {/* Filtro de Data */}
+            {/* Navegação e Filtro de Data */}
             <Card className="border-2 shadow-sm">
                 <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-semibold flex items-center gap-2">
                         <Calendar className="h-5 w-5 text-primary" />
-                        Selecionar Data
+                        Tarefas do Dia
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex items-end gap-3">
+                    {/* Navegação entre dias */}
+                    <div className="flex items-center justify-between gap-4 mb-4">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={goToPreviousDay}
+                            className="flex items-center gap-2"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                            Dia Anterior
+                        </Button>
+                        
+                        <div className="flex-1 text-center">
+                            <h3 className="text-lg font-semibold">
+                                {format(selectedDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                            </h3>
+                        </div>
+                        
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={goToNextDay}
+                            className="flex items-center gap-2"
+                        >
+                            Próximo Dia
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+
+                    {/* Seletor de data alternativa */}
+                    <div className="flex items-center gap-3">
                         <div className="flex-1">
-                            <Label htmlFor="task-date">Data</Label>
+                            <Label htmlFor="task-date">Ou selecione uma data</Label>
                             <Input
                                 id="task-date"
                                 type="date"
@@ -202,9 +280,6 @@ export function LojaTasksTab({ storeId }: LojaTasksTabProps) {
                             </Button>
                         )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                        Visualizando tarefas de {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                    </p>
                 </CardContent>
             </Card>
 
