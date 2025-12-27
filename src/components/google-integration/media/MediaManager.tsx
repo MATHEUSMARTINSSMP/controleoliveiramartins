@@ -19,14 +19,9 @@ interface MediaItem {
 }
 
 export function MediaManager() {
-    const [mediaItems, setMediaItems] = useState<MediaItem[]>([
-        { id: "1", url: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&h=500&fit=crop", type: "PHOTO", category: "INTERIOR", views: 1250, uploadDate: "2024-01-15" },
-        { id: "2", url: "https://images.unsplash.com/photo-1552566626-52f8b828add9?w=500&h=500&fit=crop", type: "PHOTO", category: "FOOD", views: 980, uploadDate: "2024-02-10" },
-        { id: "3", url: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=500&h=500&fit=crop", type: "PHOTO", category: "EXTERIOR", views: 3400, uploadDate: "2023-12-05" },
-        { id: "4", url: "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=500&h=500&fit=crop", type: "PHOTO", category: "FOOD", views: 850, uploadDate: "2024-03-20" },
-    ]);
-
+    const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
     const [isUploadOpen, setIsUploadOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     const handleDelete = (id: string) => {
         setMediaItems(mediaItems.filter(item => item.id !== id));
@@ -93,37 +88,52 @@ export function MediaManager() {
                 </TabsList>
 
                 <TabsContent value="all" className="mt-6">
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {mediaItems.map((item) => (
-                            <div key={item.id} className="group relative aspect-square bg-muted rounded-lg overflow-hidden border">
-                                <img
-                                    src={item.url}
-                                    alt="Media item"
-                                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                                />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="secondary" size="icon" className="h-8 w-8">
-                                                <MoreVertical className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => handleSetProfile(item.id)}>
-                                                <Star className="h-4 w-4 mr-2" /> Definir como Perfil
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(item.id)}>
-                                                <Trash2 className="h-4 w-4 mr-2" /> Excluir
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                    {loading ? (
+                        <div className="flex items-center justify-center py-12">
+                            <p className="text-muted-foreground">Carregando mídias...</p>
+                        </div>
+                    ) : mediaItems.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-lg">
+                            <ImageIcon className="h-12 w-12 text-muted-foreground mb-4" />
+                            <p className="text-lg font-medium mb-2">Nenhuma mídia encontrada</p>
+                            <p className="text-sm text-muted-foreground text-center max-w-md">
+                                A integração com a API do Google My Business para buscar mídias ainda não foi implementada. 
+                                As fotos e vídeos aparecerão aqui quando a funcionalidade estiver disponível.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {mediaItems.map((item) => (
+                                <div key={item.id} className="group relative aspect-square bg-muted rounded-lg overflow-hidden border">
+                                    <img
+                                        src={item.url}
+                                        alt="Media item"
+                                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="secondary" size="icon" className="h-8 w-8">
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => handleSetProfile(item.id)}>
+                                                    <Star className="h-4 w-4 mr-2" /> Definir como Perfil
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(item.id)}>
+                                                    <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent text-white text-xs font-medium">
+                                        {item.views} visualizações
+                                    </div>
                                 </div>
-                                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent text-white text-xs font-medium">
-                                    {item.views} visualizações
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                 </TabsContent>
                 {/* Outras tabs seriam similares, filtrando o array */}
             </Tabs>
