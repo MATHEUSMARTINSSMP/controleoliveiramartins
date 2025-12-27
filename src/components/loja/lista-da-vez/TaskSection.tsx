@@ -12,6 +12,7 @@ interface TaskSectionProps {
     shiftColor: string | null;
     tasks: DailyTask[];
     onToggleComplete: (taskId: string, completed: boolean) => void;
+    onCompleteClick?: (task: DailyTask) => void;
     loading?: boolean;
 }
 
@@ -45,6 +46,7 @@ export function TaskSection({
     shiftColor,
     tasks,
     onToggleComplete,
+    onCompleteClick,
     loading = false
 }: TaskSectionProps) {
     if (tasks.length === 0) return null;
@@ -93,6 +95,7 @@ export function TaskSection({
                         key={task.id}
                         task={task}
                         onToggleComplete={onToggleComplete}
+                        onCompleteClick={onCompleteClick}
                         loading={loading}
                     />
                 ))}

@@ -10,6 +10,7 @@ import { useTaskStatistics } from "@/hooks/useTaskStatistics";
 import { TaskSection } from "./lista-da-vez/TaskSection";
 import { TaskStatistics } from "./lista-da-vez/TaskStatistics";
 import { TaskHistory } from "./lista-da-vez/TaskHistory";
+import { TaskCompletionDialog } from "./lista-da-vez/TaskCompletionDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,8 @@ interface LojaTasksTabProps {
 
 export function LojaTasksTab({ storeId }: LojaTasksTabProps) {
     const [selectedDate, setSelectedDate] = useState(new Date());
+    const [completionDialogOpen, setCompletionDialogOpen] = useState(false);
+    const [selectedTaskForCompletion, setSelectedTaskForCompletion] = useState<DailyTask | null>(null);
     
     const { tasks, loading, completeTask, uncompleteTask } = useDailyTasks({
         storeId,
@@ -44,6 +47,18 @@ export function LojaTasksTab({ storeId }: LojaTasksTabProps) {
         } else {
             await uncompleteTask(taskId);
         }
+    };
+
+    const handleCompleteClick = (task: DailyTask) => {
+        setSelectedTaskForCompletion(task);
+        setCompletionDialogOpen(true);
+    };
+
+    const handleConfirmCompletion = async (notes?: string) => {
+        if (!selectedTaskForCompletion) return;
+        await completeTask(selectedTaskForCompletion.id, notes);
+        setCompletionDialogOpen(false);
+        setSelectedTaskForCompletion(null);
     };
 
     // Verificar tarefas próximas do horário limite e notificar
@@ -204,6 +219,7 @@ export function LojaTasksTab({ storeId }: LojaTasksTabProps) {
                         shiftColor={shift.shiftColor}
                         tasks={shift.tasks}
                         onToggleComplete={handleToggleComplete}
+                        onCompleteClick={handleCompleteClick}
                         loading={loading}
                     />
                 ))}

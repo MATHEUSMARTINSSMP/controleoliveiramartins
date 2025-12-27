@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { DailyTask } from "@/hooks/useDailyTasks";
-import { CheckCircle2, Clock } from "lucide-react";
+import { CheckCircle2, Clock, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -10,10 +10,11 @@ import { cn } from "@/lib/utils";
 interface TaskCardProps {
     task: DailyTask;
     onToggleComplete: (taskId: string, completed: boolean) => void;
+    onCompleteClick?: (task: DailyTask) => void; // Nova prop para abrir modal
     loading?: boolean;
 }
 
-export function TaskCard({ task, onToggleComplete, loading = false }: TaskCardProps) {
+export function TaskCard({ task, onToggleComplete, onCompleteClick, loading = false }: TaskCardProps) {
     const isCompleted = task.completed_by !== null;
     
     // Verificar se está próximo do horário limite (15 minutos antes)
@@ -79,10 +80,33 @@ export function TaskCard({ task, onToggleComplete, loading = false }: TaskCardPr
                         >
                             {task.title}
                         </h4>
-                        {isCompleted && (
-                            <Badge variant="secondary" className="text-xs shrink-0">
+                        {/* Badge de Status */}
+                        {isCompleted ? (
+                            <Badge variant="default" className="text-xs shrink-0 bg-emerald-600">
                                 <CheckCircle2 className="h-3 w-3 mr-1" />
-                                Concluída
+                                CONCLUÍDA
+                            </Badge>
+                        ) : isOverdue ? (
+                            <Badge variant="destructive" className="text-xs shrink-0">
+                                ⚠️ ATRASADO
+                            </Badge>
+                        ) : (
+                            <Badge variant="secondary" className="text-xs shrink-0">
+                                ⏳ PENDENTE
+                            </Badge>
+                        )}
+                        
+                        {/* Badge de Prioridade */}
+                        {task.priority && (
+                            <Badge
+                                variant={
+                                    task.priority === 'ALTA' ? 'destructive' :
+                                    task.priority === 'MÉDIA' ? 'default' :
+                                    'secondary'
+                                }
+                                className="text-xs shrink-0"
+                            >
+                                {task.priority}
                             </Badge>
                         )}
                     </div>
@@ -117,6 +141,43 @@ export function TaskCard({ task, onToggleComplete, loading = false }: TaskCardPr
                             </Badge>
                         )}
                     </div>
+                    
+                    {/* Informações de Conclusão */}
+                    {isCompleted && task.completed_at && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                            {task.completion_notes && (
+                                <p className="italic">"{task.completion_notes}"</p>
+                            )}
+                        </div>
+                    )}
+                </div>
+                
+                {/* Botão de Ação */}
+                <div className="flex flex-col gap-2 shrink-0">
+                    {isCompleted ? (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onToggleComplete(task.id, false)}
+                            disabled={loading}
+                            className="h-8 w-8 p-0"
+                            title="Desmarcar tarefa"
+                        >
+                            <RotateCcw className="h-4 w-4" />
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => onCompleteClick ? onCompleteClick(task) : onToggleComplete(task.id, true)}
+                            disabled={loading}
+                            className="h-8"
+                            title="Marcar como concluída"
+                        >
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                            Concluir
+                        </Button>
+                    )}
                 </div>
             </div>
         </div>
