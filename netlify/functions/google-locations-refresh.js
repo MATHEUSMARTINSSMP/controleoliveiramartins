@@ -19,6 +19,7 @@ const corsHeaders = {
  */
 async function fetchAccounts(accessToken) {
   try {
+    // Usar API v4 (mybusiness.googleapis.com) conforme documentação oficial
     const response = await fetch('https://mybusiness.googleapis.com/v4/accounts', {
       method: 'GET',
       headers: {
@@ -45,7 +46,10 @@ async function fetchAccounts(accessToken) {
  */
 async function fetchLocations(accessToken, accountName) {
   try {
-    const url = `https://mybusiness.googleapis.com/v4/${accountName}/locations?readMask=name,title,storefrontAddress,phoneNumbers,websiteUri,primaryCategory,openInfo`;
+    // Usar API v4 (mybusiness.googleapis.com) conforme documentação oficial
+    // accountName deve estar no formato: accounts/123456789
+    // readMask não é suportado na v4, mas podemos usar select ou omitir
+    const url = `https://mybusiness.googleapis.com/v4/${accountName}/locations`;
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -225,10 +229,11 @@ async function refreshLocations(supabase, accessToken, customerId, siteSlug) {
 
     // Para cada account, buscar locations
     for (const account of accounts) {
-      const accountId = account.name || '';
-      if (!accountId) continue;
+      const accountName = account.name || '';
+      if (!accountName) continue;
 
-      const locations = await fetchLocations(accessToken, accountId);
+      // account.name já vem no formato correto: accounts/123456789
+      const locations = await fetchLocations(accessToken, accountName);
       
       // Salvar cada location
       for (const location of locations) {

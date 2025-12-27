@@ -35,7 +35,8 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'https://eleveaone.com.br';
  */
 async function fetchAccounts(accessToken) {
   try {
-    const response = await fetch('https://mybusinessbusinessinformation.googleapis.com/v1/accounts', {
+    // Usar API v4 (mybusiness.googleapis.com) conforme documentação oficial
+    const response = await fetch('https://mybusiness.googleapis.com/v4/accounts', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -59,10 +60,12 @@ async function fetchAccounts(accessToken) {
 /**
  * Buscar locations de uma account
  */
-async function fetchLocations(accessToken, accountId) {
+async function fetchLocations(accessToken, accountName) {
   try {
+    // Usar API v4 (mybusiness.googleapis.com) conforme documentação oficial
+    // accountName deve estar no formato: accounts/123456789
     const response = await fetch(
-      `https://mybusinessbusinessinformation.googleapis.com/v1/${accountId}/locations`,
+      `https://mybusiness.googleapis.com/v4/${accountName}/locations`,
       {
         method: 'GET',
         headers: {
@@ -74,14 +77,14 @@ async function fetchLocations(accessToken, accountId) {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
-      console.warn(`[Google OAuth] Erro ao buscar locations da account ${accountId}:`, error.error?.message);
+      console.warn(`[Google OAuth] Erro ao buscar locations da account ${accountName}:`, error.error?.message);
       return [];
     }
 
     const data = await response.json();
     return data.locations || [];
   } catch (error) {
-    console.error(`[Google OAuth] Erro ao buscar locations da account ${accountId}:`, error);
+    console.error(`[Google OAuth] Erro ao buscar locations da account ${accountName}:`, error);
     return [];
   }
 }
@@ -142,10 +145,11 @@ async function saveAccountsAndLocations(supabase, accessToken, customerId, siteS
 
     // Para cada account, buscar locations
     for (const account of accounts) {
-      const accountId = account.name || '';
-      if (!accountId) continue;
+      const accountName = account.name || '';
+      if (!accountName) continue;
 
-      const locations = await fetchLocations(accessToken, accountId);
+      // account.name já vem no formato correto: accounts/123456789
+      const locations = await fetchLocations(accessToken, accountName);
       
       // Salvar cada location
       for (const location of locations) {
