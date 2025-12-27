@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Gift, MessageSquare, Package, Info, Heart, Clock, ChevronDown, ChevronRight, Check, X, Target, Settings, Scissors, Banknote, Users, CheckSquare2 } from 'lucide-react';
+import { Loader2, Gift, MessageSquare, Package, Info, Heart, Clock, ChevronDown, ChevronRight, Check, X, Target, Settings, Scissors, Banknote, Users, CheckSquare2, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -22,6 +22,7 @@ interface Store {
   caixa_ativo: boolean;
   lista_da_vez_ativo: boolean;
   tasks_module_enabled: boolean;
+  whatsapp: string | null;
   whatsapp_notificacoes_ajustes_condicionais: string | null;
   whatsapp_caixa_numeros: string[] | null;
   whatsapp_caixa_usar_global: boolean;
@@ -124,7 +125,7 @@ const modules: ModuleInfo[] = [
     icon: <CheckSquare2 className="h-5 w-5" />,
     field: 'tasks_module_enabled',
     color: 'text-violet-600 dark:text-violet-400',
-    hasConfig: false
+    hasConfig: true
   }
 ];
 
@@ -136,9 +137,11 @@ export const ModulesStoreConfig = () => {
   
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [configStore, setConfigStore] = useState<Store | null>(null);
+  const [configModule, setConfigModule] = useState<'daily_goal_check' | 'tasks' | null>(null);
   const [configForm, setConfigForm] = useState({
     valor_bonus: '',
-    horario_limite: '18:00'
+    horario_limite: '18:00',
+    whatsapp: ''
   });
   const [savingConfig, setSavingConfig] = useState(false);
 
@@ -153,15 +156,19 @@ export const ModulesStoreConfig = () => {
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, tasks_module_enabled, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, whatsapp_caixa_numeros, whatsapp_caixa_usar_global, active')
+        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, tasks_module_enabled, whatsapp, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, whatsapp_caixa_numeros, whatsapp_caixa_usar_global, active')
         .eq('active', true)
         .order('name');
       
       // Se tasks_module_enabled não existir, adicionar como true para todas as lojas (padrão)
+      // Se whatsapp não existir, adicionar como null
       if (data) {
         data.forEach(store => {
           if (!('tasks_module_enabled' in store) || store.tasks_module_enabled === null) {
             (store as any).tasks_module_enabled = true; // Default: habilitado
+          }
+          if (!('whatsapp' in store)) {
+            (store as any).whatsapp = null; // Default: null
           }
         });
       }
@@ -251,50 +258,98 @@ export const ModulesStoreConfig = () => {
     return result;
   };
 
-  const openConfigDialog = (store: Store) => {
+  const openConfigDialog = (store: Store, module: 'daily_goal_check' | 'tasks') => {
     setConfigStore(store);
-    setConfigForm({
-      valor_bonus: store.daily_goal_check_valor_bonus?.toString() || '5',
-      horario_limite: store.daily_goal_check_horario_limite?.substring(0, 5) || '18:00'
-    });
+    setConfigModule(module);
+    if (module === 'daily_goal_check') {
+      setConfigForm({
+        valor_bonus: store.daily_goal_check_valor_bonus?.toString() || '5',
+        horario_limite: store.daily_goal_check_horario_limite?.substring(0, 5) || '18:00',
+        whatsapp: ''
+      });
+    } else if (module === 'tasks') {
+      setConfigForm({
+        valor_bonus: '',
+        horario_limite: '',
+        whatsapp: store.whatsapp || ''
+      });
+    }
     setConfigDialogOpen(true);
   };
 
   const saveConfig = async () => {
-    if (!configStore) return;
-
-    const valorBonus = parseFloat(configForm.valor_bonus.replace(',', '.'));
-    if (isNaN(valorBonus) || valorBonus < 0) {
-      toast.error('Valor do bônus inválido');
-      return;
-    }
+    if (!configStore || !configModule) return;
 
     try {
       setSavingConfig(true);
-      const { error } = await supabase
-        .schema('sistemaretiradas')
-        .from('stores')
-        .update({
-          daily_goal_check_valor_bonus: valorBonus,
-          daily_goal_check_horario_limite: configForm.horario_limite + ':00'
-        })
-        .eq('id', configStore.id);
 
-      if (error) throw error;
+      if (configModule === 'daily_goal_check') {
+        const valorBonus = parseFloat(configForm.valor_bonus.replace(',', '.'));
+        if (isNaN(valorBonus) || valorBonus < 0) {
+          toast.error('Valor do bônus inválido');
+          return;
+        }
 
-      setStores(prev =>
-        prev.map(store =>
-          store.id === configStore.id
-            ? {
-                ...store,
-                daily_goal_check_valor_bonus: valorBonus,
-                daily_goal_check_horario_limite: configForm.horario_limite + ':00'
-              }
-            : store
-        )
-      );
+        const { error } = await supabase
+          .schema('sistemaretiradas')
+          .from('stores')
+          .update({
+            daily_goal_check_valor_bonus: valorBonus,
+            daily_goal_check_horario_limite: configForm.horario_limite + ':00'
+          })
+          .eq('id', configStore.id);
 
-      toast.success(`Configuração do Check de Meta atualizada para ${configStore.name}`);
+        if (error) throw error;
+
+        setStores(prev =>
+          prev.map(store =>
+            store.id === configStore.id
+              ? {
+                  ...store,
+                  daily_goal_check_valor_bonus: valorBonus,
+                  daily_goal_check_horario_limite: configForm.horario_limite + ':00'
+                }
+              : store
+          )
+        );
+
+        toast.success(`Configuração do Check de Meta atualizada para ${configStore.name}`);
+      } else if (configModule === 'tasks') {
+        // Validar e normalizar telefone (remover caracteres não numéricos, exceto se vazio)
+        const whatsappNormalizado = configForm.whatsapp.trim() 
+          ? configForm.whatsapp.replace(/\D/g, '') 
+          : null;
+
+        // Se preenchido, validar tamanho mínimo (10 dígitos = DDD + número)
+        if (whatsappNormalizado && whatsappNormalizado.length < 10) {
+          toast.error('Telefone inválido. Informe DDD + número (mínimo 10 dígitos)');
+          return;
+        }
+
+        const { error } = await supabase
+          .schema('sistemaretiradas')
+          .from('stores')
+          .update({
+            whatsapp: whatsappNormalizado
+          })
+          .eq('id', configStore.id);
+
+        if (error) throw error;
+
+        setStores(prev =>
+          prev.map(store =>
+            store.id === configStore.id
+              ? {
+                  ...store,
+                  whatsapp: whatsappNormalizado
+                }
+              : store
+          )
+        );
+
+        toast.success(`Telefone WhatsApp para tarefas atualizado para ${configStore.name}`);
+      }
+
       setConfigDialogOpen(false);
     } catch (error: any) {
       console.error('Erro ao salvar configuração:', error);
@@ -405,7 +460,7 @@ export const ModulesStoreConfig = () => {
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      onClick={() => openConfigDialog(store)}
+                                      onClick={() => openConfigDialog(store, module.id === 'daily_goal_check' ? 'daily_goal_check' : 'tasks')}
                                       title="Configurar"
                                       data-testid={`button-config-${module.id}-${store.id}`}
                                     >
@@ -493,55 +548,95 @@ export const ModulesStoreConfig = () => {
 
       </CardContent>
 
-      {/* Dialog de Configuração do Check de Meta Diária */}
+      {/* Dialog de Configuração */}
       <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-              Configurar Check de Meta Diária
-            </DialogTitle>
-            <DialogDescription>
-              {configStore?.name} - Configure o valor do bônus e horário limite para o check diário.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="valor_bonus">Valor do Bônus (R$)</Label>
-              <Input
-                id="valor_bonus"
-                type="text"
-                value={configForm.valor_bonus}
-                onChange={(e) => setConfigForm({ ...configForm, valor_bonus: e.target.value })}
-                placeholder="Ex: 5,00"
-                data-testid="input-valor-bonus"
-              />
-              <p className="text-xs text-muted-foreground">
-                Valor que a colaboradora ganha ao confirmar que viu a meta do dia.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="horario_limite">Horário Limite</Label>
-              <Input
-                id="horario_limite"
-                type="time"
-                value={configForm.horario_limite}
-                onChange={(e) => setConfigForm({ ...configForm, horario_limite: e.target.value })}
-                data-testid="input-horario-limite"
-              />
-              <p className="text-xs text-muted-foreground">
-                Após este horário, a colaboradora não poderá mais fazer o check do dia.
-              </p>
-            </div>
+          {configModule === 'daily_goal_check' ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  Configurar Check de Meta Diária
+                </DialogTitle>
+                <DialogDescription>
+                  {configStore?.name} - Configure o valor do bônus e horário limite para o check diário.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="valor_bonus">Valor do Bônus (R$)</Label>
+                  <Input
+                    id="valor_bonus"
+                    type="text"
+                    value={configForm.valor_bonus}
+                    onChange={(e) => setConfigForm({ ...configForm, valor_bonus: e.target.value })}
+                    placeholder="Ex: 5,00"
+                    data-testid="input-valor-bonus"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Valor que a colaboradora ganha ao confirmar que viu a meta do dia.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="horario_limite">Horário Limite</Label>
+                  <Input
+                    id="horario_limite"
+                    type="time"
+                    value={configForm.horario_limite}
+                    onChange={(e) => setConfigForm({ ...configForm, horario_limite: e.target.value })}
+                    data-testid="input-horario-limite"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Após este horário, a colaboradora não poderá mais fazer o check do dia.
+                  </p>
+                </div>
 
-            {configStore?.daily_goal_check_valor_bonus != null && (
-              <div className="p-3 bg-muted/50 rounded-lg">
-                <p className="text-xs text-muted-foreground">
-                  Configuração atual: Bônus de <span className="font-semibold">{formatBRL(configStore.daily_goal_check_valor_bonus)}</span> até às <span className="font-semibold">{configStore.daily_goal_check_horario_limite?.substring(0, 5) || '18:00'}</span>
-                </p>
+                {configStore?.daily_goal_check_valor_bonus != null && (
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground">
+                      Configuração atual: Bônus de <span className="font-semibold">{formatBRL(configStore.daily_goal_check_valor_bonus)}</span> até às <span className="font-semibold">{configStore.daily_goal_check_horario_limite?.substring(0, 5) || '18:00'}</span>
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          ) : configModule === 'tasks' ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Phone className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                  Configurar WhatsApp para Tarefas
+                </DialogTitle>
+                <DialogDescription>
+                  {configStore?.name} - Configure o telefone WhatsApp da loja para receber notificações de tarefas atrasadas.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp">Telefone WhatsApp</Label>
+                  <Input
+                    id="whatsapp"
+                    type="tel"
+                    value={configForm.whatsapp}
+                    onChange={(e) => setConfigForm({ ...configForm, whatsapp: e.target.value })}
+                    placeholder="Ex: 5598987654321 (opcional)"
+                    data-testid="input-whatsapp-tasks"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Telefone WhatsApp da loja para receber notificações de tarefas atrasadas. Deixe em branco para desabilitar. Formato: código do país (55) + DDD + número (ex: 5598987654321).
+                  </p>
+                </div>
+
+                {configStore?.whatsapp && (
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground">
+                      Telefone atual: <span className="font-semibold">{configStore.whatsapp}</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfigDialogOpen(false)} disabled={savingConfig}>
               Cancelar
