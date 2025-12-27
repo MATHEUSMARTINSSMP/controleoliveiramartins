@@ -2776,16 +2776,16 @@ async function enviarWhatsAppNovaVendaTiny(supabase, orderData, storeId, itensCo
     console.log(`[SyncBackground] 📝 [WHATSAPP] pedidoCompleto.parcelas.length: ${pedidoCompleto?.parcelas?.length || 0}`);
     console.log(`[SyncBackground] 📝 [WHATSAPP] orderData.forma_pagamento: ${orderData.forma_pagamento}`);
 
-    // ✅ Tentar buscar parcelas do pedido completo OU do pedido original
+    // ✅ CORREÇÃO: Usar APENAS pagamento.parcelas (correto) e NÃO pedidoCompleto.parcelas (pode estar duplicado)
+    // O campo correto é pedidoCompleto.pagamento.parcelas, que contém as formas de pagamento reais
     let parcelasParaProcessar = null;
 
-    if (pedidoCompleto?.parcelas && Array.isArray(pedidoCompleto.parcelas) && pedidoCompleto.parcelas.length > 0) {
-      parcelasParaProcessar = pedidoCompleto.parcelas;
-      console.log(`[SyncBackground] 📝 [WHATSAPP] ✅ Usando parcelas do pedidoCompleto: ${parcelasParaProcessar.length}`);
-    } else if (pedidoCompleto?.pagamento?.parcelas && Array.isArray(pedidoCompleto.pagamento.parcelas) && pedidoCompleto.pagamento.parcelas.length > 0) {
+    // ✅ Prioridade 1: pedidoCompleto.pagamento.parcelas (CAMPO CORRETO)
+    if (pedidoCompleto?.pagamento?.parcelas && Array.isArray(pedidoCompleto.pagamento.parcelas) && pedidoCompleto.pagamento.parcelas.length > 0) {
       parcelasParaProcessar = pedidoCompleto.pagamento.parcelas;
-      console.log(`[SyncBackground] 📝 [WHATSAPP] ✅ Usando parcelas do pedidoCompleto.pagamento: ${parcelasParaProcessar.length}`);
+      console.log(`[SyncBackground] 📝 [WHATSAPP] ✅ Usando parcelas do pedidoCompleto.pagamento (CORRETO): ${parcelasParaProcessar.length}`);
     }
+    // ✅ NÃO usar pedidoCompleto.parcelas (pode conter dados duplicados ou incorretos)
 
     if (parcelasParaProcessar && parcelasParaProcessar.length > 0) {
       console.log(`[SyncBackground] 📝 [WHATSAPP] ✅ Processando ${parcelasParaProcessar.length} parcelas para formatar formas de pagamento`);
