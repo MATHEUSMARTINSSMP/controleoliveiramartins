@@ -67,7 +67,7 @@ export function useDailyTasks({
 
             const dateStr = date.toISOString().split('T')[0];
 
-            const { data, error: fetchError } = await supabase.rpc('get_daily_tasks', {
+            const { data, error: fetchError } = await supabase.rpc('get_tasks_for_date', {
                 p_store_id: storeId,
                 p_date: dateStr
             });
@@ -88,7 +88,7 @@ export function useDailyTasks({
         if (!storeId) return false;
 
         try {
-            const { data, error: completeError } = await supabase.rpc('complete_task', {
+            const { data, error: completeError } = await supabase.rpc('complete_task_execution', {
                 p_task_id: taskId,
                 p_profile_id: (await supabase.auth.getUser()).data.user?.id,
                 p_notes: notes || null,
@@ -118,7 +118,7 @@ export function useDailyTasks({
         if (!storeId) return false;
 
         try {
-            const { error: uncompleteError } = await supabase.rpc('uncomplete_task', {
+            const { error: uncompleteError } = await supabase.rpc('uncomplete_task_execution', {
                 p_task_id: taskId,
                 p_profile_id: (await supabase.auth.getUser()).data.user?.id,
                 p_completion_date: date.toISOString().split('T')[0]

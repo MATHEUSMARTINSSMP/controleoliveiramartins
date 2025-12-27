@@ -43,9 +43,9 @@ The system is built with a modern web stack, emphasizing a chic, minimalist, and
             -   Recipient: Store's whatsapp field (phone number in stores table)
             -   Enable/disable: Per-store toggle in ModulesStoreConfig (tasks_whatsapp_notificacoes_ativas)
         -   **SQL Functions** (in `docs/tasks-executions-migration.sql`):
-            -   `get_daily_tasks(p_store_id, p_date)` - Gets tasks for a date with execution status
-            -   `complete_task(p_task_id, p_profile_id, p_notes, p_completion_date)` - Records execution
-            -   `uncomplete_task(p_task_id, p_profile_id, p_completion_date)` - Reverts execution
+            -   `get_tasks_for_date(p_store_id, p_date)` - Gets tasks for a date with execution status
+            -   `complete_task_execution(p_task_id, p_profile_id, p_notes, p_completion_date)` - Records execution
+            -   `uncomplete_task_execution(p_task_id, p_profile_id, p_completion_date)` - Reverts execution
             -   `get_task_execution_history(p_store_id, p_start_date, p_end_date)` - Admin history view
         -   Hooks: useDailyTasks, useTaskStatistics, useTasksRealtime
         -   Components: AdminTasksCalendarView, AdminTasksHistoryView, AdminDailyTasksConfig, LojaTasksTab, TaskOverdueNotification

@@ -1,6 +1,10 @@
--- Migration: Tabela de Execuções de Tarefas Diárias
--- Propósito: Registrar quem executou cada tarefa em cada data específica
+-- ============================================================================
+-- MIGRATION: Tabela de Execuções de Tarefas Diárias (Histórico)
+-- ============================================================================
+-- Data: 2025-12-28
+-- Descrição: Tabela para histórico de execuções de tarefas diárias
 -- Mantém daily_tasks como template e daily_task_executions como histórico
+-- ============================================================================
 
 -- 1. Criar tabela de execuções
 CREATE TABLE IF NOT EXISTS sistemaretiradas.daily_task_executions (
@@ -43,42 +47,111 @@ CREATE TRIGGER task_execution_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION sistemaretiradas.update_task_execution_updated_at();
 
--- 4. RLS Policies
+-- 4. RLS Policies (CORRIGIDAS - com suporte para Super Admin)
 ALTER TABLE sistemaretiradas.daily_task_executions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Lojas podem ver suas execuções" ON sistemaretiradas.daily_task_executions
-    FOR SELECT USING (
-        store_id IN (
-            SELECT store_id FROM sistemaretiradas.profiles 
-            WHERE id = auth.uid()
+-- Policy para SELECT: Super Admin vê tudo, Admin vê suas lojas, Colaboradoras veem sua loja
+DROP POLICY IF EXISTS "daily_task_executions_select_policy" ON sistemaretiradas.daily_task_executions;
+CREATE POLICY "daily_task_executions_select_policy" ON sistemaretiradas.daily_task_executions
+    FOR SELECT
+    USING (
+        -- Super Admin pode ver tudo
+        EXISTS (
+            SELECT 1 FROM sistemaretiradas.profiles p
+            WHERE p.id = auth.uid()
+            AND p.is_super_admin = TRUE
+            AND p.role = 'ADMIN'
         )
-        OR EXISTS (
-            SELECT 1 FROM sistemaretiradas.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin')
+        OR
+        -- Admin pode ver execuções de suas lojas
+        EXISTS (
+            SELECT 1 FROM sistemaretiradas.stores s
+            WHERE s.id = daily_task_executions.store_id
+            AND s.admin_id = auth.uid()
+        )
+        OR
+        -- Colaboradora/LOJA pode ver execuções de sua loja
+        EXISTS (
+            SELECT 1 FROM sistemaretiradas.profiles p
+            WHERE p.id = auth.uid()
+            AND p.store_id = daily_task_executions.store_id
         )
     );
 
-CREATE POLICY "Lojas podem inserir execuções" ON sistemaretiradas.daily_task_executions
-    FOR INSERT WITH CHECK (
-        store_id IN (
-            SELECT store_id FROM sistemaretiradas.profiles 
-            WHERE id = auth.uid()
+-- Policy para INSERT: Super Admin pode inserir em qualquer loja, Admin em suas lojas, Colaboradoras em sua loja
+DROP POLICY IF EXISTS "daily_task_executions_insert_policy" ON sistemaretiradas.daily_task_executions;
+CREATE POLICY "daily_task_executions_insert_policy" ON sistemaretiradas.daily_task_executions
+    FOR INSERT
+    WITH CHECK (
+        -- Super Admin pode inserir em qualquer loja
+        EXISTS (
+            SELECT 1 FROM sistemaretiradas.profiles p
+            WHERE p.id = auth.uid()
+            AND p.is_super_admin = TRUE
+            AND p.role = 'ADMIN'
         )
-        OR EXISTS (
-            SELECT 1 FROM sistemaretiradas.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin')
+        OR
+        -- Admin pode inserir em suas lojas
+        EXISTS (
+            SELECT 1 FROM sistemaretiradas.stores s
+            WHERE s.id = daily_task_executions.store_id
+            AND s.admin_id = auth.uid()
+        )
+        OR
+        -- Colaboradora/LOJA pode inserir em sua loja
+        EXISTS (
+            SELECT 1 FROM sistemaretiradas.profiles p
+            WHERE p.id = auth.uid()
+            AND p.store_id = daily_task_executions.store_id
         )
     );
 
-CREATE POLICY "Lojas podem atualizar suas execuções" ON sistemaretiradas.daily_task_executions
-    FOR UPDATE USING (
-        store_id IN (
-            SELECT store_id FROM sistemaretiradas.profiles 
-            WHERE id = auth.uid()
+-- Policy para UPDATE: Super Admin pode atualizar em qualquer loja, Admin em suas lojas, Colaboradoras em sua loja
+DROP POLICY IF EXISTS "daily_task_executions_update_policy" ON sistemaretiradas.daily_task_executions;
+CREATE POLICY "daily_task_executions_update_policy" ON sistemaretiradas.daily_task_executions
+    FOR UPDATE
+    USING (
+        -- Super Admin pode atualizar em qualquer loja
+        EXISTS (
+            SELECT 1 FROM sistemaretiradas.profiles p
+            WHERE p.id = auth.uid()
+            AND p.is_super_admin = TRUE
+            AND p.role = 'ADMIN'
         )
-        OR EXISTS (
-            SELECT 1 FROM sistemaretiradas.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin')
+        OR
+        -- Admin pode atualizar em suas lojas
+        EXISTS (
+            SELECT 1 FROM sistemaretiradas.stores s
+            WHERE s.id = daily_task_executions.store_id
+            AND s.admin_id = auth.uid()
+        )
+        OR
+        -- Colaboradora/LOJA pode atualizar em sua loja
+        EXISTS (
+            SELECT 1 FROM sistemaretiradas.profiles p
+            WHERE p.id = auth.uid()
+            AND p.store_id = daily_task_executions.store_id
+        )
+    )
+    WITH CHECK (
+        -- Mesma lógica para WITH CHECK
+        EXISTS (
+            SELECT 1 FROM sistemaretiradas.profiles p
+            WHERE p.id = auth.uid()
+            AND p.is_super_admin = TRUE
+            AND p.role = 'ADMIN'
+        )
+        OR
+        EXISTS (
+            SELECT 1 FROM sistemaretiradas.stores s
+            WHERE s.id = daily_task_executions.store_id
+            AND s.admin_id = auth.uid()
+        )
+        OR
+        EXISTS (
+            SELECT 1 FROM sistemaretiradas.profiles p
+            WHERE p.id = auth.uid()
+            AND p.store_id = daily_task_executions.store_id
         )
     );
 
@@ -132,8 +205,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 6. Função para marcar tarefa como concluída (nome compatível com hook existente)
-CREATE OR REPLACE FUNCTION sistemaretiradas.complete_task(
+-- 6. Função para marcar tarefa como concluída usando daily_task_executions
+CREATE OR REPLACE FUNCTION sistemaretiradas.complete_task_execution(
     p_task_id UUID,
     p_profile_id UUID,
     p_notes TEXT DEFAULT NULL,
@@ -152,7 +225,7 @@ BEGIN
     IF v_store_id IS NULL THEN
         RAISE EXCEPTION 'Tarefa não encontrada';
     END IF;
-
+    
     INSERT INTO sistemaretiradas.daily_task_executions (
         task_id, store_id, execution_date, is_completed, completed_at, completed_by, completion_notes
     )
@@ -172,8 +245,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 7. Função para desmarcar tarefa (nome compatível com hook existente)
-CREATE OR REPLACE FUNCTION sistemaretiradas.uncomplete_task(
+-- 7. Função para desmarcar tarefa usando daily_task_executions
+CREATE OR REPLACE FUNCTION sistemaretiradas.uncomplete_task_execution(
     p_task_id UUID,
     p_profile_id UUID,
     p_completion_date DATE DEFAULT CURRENT_DATE
@@ -246,74 +319,33 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 9. Função get_daily_tasks (compatível com hook existente)
-CREATE OR REPLACE FUNCTION sistemaretiradas.get_daily_tasks(
-    p_store_id UUID,
-    p_date DATE
-)
-RETURNS TABLE (
-    id UUID,
-    store_id UUID,
-    title TEXT,
-    description TEXT,
-    shift_id UUID,
-    shift_name TEXT,
-    shift_start_time TIME,
-    shift_end_time TIME,
-    shift_color TEXT,
-    due_time TIME,
-    priority TEXT,
-    weekday INT,
-    status TEXT,
-    is_active BOOLEAN,
-    is_recurring BOOLEAN,
-    display_order INT,
-    created_at TIMESTAMPTZ,
-    completed_by UUID,
-    completed_at TIMESTAMPTZ,
-    completion_notes TEXT
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        dt.id,
-        dt.store_id,
-        dt.title,
-        dt.description,
-        dt.shift_id,
-        s.name AS shift_name,
-        s.start_time AS shift_start_time,
-        s.end_time AS shift_end_time,
-        s.color AS shift_color,
-        dt.due_time,
-        dt.priority,
-        dt.weekday,
-        CASE 
-            WHEN dte.is_completed THEN 'CONCLUÍDA'::TEXT
-            WHEN dt.due_time IS NOT NULL AND p_date = CURRENT_DATE AND dt.due_time < CURRENT_TIME THEN 'ATRASADO'::TEXT
-            ELSE 'PENDENTE'::TEXT
-        END AS status,
-        dt.is_active,
-        COALESCE(dt.is_recurring, TRUE) AS is_recurring,
-        dt.display_order,
-        dt.created_at,
-        dte.completed_by,
-        dte.completed_at,
-        dte.completion_notes
-    FROM sistemaretiradas.daily_tasks dt
-    LEFT JOIN sistemaretiradas.shifts s ON dt.shift_id = s.id
-    LEFT JOIN sistemaretiradas.daily_task_executions dte 
-        ON dt.id = dte.task_id AND dte.execution_date = p_date
-    WHERE dt.store_id = p_store_id
-        AND dt.is_active = TRUE
-        AND (dt.weekday IS NULL OR dt.weekday = EXTRACT(DOW FROM p_date)::INT)
-    ORDER BY dt.due_time NULLS LAST, dt.display_order;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- 9. Comentários
+COMMENT ON TABLE sistemaretiradas.daily_task_executions IS 
+'Histórico de execuções de tarefas diárias. Uma execução por tarefa por data.';
 
--- 10. Grant permissions
+COMMENT ON COLUMN sistemaretiradas.daily_task_executions.store_id IS 
+'ID da loja onde a tarefa foi executada';
+
+COMMENT ON COLUMN sistemaretiradas.daily_task_executions.execution_date IS 
+'Data da execução da tarefa';
+
+COMMENT ON COLUMN sistemaretiradas.daily_task_executions.completed_by IS 
+'ID do perfil que completou a tarefa';
+
+COMMENT ON FUNCTION sistemaretiradas.get_tasks_for_date IS 
+'Busca tarefas para uma data específica com informações de execução';
+
+COMMENT ON FUNCTION sistemaretiradas.complete_task_execution IS 
+'Marca uma tarefa como concluída na data especificada usando daily_task_executions';
+
+COMMENT ON FUNCTION sistemaretiradas.uncomplete_task_execution IS 
+'Desmarca uma tarefa como concluída na data especificada usando daily_task_executions';
+
+COMMENT ON FUNCTION sistemaretiradas.get_task_execution_history IS 
+'Retorna histórico de execuções de tarefas para um período específico (Admin)';
+
+-- 10. Grants
 GRANT EXECUTE ON FUNCTION sistemaretiradas.get_tasks_for_date TO authenticated;
-GRANT EXECUTE ON FUNCTION sistemaretiradas.complete_task TO authenticated;
-GRANT EXECUTE ON FUNCTION sistemaretiradas.uncomplete_task TO authenticated;
+GRANT EXECUTE ON FUNCTION sistemaretiradas.complete_task_execution TO authenticated;
+GRANT EXECUTE ON FUNCTION sistemaretiradas.uncomplete_task_execution TO authenticated;
 GRANT EXECUTE ON FUNCTION sistemaretiradas.get_task_execution_history TO authenticated;
-GRANT EXECUTE ON FUNCTION sistemaretiradas.get_daily_tasks TO authenticated;
