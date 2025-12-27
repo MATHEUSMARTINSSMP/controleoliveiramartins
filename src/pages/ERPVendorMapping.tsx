@@ -112,6 +112,14 @@ const ERPVendorMapping = () => {
         body: JSON.stringify({ store_id: selectedStoreId }),
       });
 
+      // Tratar 404 graciosamente (função não disponível ou loja sem integração ERP)
+      if (response.status === 404) {
+        setVendedores([]);
+        setColaboradorasNaoMapeadas([]);
+        setResumo(null);
+        return;
+      }
+
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -124,7 +132,10 @@ const ERPVendorMapping = () => {
 
     } catch (error: any) {
       console.error("Erro ao buscar vendedores:", error);
-      toast.error(error.message || "Erro ao carregar vendedores");
+      // Não mostrar toast para 404 (função não disponível não é um erro crítico)
+      if (!error.message?.includes('404')) {
+        toast.error(error.message || "Erro ao carregar vendedores");
+      }
     } finally {
       setRefreshing(false);
     }

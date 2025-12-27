@@ -127,6 +127,11 @@ const AdminDashboard = () => {
           body: JSON.stringify({ store_id: store.id }),
         });
 
+        // Ignorar 404 (função não disponível ou loja sem integração ERP)
+        if (response.status === 404) {
+          continue;
+        }
+
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.resumo) {
@@ -141,6 +146,7 @@ const AdminDashboard = () => {
           }
         }
       } catch (err) {
+        // Silenciosamente ignorar erros de rede/timeout (não é crítico)
         console.warn(`[AdminDashboard] Erro ao verificar vendedores da loja ${store.name}:`, err);
       }
     }

@@ -81,9 +81,19 @@ export function useGoogleAuth() {
         .eq("customer_id", user.email)
         .eq("site_slug", siteSlug)
         .eq("status", "active")
-        .single();
+        .maybeSingle();
 
-      if (error || !data) {
+      // Se erro for 403 ou 404 (não encontrado), retornar não conectado (não é erro crítico)
+      if (error) {
+        if (error.code === 'PGRST116' || error.code === 'PGRST301') {
+          // Não encontrado - não é erro, apenas não está conectado
+          return { connected: false, hasRefreshToken: false };
+        }
+        console.error("[useGoogleAuth] Erro ao verificar status:", error);
+        return { connected: false, hasRefreshToken: false };
+      }
+
+      if (!data) {
         return { connected: false, hasRefreshToken: false };
       }
 
