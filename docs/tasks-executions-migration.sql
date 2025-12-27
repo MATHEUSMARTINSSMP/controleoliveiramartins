@@ -188,15 +188,15 @@ BEGIN
     SELECT 
         dt.id,
         dt.store_id,
-        dt.title,
-        dt.description,
+        dt.title::TEXT,
+        dt.description::TEXT,
         dt.shift_id,
-        s.name AS shift_name,
+        s.name::TEXT AS shift_name,
         s.start_time AS shift_start_time,
         s.end_time AS shift_end_time,
-        s.color AS shift_color,
+        s.color::TEXT AS shift_color,
         dt.due_time,
-        dt.priority,
+        dt.priority::TEXT,
         dt.weekday,
         CASE 
             WHEN dte.is_completed = TRUE THEN 'CONCLUÍDA'::TEXT
@@ -209,7 +209,7 @@ BEGIN
         dt.created_at,
         dte.completed_by,
         dte.completed_at,
-        dte.completion_notes
+        dte.completion_notes::TEXT
     FROM sistemaretiradas.daily_tasks dt
     LEFT JOIN sistemaretiradas.shifts s ON dt.shift_id = s.id
     LEFT JOIN sistemaretiradas.daily_task_executions dte 

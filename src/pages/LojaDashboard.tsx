@@ -72,9 +72,9 @@ const WishlistLojaView = lazy(() => import("@/components/loja/WishlistLojaView")
 const StoreConditionalsAdjustments = lazy(() => import("@/components/loja/StoreConditionalsAdjustments"));
 const CaixaLojaView = lazy(() => import("@/components/loja/CaixaLojaView"));
 import { ListaDaVez } from "@/components/loja/ListaDaVez";
+import { TarefasModal } from "@/components/loja/TarefasModal";
 import { LinkErpSaleToAttendanceDialog } from "@/components/admin/LinkErpSaleToAttendanceDialog";
 import { useOverdueTasksCount } from "@/hooks/useOverdueTasksCount";
-const LojaTasksTab = lazy(() => import("@/components/loja/LojaTasksTab").then(m => ({ default: m.LojaTasksTab })));
 
 interface Sale {
     id: string;
@@ -131,6 +131,7 @@ export default function LojaDashboard() {
     const overdueTasksCount = useOverdueTasksCount(storeId);
     const [activeView, setActiveView] = useState<'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes' | 'caixa' | 'tasks'>('metas');
     const [listaDaVezOpen, setListaDaVezOpen] = useState(false);
+    const [tarefasOpen, setTarefasOpen] = useState(false);
     const [linkErpSaleDialogOpen, setLinkErpSaleDialogOpen] = useState(false);
     const [linkErpSaleData, setLinkErpSaleData] = useState<{
         saleId: string;
@@ -3961,14 +3962,20 @@ export default function LojaDashboard() {
                                         </TabsTrigger>
                                     )}
                                     {tasksAtivo && (
-                                        <TabsTrigger value="tasks" className="text-[10px] sm:text-xs px-2 py-1 justify-center relative">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setTarefasOpen(true)}
+                                            className="text-[10px] sm:text-xs px-2 py-1 justify-center relative h-8"
+                                            data-testid="button-open-tarefas"
+                                        >
                                             Tarefas
                                             {overdueTasksCount > 0 && (
                                                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
                                                     {overdueTasksCount > 9 ? '9+' : overdueTasksCount}
                                                 </span>
                                             )}
-                                        </TabsTrigger>
+                                        </Button>
                                     )}
                                 </TabsList>
                             </Tabs>
@@ -5299,21 +5306,7 @@ export default function LojaDashboard() {
                                     </Suspense>
                                 </TabsContent>
                             )}
-                            {tasksAtivo && (
-                                <TabsContent value="tasks" className="space-y-4 sm:space-y-6">
-                                    <Suspense fallback={<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                                        {storeId ? (
-                                            <LojaTasksTab storeId={storeId} />
-                                        ) : (
-                                            <div className="flex items-center justify-center py-8 text-muted-foreground">
-                                                <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                                                Carregando dados da loja...
-                                            </div>
-                                        )}
-                                    </Suspense>
-                                </TabsContent>
-                            )}
-                        </Tabs>
+                                                    </Tabs>
                     ) : (
                         // Se cashback não estiver ativo, mostrar apenas o conteúdo de metas (sem abas)
                         // Renderizar o mesmo conteúdo que está no TabsContent acima
@@ -6450,6 +6443,13 @@ export default function LojaDashboard() {
                         open={listaDaVezOpen}
                         onOpenChange={setListaDaVezOpen}
                         onOpenNewSale={handleOpenNewSaleFromAttendance}
+                    />
+
+                    {/* Modal de Tarefas do Dia */}
+                    <TarefasModal
+                        storeId={storeId}
+                        open={tarefasOpen}
+                        onOpenChange={setTarefasOpen}
                     />
 
                     {/* Dialog para linkar venda do ERP com atendimento */}
