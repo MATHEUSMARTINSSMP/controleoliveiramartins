@@ -88,9 +88,17 @@ export function useDailyTasks({
         if (!storeId) return false;
 
         try {
+            const { data: userData } = await supabase.auth.getUser();
+            const profileId = userData?.user?.id;
+            
+            if (!profileId) {
+                toast.error('Usuário não autenticado');
+                return false;
+            }
+
             const { data, error: completeError } = await supabase.rpc('complete_task_execution', {
                 p_task_id: taskId,
-                p_profile_id: (await supabase.auth.getUser()).data.user?.id,
+                p_profile_id: profileId,
                 p_notes: notes || null,
                 p_completion_date: date.toISOString().split('T')[0]
             });
@@ -98,10 +106,9 @@ export function useDailyTasks({
             if (completeError) throw completeError;
 
             // Atualizar lista localmente
-            const user = (await supabase.auth.getUser()).data.user;
             setTasks(prev => prev.map(task => 
                 task.id === taskId 
-                    ? { ...task, completed_by: user?.id || null, completed_at: new Date().toISOString(), completion_notes: notes || null }
+                    ? { ...task, completed_by: profileId, completed_at: new Date().toISOString(), completion_notes: notes || null }
                     : task
             ));
 
@@ -118,9 +125,17 @@ export function useDailyTasks({
         if (!storeId) return false;
 
         try {
+            const { data: userData } = await supabase.auth.getUser();
+            const profileId = userData?.user?.id;
+            
+            if (!profileId) {
+                toast.error('Usuário não autenticado');
+                return false;
+            }
+
             const { error: uncompleteError } = await supabase.rpc('uncomplete_task_execution', {
                 p_task_id: taskId,
-                p_profile_id: (await supabase.auth.getUser()).data.user?.id,
+                p_profile_id: profileId,
                 p_completion_date: date.toISOString().split('T')[0]
             });
 
