@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { fetchWithRetry } from "@/lib/google-api-retry";
+
+const NETLIFY_FUNCTIONS_BASE = import.meta.env.VITE_NETLIFY_FUNCTIONS_BASE || "/.netlify/functions";
 
 export interface GoogleLocation {
     id: number;
@@ -21,30 +24,74 @@ export function useGoogleLocations() {
     const { user } = useAuth();
     const [locations, setLocations] = useState<GoogleLocation[]>([]);
     const [loading, setLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
 
-    const fetchLocations = async (siteSlug: string) => {
+    const fetchLocations = async (siteSlug: string, refreshFromApi = false) => {
         if (!user?.email) return;
 
-        setLoading(true);
+        if (refreshFromApi) {
+            setRefreshing(true);
+        } else {
+            setLoading(true);
+        }
+
         try {
-            const { data, error } = await supabase
-                .schema("sistemaretiradas")
-                .from("google_business_accounts")
-                .select("*")
-                .eq("customer_id", user.email)
-                .eq("site_slug", siteSlug)
-                .order("is_primary", { ascending: false });
+            if (refreshFromApi) {
+                // Atualizar locations da API do Google
+                const endpoint = `${NETLIFY_FUNCTIONS_BASE}/google-locations-refresh`;
+                
+                const response = await fetchWithRetry(
+                    endpoint,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            siteSlug,
+                            userEmail: user.email,
+                        }),
+                    },
+                    {
+                        maxRetries: 3,
+                        retryDelay: 1000,
+                    }
+                );
 
-            if (error) {
-                throw error;
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.success && data.locations) {
+                    setLocations(data.locations as GoogleLocation[]);
+                    toast.success(`${data.locationsCount} local(is) atualizado(s) com sucesso`);
+                } else {
+                    throw new Error(data.error || "Erro ao atualizar locations");
+                }
+            } else {
+                // Buscar locations do banco de dados
+                const { data, error } = await supabase
+                    .schema("sistemaretiradas")
+                    .from("google_business_accounts")
+                    .select("*")
+                    .eq("customer_id", user.email)
+                    .eq("site_slug", siteSlug)
+                    .order("is_primary", { ascending: false });
+
+                if (error) {
+                    throw error;
+                }
+
+                setLocations(data as GoogleLocation[]);
             }
-
-            setLocations(data as GoogleLocation[]);
         } catch (error: any) {
             console.error("Erro ao buscar locations:", error);
-            toast.error("Erro ao carregar locais do Google");
+            toast.error(error.message || "Erro ao carregar locais do Google");
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     };
 
@@ -80,7 +127,9 @@ export function useGoogleLocations() {
     return {
         locations,
         loading,
+        refreshing,
         fetchLocations,
         setPrimaryLocation,
+        refreshLocations: (siteSlug: string) => fetchLocations(siteSlug, true),
     };
 }
