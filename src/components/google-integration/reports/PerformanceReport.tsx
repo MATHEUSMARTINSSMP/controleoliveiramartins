@@ -5,11 +5,11 @@ import { toast } from "sonner";
 
 export function PerformanceReport() {
     const handleExportPDF = () => {
-        toast.success("Relatório completo exportado com sucesso! (Simulação)");
+        toast.error("Exportação de PDF ainda não implementada");
     };
 
     const handleSendEmail = () => {
-        toast.success("Relatório enviado por e-mail! (Simulação)");
+        toast.error("Envio por e-mail ainda não implementado");
     };
 
     return (

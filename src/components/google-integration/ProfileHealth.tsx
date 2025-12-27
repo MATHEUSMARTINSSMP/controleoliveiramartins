@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, AlertCircle, AlertTriangle, Download, TrendingUp } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
+import { format, subMonths } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface ProfileHealthProps {
     siteSlug: string;
@@ -89,18 +91,24 @@ export function ProfileHealth({ siteSlug }: ProfileHealthProps) {
         };
     }, [primaryLocation]);
 
-    // Simulação de histórico de saúde
-    const historyData = [
-        { month: "Jan", score: 65 },
-        { month: "Fev", score: 68 },
-        { month: "Mar", score: 75 },
-        { month: "Abr", score: 82 },
-        { month: "Mai", score: 85 },
-        { month: "Jun", score: healthAnalysis?.score || 90 },
-    ];
+    // Histórico de saúde - Usar apenas score atual (histórico real precisaria de tracking no banco)
+    const historyData = useMemo(() => {
+        if (!healthAnalysis) return [];
+        
+        // Criar histórico simples com score atual repetido (histórico real precisaria de dados históricos)
+        const currentMonth = format(new Date(), 'MMM', { locale: ptBR });
+        return [
+            { month: format(subMonths(new Date(), 5), 'MMM', { locale: ptBR }), score: healthAnalysis.score },
+            { month: format(subMonths(new Date(), 4), 'MMM', { locale: ptBR }), score: healthAnalysis.score },
+            { month: format(subMonths(new Date(), 3), 'MMM', { locale: ptBR }), score: healthAnalysis.score },
+            { month: format(subMonths(new Date(), 2), 'MMM', { locale: ptBR }), score: healthAnalysis.score },
+            { month: format(subMonths(new Date(), 1), 'MMM', { locale: ptBR }), score: healthAnalysis.score },
+            { month: currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1), score: healthAnalysis.score },
+        ];
+    }, [healthAnalysis]);
 
     const handleExportPDF = () => {
-        toast.success("Relatório de saúde exportado com sucesso! (Simulação)");
+        toast.error("Exportação de PDF ainda não implementada");
     };
 
     if (loading) {

@@ -24,9 +24,10 @@ import {
   GoogleSettings
 } from "@/components/google-integration";
 import { GoogleStats } from "@/components/google-integration/GoogleStats";
-import { GooglePostsManager } from "@/components/google-integration/posts/GooglePostsManager";
+import { GooglePostsManagerWithLocation } from "@/components/google-integration/posts/GooglePostsManagerWithLocation";
 import { MediaManager } from "@/components/google-integration/media/MediaManager";
 import { QuestionsManager } from "@/components/google-integration/questions/QuestionsManager";
+import { useGooglePerformance } from "@/hooks/use-google-performance";
 import { useGoogleSync } from "@/hooks/use-google-sync";
 import { Button } from "@/components/ui/button";
 
@@ -553,7 +554,7 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
 
           {/* Tab: Postagens */}
           <TabsContent value="posts">
-            <GooglePostsManager locationId={reviews[0]?.location_id || undefined} />
+            <GooglePostsManagerWithLocation siteSlug={siteSlug} />
           </TabsContent>
 
           {/* Tab: Mídias */}
@@ -563,7 +564,7 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
 
           {/* Tab: Perguntas */}
           <TabsContent value="questions">
-            <QuestionsManager />
+            <QuestionsManager siteSlug={siteSlug} />
           </TabsContent>
 
           {/* Tab: Configurações */}

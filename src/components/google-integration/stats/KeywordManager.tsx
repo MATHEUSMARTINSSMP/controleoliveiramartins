@@ -1,19 +1,44 @@
+import { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { GoogleReview } from "@/hooks/use-google-reviews";
 
-export function KeywordManager() {
-    // Simulação de palavras-chave
-    const keywords = [
-        { id: 1, term: "restaurante italiano", impressions: 1250, trend: "up", change: "+15%" },
-        { id: 2, term: "pizza delivery", impressions: 980, trend: "up", change: "+8%" },
-        { id: 3, term: "massas frescas", impressions: 750, trend: "stable", change: "0%" },
-        { id: 4, term: "jantar romântico", impressions: 620, trend: "down", change: "-5%" },
-        { id: 5, term: "almoço executivo", impressions: 580, trend: "up", change: "+12%" },
-        { id: 6, term: "vinho tinto", impressions: 450, trend: "stable", change: "+1%" },
-        { id: 7, term: "sobremesas", impressions: 320, trend: "down", change: "-10%" },
-    ];
+interface KeywordManagerProps {
+    reviews: GoogleReview[];
+}
+
+export function KeywordManager({ reviews }: KeywordManagerProps) {
+    // Extrair palavras-chave dos comentários dos reviews
+    const keywords = useMemo(() => {
+        const wordCount: Record<string, number> = {};
+        const stopWords = new Set(['o', 'a', 'os', 'as', 'um', 'uma', 'de', 'do', 'da', 'dos', 'das', 'em', 'no', 'na', 'nos', 'nas', 'para', 'com', 'por', 'é', 'são', 'foi', 'ser', 'que', 'quem', 'qual', 'quais', 'muito', 'mais', 'bom', 'boa', 'ótimo', 'ótima', 'excelente', 'péssimo', 'péssima', 'ruim', 'nao', 'não', 'sim', 'também', 'tambem', 'muito', 'muito', 'bom', 'boa', 'ótimo', 'ótima']);
+        
+        reviews.forEach(review => {
+            if (review.comment) {
+                const words = review.comment.toLowerCase()
+                    .replace(/[^\w\s]/g, ' ')
+                    .split(/\s+/)
+                    .filter(w => w.length > 3 && !stopWords.has(w));
+                
+                words.forEach(word => {
+                    wordCount[word] = (wordCount[word] || 0) + 1;
+                });
+            }
+        });
+
+        return Object.entries(wordCount)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 7)
+            .map(([term, impressions], index) => ({
+                id: index + 1,
+                term,
+                impressions,
+                trend: "stable" as "up" | "down" | "stable",
+                change: "0%",
+            }));
+    }, [reviews]);
 
     const getTrendIcon = (trend: string) => {
         switch (trend) {

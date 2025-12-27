@@ -1,26 +1,67 @@
+import { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import { GoogleReview } from "@/hooks/use-google-reviews";
+import { format, subMonths, parseISO, startOfMonth } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
-export function ReviewsAnalytics() {
-    // Simulação de evolução de reviews
-    const volumeData = [
-        { month: "Jan", reviews: 12, rating: 4.5 },
-        { month: "Fev", reviews: 15, rating: 4.6 },
-        { month: "Mar", reviews: 18, rating: 4.4 },
-        { month: "Abr", reviews: 22, rating: 4.7 },
-        { month: "Mai", reviews: 25, rating: 4.8 },
-        { month: "Jun", reviews: 30, rating: 4.9 },
-    ];
+interface ReviewsAnalyticsProps {
+    reviews: GoogleReview[];
+}
 
-    // Simulação de taxa de resposta
-    const responseRateData = [
-        { month: "Jan", rate: 80 },
-        { month: "Fev", rate: 85 },
-        { month: "Mar", rate: 90 },
-        { month: "Abr", rate: 95 },
-        { month: "Mai", rate: 98 },
-        { month: "Jun", rate: 100 },
-    ];
+export function ReviewsAnalytics({ reviews }: ReviewsAnalyticsProps) {
+    // Calcular dados reais baseados em reviews
+    const volumeData = useMemo(() => {
+        const last6Months = Array.from({ length: 6 }, (_, i) => {
+            const date = subMonths(new Date(), 5 - i);
+            const monthStart = startOfMonth(date);
+            const monthEnd = subMonths(startOfMonth(new Date(subMonths(date, -1))), 0);
+            const monthKey = format(monthStart, 'MMM', { locale: ptBR });
+
+            const monthReviews = reviews.filter(r => {
+                if (!r.review_date) return false;
+                const reviewDate = parseISO(r.review_date);
+                return reviewDate >= monthStart && reviewDate < monthEnd;
+            });
+
+            const totalRating = monthReviews.reduce((sum, r) => sum + (r.rating || 0), 0);
+            const avgRating = monthReviews.length > 0 ? totalRating / monthReviews.length : 0;
+
+            return {
+                month: monthKey.charAt(0).toUpperCase() + monthKey.slice(1),
+                reviews: monthReviews.length,
+                rating: avgRating,
+            };
+        });
+
+        return last6Months;
+    }, [reviews]);
+
+    // Calcular taxa de resposta baseada em reviews reais
+    const responseRateData = useMemo(() => {
+        const last6Months = Array.from({ length: 6 }, (_, i) => {
+            const date = subMonths(new Date(), 5 - i);
+            const monthStart = startOfMonth(date);
+            const monthEnd = subMonths(startOfMonth(new Date(subMonths(date, -1))), 0);
+            const monthKey = format(monthStart, 'MMM', { locale: ptBR });
+
+            const monthReviews = reviews.filter(r => {
+                if (!r.review_date) return false;
+                const reviewDate = parseISO(r.review_date);
+                return reviewDate >= monthStart && reviewDate < monthEnd;
+            });
+
+            const reviewsWithReply = monthReviews.filter(r => r.reply && r.reply.trim().length > 0);
+            const rate = monthReviews.length > 0 ? Math.round((reviewsWithReply.length / monthReviews.length) * 100) : 0;
+
+            return {
+                month: monthKey.charAt(0).toUpperCase() + monthKey.slice(1),
+                rate,
+            };
+        });
+
+        return last6Months;
+    }, [reviews]);
 
     return (
         <div className="space-y-6">

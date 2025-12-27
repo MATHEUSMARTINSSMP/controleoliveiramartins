@@ -1,22 +1,30 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Smartphone, Monitor, Map, Search } from "lucide-react";
+import { GooglePerformanceMetrics } from "@/hooks/use-google-performance";
 
-export function AdvancedInsights() {
-    // Simulação de dados comparativos (Período Atual vs Anterior)
-    const interactionData = [
-        { name: "Chamadas", current: 120, previous: 95 },
-        { name: "Rotas", current: 250, previous: 210 },
-        { name: "Website", current: 180, previous: 150 },
-        { name: "Mensagens", current: 45, previous: 30 },
+interface AdvancedInsightsProps {
+    metrics?: GooglePerformanceMetrics | null;
+}
+
+export function AdvancedInsights({ metrics }: AdvancedInsightsProps) {
+    // Usar dados reais de performance se disponíveis
+    const interactionData = metrics ? [
+        { name: "Visualizações", current: metrics.views.total, previous: 0 },
+        { name: "Cliques no Site", current: metrics.clicks.total, previous: 0 },
+        { name: "Chamadas", current: metrics.calls.total, previous: 0 },
+        { name: "Rotas", current: metrics.directions.total, previous: 0 },
+    ] : [
+        { name: "Visualizações", current: 0, previous: 0 },
+        { name: "Cliques no Site", current: 0, previous: 0 },
+        { name: "Chamadas", current: 0, previous: 0 },
+        { name: "Rotas", current: 0, previous: 0 },
     ];
 
-    // Simulação de dados por dispositivo/plataforma
+    // Dados por dispositivo/plataforma não estão disponíveis na API atual
+    // Mostrar mensagem informativa
     const deviceData = [
-        { name: "Mobile (Busca)", value: 450, color: "#3b82f6" },
-        { name: "Desktop (Busca)", value: 150, color: "#93c5fd" },
-        { name: "Google Maps (App)", value: 800, color: "#10b981" },
-        { name: "Google Maps (Web)", value: 200, color: "#6ee7b7" },
+        { name: "Dados não disponíveis", value: 100, color: "#94a3b8" },
     ];
 
     return (
@@ -73,20 +81,11 @@ export function AdvancedInsights() {
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
-                        <div className="grid grid-cols-2 gap-4 mt-4 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                                <Smartphone className="h-4 w-4" /> Mobile
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Monitor className="h-4 w-4" /> Desktop
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Map className="h-4 w-4" /> Maps
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Search className="h-4 w-4" /> Search
-                            </div>
-                        </div>
+                        {!metrics && (
+                            <p className="text-sm text-muted-foreground text-center mt-4">
+                                Dados de origem do tráfego não estão disponíveis na API atual
+                            </p>
+                        )}
                     </CardContent>
                 </Card>
             </div>
