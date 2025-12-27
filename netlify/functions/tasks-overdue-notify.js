@@ -1,11 +1,13 @@
 /**
- * Netlify Function: Verificar Tarefas Atrasadas
+ * Netlify Function: Verificar e Notificar Tarefas Atrasadas
  * 
  * Cron job que verifica tarefas que entraram em atraso e:
  * 1. Cria notificações na tabela task_overdue_notifications
  * 2. Envia notificação via WhatsApp (número global) para o número da loja
  * 
  * Execução: A cada 1 minuto (via cron)
+ * 
+ * URL: /.netlify/functions/tasks-overdue-notify
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -108,8 +110,8 @@ exports.handler = async (event, context) => {
           .rpc('create_overdue_notification', {
             p_task_id: task.task_id,
             p_store_id: task.store_id,
-            p_notification_date: currentDate,
             p_due_time: task.due_time,
+            p_notification_date: currentDate,
           });
 
         if (notifError) {

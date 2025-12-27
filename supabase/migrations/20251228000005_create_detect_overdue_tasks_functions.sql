@@ -53,8 +53,8 @@ COMMENT ON FUNCTION sistemaretiradas.detect_overdue_tasks IS 'Detecta tarefas qu
 CREATE OR REPLACE FUNCTION sistemaretiradas.create_overdue_notification(
     p_task_id UUID,
     p_store_id UUID,
-    p_notification_date DATE DEFAULT CURRENT_DATE,
-    p_due_time TIME
+    p_due_time TIME,
+    p_notification_date DATE DEFAULT CURRENT_DATE
 )
 RETURNS UUID AS $$
 DECLARE
