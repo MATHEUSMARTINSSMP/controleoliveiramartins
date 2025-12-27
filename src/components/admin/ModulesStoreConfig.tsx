@@ -22,6 +22,7 @@ interface Store {
   caixa_ativo: boolean;
   lista_da_vez_ativo: boolean;
   tasks_module_enabled: boolean;
+  tasks_whatsapp_notificacoes_ativas: boolean;
   whatsapp: string | null;
   whatsapp_notificacoes_ajustes_condicionais: string | null;
   whatsapp_caixa_numeros: string[] | null;
@@ -141,7 +142,8 @@ export const ModulesStoreConfig = () => {
   const [configForm, setConfigForm] = useState({
     valor_bonus: '',
     horario_limite: '18:00',
-    whatsapp: ''
+    whatsapp: '',
+    tasks_whatsapp_notificacoes_ativas: false
   });
   const [savingConfig, setSavingConfig] = useState(false);
 
@@ -156,19 +158,20 @@ export const ModulesStoreConfig = () => {
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, tasks_module_enabled, whatsapp, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, whatsapp_caixa_numeros, whatsapp_caixa_usar_global, active')
+        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, tasks_module_enabled, tasks_whatsapp_notificacoes_ativas, whatsapp, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, whatsapp_caixa_numeros, whatsapp_caixa_usar_global, active')
         .eq('active', true)
         .order('name');
       
-      // Se tasks_module_enabled não existir, adicionar como true para todas as lojas (padrão)
-      // Se whatsapp não existir, adicionar como null
       if (data) {
         data.forEach(store => {
           if (!('tasks_module_enabled' in store) || store.tasks_module_enabled === null) {
-            (store as any).tasks_module_enabled = true; // Default: habilitado
+            (store as any).tasks_module_enabled = true;
+          }
+          if (!('tasks_whatsapp_notificacoes_ativas' in store) || store.tasks_whatsapp_notificacoes_ativas === null) {
+            (store as any).tasks_whatsapp_notificacoes_ativas = false;
           }
           if (!('whatsapp' in store)) {
-            (store as any).whatsapp = null; // Default: null
+            (store as any).whatsapp = null;
           }
         });
       }
@@ -265,13 +268,15 @@ export const ModulesStoreConfig = () => {
       setConfigForm({
         valor_bonus: store.daily_goal_check_valor_bonus?.toString() || '5',
         horario_limite: store.daily_goal_check_horario_limite?.substring(0, 5) || '18:00',
-        whatsapp: ''
+        whatsapp: '',
+        tasks_whatsapp_notificacoes_ativas: false
       });
     } else if (module === 'tasks') {
       setConfigForm({
         valor_bonus: '',
         horario_limite: '',
-        whatsapp: store.whatsapp || ''
+        whatsapp: store.whatsapp || '',
+        tasks_whatsapp_notificacoes_ativas: store.tasks_whatsapp_notificacoes_ativas ?? false
       });
     }
     setConfigDialogOpen(true);
@@ -315,14 +320,12 @@ export const ModulesStoreConfig = () => {
 
         toast.success(`Configuração do Check de Meta atualizada para ${configStore.name}`);
       } else if (configModule === 'tasks') {
-        // Validar e normalizar telefone (remover caracteres não numéricos, exceto se vazio)
         const whatsappNormalizado = configForm.whatsapp.trim() 
           ? configForm.whatsapp.replace(/\D/g, '') 
           : null;
 
-        // Se preenchido, validar tamanho mínimo (10 dígitos = DDD + número)
         if (whatsappNormalizado && whatsappNormalizado.length < 10) {
-          toast.error('Telefone inválido. Informe DDD + número (mínimo 10 dígitos)');
+          toast.error('Telefone invalido. Informe DDD + numero (minimo 10 digitos)');
           return;
         }
 
@@ -330,7 +333,8 @@ export const ModulesStoreConfig = () => {
           .schema('sistemaretiradas')
           .from('stores')
           .update({
-            whatsapp: whatsappNormalizado
+            whatsapp: whatsappNormalizado,
+            tasks_whatsapp_notificacoes_ativas: configForm.tasks_whatsapp_notificacoes_ativas
           })
           .eq('id', configStore.id);
 
@@ -341,13 +345,14 @@ export const ModulesStoreConfig = () => {
             store.id === configStore.id
               ? {
                   ...store,
-                  whatsapp: whatsappNormalizado
+                  whatsapp: whatsappNormalizado,
+                  tasks_whatsapp_notificacoes_ativas: configForm.tasks_whatsapp_notificacoes_ativas
                 }
               : store
           )
         );
 
-        toast.success(`Telefone WhatsApp para tarefas atualizado para ${configStore.name}`);
+        toast.success(`Configuracao de notificacoes de tarefas atualizada para ${configStore.name}`);
       }
 
       setConfigDialogOpen(false);
@@ -605,35 +610,60 @@ export const ModulesStoreConfig = () => {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Phone className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-                  Configurar WhatsApp para Tarefas
+                  Configurar Notificacoes de Tarefas
                 </DialogTitle>
                 <DialogDescription>
-                  {configStore?.name} - Configure o telefone WhatsApp da loja para receber notificações de tarefas atrasadas.
+                  {configStore?.name} - Configure as notificacoes WhatsApp para tarefas atrasadas.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
+                <div className="flex items-center justify-between gap-4 p-4 rounded-lg border">
+                  <div className="space-y-1">
+                    <Label htmlFor="tasks_whatsapp_notificacoes_ativas" className="font-semibold">
+                      Notificacoes WhatsApp Ativas
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Enviar notificacao WhatsApp automatica quando houver tarefas atrasadas
+                    </p>
+                  </div>
+                  <Switch
+                    id="tasks_whatsapp_notificacoes_ativas"
+                    checked={configForm.tasks_whatsapp_notificacoes_ativas}
+                    onCheckedChange={(checked) => setConfigForm({ ...configForm, tasks_whatsapp_notificacoes_ativas: checked })}
+                    data-testid="switch-tasks-whatsapp-notificacoes"
+                  />
+                </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="whatsapp">Telefone WhatsApp</Label>
+                  <Label htmlFor="whatsapp">Telefone WhatsApp da Loja (Destinatario)</Label>
                   <Input
                     id="whatsapp"
                     type="tel"
                     value={configForm.whatsapp}
                     onChange={(e) => setConfigForm({ ...configForm, whatsapp: e.target.value })}
-                    placeholder="Ex: 5598987654321 (opcional)"
+                    placeholder="Ex: 5598987654321"
                     data-testid="input-whatsapp-tasks"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Telefone WhatsApp da loja para receber notificações de tarefas atrasadas. Deixe em branco para desabilitar. Formato: código do país (55) + DDD + número (ex: 5598987654321).
+                    Numero WhatsApp da loja que recebera as notificacoes de tarefas atrasadas. 
+                    Formato: codigo do pais (55) + DDD + numero (ex: 5598987654321).
                   </p>
                 </div>
 
-                {configStore?.whatsapp && (
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <p className="text-xs text-muted-foreground">
-                      Telefone atual: <span className="font-semibold">{configStore.whatsapp}</span>
-                    </p>
-                  </div>
-                )}
+                <div className="p-3 bg-muted/50 rounded-lg space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-semibold">Configuracao atual:</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Notificacoes: <span className="font-semibold">{configStore?.tasks_whatsapp_notificacoes_ativas ? 'Ativas' : 'Inativas'}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Telefone: <span className="font-semibold">{configStore?.whatsapp || 'Nao configurado'}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    As mensagens serao enviadas pelo numero global do sistema.
+                  </p>
+                </div>
               </div>
             </>
           ) : null}
