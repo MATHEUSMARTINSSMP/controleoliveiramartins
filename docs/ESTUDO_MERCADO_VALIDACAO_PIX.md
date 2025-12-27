@@ -157,6 +157,12 @@ Libera venda automaticamente
 - **Pagou.ai**: https://developer.pagou.ai/pix/webhooks/intro
 - **MisticPay**: https://docs.misticpay.com
 - **Pix One**: https://docs.pixone.com.br/outros/webhook
+- **C6 Bank**: https://developers.c6bank.com.br
+  - ✅ API de PIX disponível
+  - ✅ Pix gratuito ilimitado
+  - ✅ Sem taxas para PIX via API
+  - ⚠️ Processo de homologação necessário
+  - ⚠️ Verificar documentação sobre webhooks
 - Outros PSPs (Provedores de Serviços de Pagamento)
 
 **Estrutura do Webhook** (exemplo):
@@ -454,12 +460,22 @@ Libera venda automaticamente
    - **Pix One**: https://docs.pixone.com.br/outros/webhook
      - Webhooks para eventos PIX
      - Guia de integração
+   
+   - **C6 Bank**: https://developers.c6bank.com.br
+     - API de PIX disponível
+     - Portal de desenvolvedores
+     - Processo de homologação necessário
+     - ✅ **Pix gratuito ilimitado** (vantagem competitiva)
+     - ✅ **Sem taxas para PIX via API**
+     - ⚠️ Necessário verificar documentação completa sobre webhooks
+     - Portal: https://developers.c6bank.com.br
 
 2. **Exemplo de Implementação** (baseado no nosso código):
    - Reutilizar: `netlify/functions/payment-webhook.js`
-   - Criar: `netlify/functions/pix-webhook.js`
-   - Adicionar handler específico para PIX
+   - Criar: `netlify/functions/pix-webhook.js` ou adicionar handler ao webhook genérico
+   - Adicionar handler específico para PIX (ou gateway específico)
    - Validar assinatura HMAC
+   - O sistema já suporta múltiplos gateways via `payment_gateways` table
 
 3. **Banco Central** (Referência):
    - Regulamentações PIX

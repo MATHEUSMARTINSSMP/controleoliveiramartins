@@ -71,7 +71,7 @@ CREATE POLICY "ADMIN pode ver google_business_accounts de suas lojas"
         OR
         EXISTS (
           SELECT 1 FROM sistemaretiradas.stores s
-          WHERE s.slug = google_business_accounts.site_slug
+          WHERE s.site_slug = google_business_accounts.site_slug
           AND s.id IN (
             SELECT store_id FROM sistemaretiradas.profiles
             WHERE id = auth.uid()

@@ -177,6 +177,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (data.role === 'ADMIN') {
         try {
           const { data: billingData, error: billingError } = await supabase
+            .schema('sistemaretiradas')
             .rpc('check_admin_access', { p_admin_id: userId });
           
           if (!billingError && billingData && billingData.length > 0) {

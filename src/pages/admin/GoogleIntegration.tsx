@@ -85,7 +85,7 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
         const { data: storesData, error } = await supabase
           .schema("sistemaretiradas")
           .from("stores")
-          .select("id, name, slug")
+          .select("id, name, site_slug")
           .eq("admin_id", profile.id)
           .eq("active", true)
           .order("name");
@@ -93,11 +93,17 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
         if (error) throw error;
 
         if (storesData && storesData.length > 0) {
-          setStores(storesData);
+          // Mapear site_slug para slug para manter compatibilidade
+          const mappedStores = storesData.map(store => ({
+            id: store.id,
+            name: store.name,
+            slug: store.site_slug || store.id,
+          }));
+          setStores(mappedStores);
           // Se não tem loja selecionada, selecionar a primeira
           if (!selectedStoreId) {
-            setSelectedStoreId(storesData[0].id);
-            setSiteSlug(storesData[0].slug || storesData[0].id);
+            setSelectedStoreId(mappedStores[0].id);
+            setSiteSlug(mappedStores[0].slug || mappedStores[0].id);
           }
         }
       } catch (error) {
@@ -114,6 +120,7 @@ export default function GoogleIntegration({ embedded = false }: GoogleIntegratio
     if (selectedStoreId && stores.length > 0) {
       const selectedStore = stores.find(s => s.id === selectedStoreId);
       if (selectedStore) {
+        // selectedStore.slug já foi mapeado de site_slug
         setSiteSlug(selectedStore.slug || selectedStore.id);
       }
     }

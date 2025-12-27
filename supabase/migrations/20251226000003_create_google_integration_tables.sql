@@ -97,7 +97,7 @@ CREATE POLICY "ADMIN pode ver google_credentials de suas lojas"
         -- Ou se o admin tem acesso à loja através do site_slug
         EXISTS (
           SELECT 1 FROM sistemaretiradas.stores s
-          WHERE s.slug = google_credentials.site_slug
+          WHERE s.site_slug = google_credentials.site_slug
           AND s.id IN (
             SELECT store_id FROM sistemaretiradas.profiles
             WHERE id = auth.uid()
@@ -144,7 +144,7 @@ CREATE POLICY "ADMIN pode ver google_reviews de suas lojas"
         OR
         EXISTS (
           SELECT 1 FROM sistemaretiradas.stores s
-          WHERE s.slug = google_reviews.site_slug
+          WHERE s.site_slug = google_reviews.site_slug
           AND s.id IN (
             SELECT store_id FROM sistemaretiradas.profiles
             WHERE id = auth.uid()

@@ -17,9 +17,8 @@ export default function GestaoMarketing() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
-  // Determinar aba padrão baseado no parâmetro da URL (ex: ?gmb=ok abre aba google)
-  const defaultTab = searchParams.get("gmb") ? "google" : "whatsapp";
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  // Determinar aba padrão
+  const [activeTab, setActiveTab] = useState("whatsapp");
 
   if (authLoading) {
     return <PageLoader />;
@@ -30,10 +29,19 @@ export default function GestaoMarketing() {
     return null;
   }
 
-  // Atualizar aba ativa quando o parâmetro gmb estiver presente
+  // Atualizar aba ativa quando o parâmetro tab ou gmb estiver presente
   useEffect(() => {
-    if (searchParams.get("gmb")) {
+    const tabParam = searchParams.get("tab");
+    const gmbParam = searchParams.get("gmb");
+    
+    if (tabParam && ["whatsapp", "site", "redes-sociais", "google"].includes(tabParam)) {
+      setActiveTab(tabParam);
+      // Limpar URL para evitar re-renderização desnecessária
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (gmbParam) {
       setActiveTab("google");
+      // Limpar URL para evitar re-renderização desnecessária
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [searchParams]);
 

@@ -43,7 +43,7 @@ CREATE POLICY "ADMIN pode ver google_reply_history de suas lojas"
         -- Ou se o admin tem acesso à loja através do site_slug
         EXISTS (
           SELECT 1 FROM sistemaretiradas.stores s
-          WHERE s.slug = r.site_slug
+          WHERE s.site_slug = r.site_slug
           AND s.id IN (
             SELECT store_id FROM sistemaretiradas.profiles
             WHERE id = auth.uid()
@@ -67,7 +67,7 @@ CREATE POLICY "ADMIN pode inserir google_reply_history"
         OR
         EXISTS (
           SELECT 1 FROM sistemaretiradas.stores s
-          WHERE s.slug = r.site_slug
+          WHERE s.site_slug = r.site_slug
           AND s.id IN (
             SELECT store_id FROM sistemaretiradas.profiles
             WHERE id = auth.uid()

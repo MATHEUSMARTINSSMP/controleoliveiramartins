@@ -37,7 +37,7 @@ CREATE POLICY "ADMIN pode ver suas google_settings"
     OR
     EXISTS (
       SELECT 1 FROM sistemaretiradas.stores s
-      WHERE s.slug = google_settings.site_slug
+      WHERE s.site_slug = google_settings.site_slug
       AND s.id IN (
         SELECT store_id FROM sistemaretiradas.profiles
         WHERE id = auth.uid()
@@ -55,7 +55,7 @@ CREATE POLICY "ADMIN pode atualizar suas google_settings"
     OR
     EXISTS (
       SELECT 1 FROM sistemaretiradas.stores s
-      WHERE s.slug = google_settings.site_slug
+      WHERE s.site_slug = google_settings.site_slug
       AND s.id IN (
         SELECT store_id FROM sistemaretiradas.profiles
         WHERE id = auth.uid()
@@ -73,7 +73,7 @@ CREATE POLICY "ADMIN pode inserir suas google_settings"
     OR
     EXISTS (
       SELECT 1 FROM sistemaretiradas.stores s
-      WHERE s.slug = google_settings.site_slug
+      WHERE s.site_slug = google_settings.site_slug
       AND s.id IN (
         SELECT store_id FROM sistemaretiradas.profiles
         WHERE id = auth.uid()

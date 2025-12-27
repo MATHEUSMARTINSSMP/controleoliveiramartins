@@ -82,15 +82,22 @@ export function LocationMapping({ customerId, siteSlug, onMappingComplete }: Loc
       const { data: storesData, error: storesError } = await supabase
         .schema("sistemaretiradas")
         .from("stores")
-        .select("id, name, slug")
+        .select("id, name, site_slug")
         .eq("admin_id", profile.id)
         .eq("active", true)
         .order("name");
 
       if (storesError) throw storesError;
 
+      // Mapear site_slug para slug para manter compatibilidade
+      const mappedStores = (storesData || []).map(store => ({
+        id: store.id,
+        name: store.name,
+        slug: store.site_slug || store.id,
+      }));
+
       setLocations(uniqueLocationsArray);
-      setStores(storesData || []);
+      setStores(mappedStores);
 
       // Buscar mapeamentos existentes (credenciais que já têm location_id definido)
       const { data: credentials, error: credError } = await supabase
@@ -100,11 +107,11 @@ export function LocationMapping({ customerId, siteSlug, onMappingComplete }: Loc
         .eq("customer_id", customerId)
         .not("location_id", "is", null);
 
-      if (!credError && credentials && storesData) {
+      if (!credError && credentials && mappedStores) {
         const existingMappings: Record<string, string> = {};
         credentials.forEach((cred) => {
-          // Encontrar store_id pelo site_slug
-          const store = storesData.find((s) => s.slug === cred.site_slug);
+          // Encontrar store_id pelo site_slug (comparar com slug mapeado)
+          const store = mappedStores.find((s) => s.slug === cred.site_slug);
           if (store && cred.location_id) {
             existingMappings[cred.location_id] = store.id;
           }
