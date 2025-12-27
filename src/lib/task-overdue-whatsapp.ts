@@ -10,8 +10,8 @@
  * 
  * REGRAS DE ENVIO:
  * - Sempre usa número GLOBAL como remetente (não passa store_id)
- * - Destinatário: campo `whatsapp` da tabela stores
- * - Configurável por loja via `tasks_whatsapp_notificacoes_ativas`
+ * - Configuração de notificações em whatsapp_notifications (notification_type = 'TAREFAS_ATRASADAS')
+ * - Destinatário: phone da config ou stores.whatsapp se use_global_whatsapp = true
  * 
  * CONFIGURAÇÃO:
  * - Edge Functions devem criar um cliente Supabase com service_role key
@@ -19,6 +19,13 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+interface TasksNotificationConfig {
+    store_id: string;
+    phone: string | null;
+    active: boolean;
+    use_global_whatsapp: boolean;
+}
 
 interface OverdueTask {
     id: string;
@@ -43,8 +50,42 @@ interface WhatsAppSendResult {
 }
 
 /**
+ * Busca configurações de notificação de tarefas de whatsapp_notifications
+ * 
+ * @param supabase - Cliente Supabase com service_role key (para Edge Functions)
+ */
+async function getTasksNotificationConfigs(
+    supabase: SupabaseClient
+): Promise<Map<string, TasksNotificationConfig>> {
+    const { data, error } = await supabase
+        .schema('sistemaretiradas')
+        .from('whatsapp_notifications')
+        .select('store_id, phone, active, use_global_whatsapp')
+        .eq('notification_type', 'TAREFAS_ATRASADAS')
+        .eq('active', true);
+
+    if (error) {
+        console.error('[task-overdue-whatsapp] Erro ao buscar configs:', error);
+        return new Map();
+    }
+
+    const configMap = new Map<string, TasksNotificationConfig>();
+    for (const config of data || []) {
+        if (config.store_id) {
+            configMap.set(config.store_id, {
+                store_id: config.store_id,
+                phone: config.phone,
+                active: config.active,
+                use_global_whatsapp: config.use_global_whatsapp
+            });
+        }
+    }
+    return configMap;
+}
+
+/**
  * Busca tarefas atrasadas do dia que ainda não tiveram notificação WhatsApp enviada
- * Apenas para lojas com notificações ativas (tasks_whatsapp_notificacoes_ativas = true)
+ * Apenas para lojas com notificações ativas em whatsapp_notifications
  * 
  * @param supabase - Cliente Supabase com service_role key (para Edge Functions)
  */
@@ -56,6 +97,8 @@ export async function getOverdueTasksForNotification(
         const now = new Date();
         const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
+        const notificationConfigs = await getTasksNotificationConfigs(supabase);
+
         const { data, error } = await supabase
             .schema('sistemaretiradas')
             .from('daily_tasks')
@@ -66,8 +109,7 @@ export async function getOverdueTasksForNotification(
                 store_id,
                 stores!inner(
                     name,
-                    whatsapp,
-                    tasks_whatsapp_notificacoes_ativas
+                    whatsapp
                 )
             `)
             .eq('is_active', true)
@@ -79,9 +121,12 @@ export async function getOverdueTasksForNotification(
         const overdueTasks: OverdueTask[] = [];
 
         for (const task of data || []) {
+            const config = notificationConfigs.get(task.store_id);
+            const notificationsEnabled = config?.active ?? false;
+
             const { data: execution } = await supabase
                 .schema('sistemaretiradas')
-                .from('task_executions')
+                .from('daily_task_executions')
                 .select('id')
                 .eq('task_id', task.id)
                 .eq('execution_date', today)
@@ -102,16 +147,21 @@ export async function getOverdueTasksForNotification(
                     const store = task.stores as unknown as { 
                         name: string; 
                         whatsapp?: string;
-                        tasks_whatsapp_notificacoes_ativas?: boolean;
                     };
+                    
+                    let destinationPhone = store?.whatsapp;
+                    if (config && !config.use_global_whatsapp && config.phone) {
+                        destinationPhone = config.phone;
+                    }
+
                     overdueTasks.push({
                         id: task.id,
                         title: task.title,
                         due_time: task.due_time!,
                         store_id: task.store_id,
                         store_name: store?.name || 'Loja',
-                        store_whatsapp: store?.whatsapp,
-                        notifications_enabled: store?.tasks_whatsapp_notificacoes_ativas ?? false
+                        store_whatsapp: destinationPhone,
+                        notifications_enabled: notificationsEnabled
                     });
                 }
             }
@@ -180,8 +230,8 @@ async function markNotificationAsSent(
  * IMPORTANTE: 
  * - Esta função deve ser chamada apenas de Edge Functions ou backend
  * - Sempre envia pelo número GLOBAL (não passa store_id)
- * - Destinatário: campo `whatsapp` da tabela stores
- * - Só envia se a loja tiver `tasks_whatsapp_notificacoes_ativas = true`
+ * - Configuração vem de whatsapp_notifications (notification_type = 'TAREFAS_ATRASADAS')
+ * - Destinatário: phone da config ou stores.whatsapp se use_global_whatsapp = true
  * 
  * @param supabase - Cliente Supabase com service_role key (para bypass RLS)
  * @param sendWhatsApp - Função para enviar WhatsApp (injetada pelo chamador)
