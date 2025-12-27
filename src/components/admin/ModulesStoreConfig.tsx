@@ -122,7 +122,7 @@ const modules: ModuleInfo[] = [
     name: 'Tarefas do Dia',
     description: 'Sistema de gerenciamento de tarefas diárias por turno. Permite configurar tarefas organizadas por horário/turno e acompanhar a execução pelas colaboradoras com relatórios de desempenho.',
     icon: <CheckSquare2 className="h-5 w-5" />,
-    field: 'tasks_ativo',
+    field: 'tasks_module_enabled',
     color: 'text-violet-600 dark:text-violet-400',
     hasConfig: false
   }
@@ -153,15 +153,15 @@ export const ModulesStoreConfig = () => {
       const { data, error } = await supabase
         .schema('sistemaretiradas')
         .from('stores')
-        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, whatsapp_caixa_numeros, whatsapp_caixa_usar_global, active')
+        .select('id, name, cashback_ativo, crm_ativo, wishlist_ativo, ponto_ativo, ajustes_condicionais_ativo, caixa_ativo, lista_da_vez_ativo, tasks_module_enabled, daily_goal_check_ativo, daily_goal_check_valor_bonus, daily_goal_check_horario_limite, whatsapp_caixa_numeros, whatsapp_caixa_usar_global, active')
         .eq('active', true)
         .order('name');
       
-      // Se tasks_ativo não existir, adicionar como false para todas as lojas
+      // Se tasks_module_enabled não existir, adicionar como true para todas as lojas (padrão)
       if (data) {
         data.forEach(store => {
-          if (!('tasks_ativo' in store)) {
-            (store as any).tasks_ativo = false;
+          if (!('tasks_module_enabled' in store) || store.tasks_module_enabled === null) {
+            (store as any).tasks_module_enabled = true; // Default: habilitado
           }
         });
       }
