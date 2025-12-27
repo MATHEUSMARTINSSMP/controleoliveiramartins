@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { DailyTask } from "@/hooks/useDailyTasks";
 import { CheckCircle2, Clock, RotateCcw } from "lucide-react";
@@ -62,12 +61,6 @@ export function TaskCard({ task, onToggleComplete, onCompleteClick, loading = fa
             )}
         >
             <div className="flex items-start gap-3">
-                <Checkbox
-                    checked={isCompleted}
-                    onCheckedChange={(checked) => onToggleComplete(task.id, checked === true)}
-                    disabled={loading}
-                    className="mt-1 h-5 w-5"
-                />
                 <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 mb-1">
                         <h4
