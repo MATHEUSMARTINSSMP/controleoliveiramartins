@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useGoogleAuth } from "@/hooks/use-google-auth";
 import { useGoogleReviews } from "@/hooks/use-google-reviews";
 import { useDebounce } from "@/hooks/use-debounce";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
