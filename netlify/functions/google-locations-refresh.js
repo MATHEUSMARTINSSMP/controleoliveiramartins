@@ -19,8 +19,9 @@ const corsHeaders = {
  */
 async function fetchAccounts(accessToken) {
   try {
-    // Usar API v4 (mybusiness.googleapis.com) conforme documentação oficial
-    const response = await fetch('https://mybusiness.googleapis.com/v4/accounts', {
+    // Usar Account Management API v1 conforme documentação oficial
+    // Documentação: https://developers.google.com/my-business/content/account-management
+    const response = await fetch('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -46,10 +47,14 @@ async function fetchAccounts(accessToken) {
  */
 async function fetchLocations(accessToken, accountName) {
   try {
-    // Usar API v4 (mybusiness.googleapis.com) conforme documentação oficial
-    // accountName deve estar no formato: accounts/123456789
-    // readMask não é suportado na v4, mas podemos usar select ou omitir
-    const url = `https://mybusiness.googleapis.com/v4/${accountName}/locations`;
+    // Extrair accountId numérico do accountName (formato: accounts/123456789)
+    const accountId = accountName.replace('accounts/', '');
+    
+    // Usar Business Information API v1 para locations (API oficial recomendada)
+    // Documentação: https://developers.google.com/my-business/content/location-data
+    // NOTA: Mantendo compatibilidade com v4 que usamos para reviews/media/posts/questions
+    // A v4 ainda funciona, mas a Business Information API é a recomendada
+    const url = `https://mybusinessbusinessinformation.googleapis.com/v1/accounts/${accountId}/locations`;
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -76,8 +81,14 @@ async function fetchLocations(accessToken, accountName) {
  */
 async function saveAccountLocation(supabase, customerId, siteSlug, account, location, isPrimary) {
   try {
-    const locationId = location.name?.split('/locations/').pop() || '';
-    const accountId = account.name || '';
+    // Business Information API retorna location.name no formato: locations/123456789
+    // Precisamos extrair apenas o ID numérico
+    const locationName = location.name || '';
+    const locationId = locationName.replace('locations/', '') || '';
+    
+    // Extrair accountId do account.name (formato: accounts/123456789)
+    const accountName = account.name || '';
+    const accountId = accountName || '';
 
     if (!locationId || !accountId) {
       console.warn('[Google Locations Refresh] Location ou Account sem ID válido');
@@ -100,7 +111,7 @@ async function saveAccountLocation(supabase, customerId, siteSlug, account, loca
       account_id: accountId,
       account_name: account.accountName || account.name || '',
       location_id: locationId,
-      location_name: location.title || location.name || '',
+      location_name: location.locationName || location.title || location.name || '',
       location_address: location.storefrontAddress?.addressLines?.join(', ') || 
                         location.storefrontAddress?.postalCode || '',
       location_phone: location.phoneNumbers?.primaryPhone || 

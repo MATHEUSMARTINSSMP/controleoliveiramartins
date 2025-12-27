@@ -35,8 +35,9 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'https://eleveaone.com.br';
  */
 async function fetchAccounts(accessToken) {
   try {
-    // Usar API v4 (mybusiness.googleapis.com) conforme documentação oficial
-    const response = await fetch('https://mybusiness.googleapis.com/v4/accounts', {
+    // Usar Account Management API v1 conforme documentação oficial
+    // Documentação: https://developers.google.com/my-business/content/account-management
+    const response = await fetch('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -94,22 +95,36 @@ async function fetchLocations(accessToken, accountName) {
  */
 async function saveAccountLocation(supabase, customerId, siteSlug, account, location, isPrimary = false) {
   try {
+    // Business Information API retorna location.name no formato: locations/123456789
+    // Precisamos extrair apenas o ID numérico
+    const locationName = location.name || '';
+    const locationId = locationName.replace('locations/', '') || location.location_id || '';
+    
+    // Extrair accountId do account.name (formato: accounts/123456789)
+    const accountName = account.name || '';
+    const accountId = accountName || account.account_id || '';
+    
     const { error } = await supabase
       .from('google_business_accounts')
       .upsert({
         customer_id: customerId,
         site_slug: siteSlug,
-        account_id: account.name || account.account_id,
+        account_id: accountId,
         account_name: account.accountName || account.name || '',
         account_type: account.type || 'PERSONAL',
-        location_id: location.name || location.location_id || '',
-        location_name: location.title || location.storefront?.title || '',
-        location_address: location.storefront?.address?.addressLines?.join(', ') || '',
-        location_phone: location.storefront?.primaryPhone || location.storefront?.phoneNumbers?.[0] || '',
-        location_website: location.storefront?.websiteUri || '',
-        location_category: location.categories?.primaryCategory?.displayName || '',
-        location_latitude: location.storefront?.address?.latlng?.latitude || null,
-        location_longitude: location.storefront?.address?.latlng?.longitude || null,
+        location_id: locationId,
+        location_name: location.locationName || location.title || location.name || '',
+        location_address: location.storefrontAddress?.addressLines?.join(', ') || 
+                          location.storefrontAddress?.postalCode || '',
+        location_phone: location.phoneNumbers?.primaryPhone || 
+                        location.phoneNumbers?.phoneNumber || '',
+        location_website: location.websiteUri || location.storefront?.websiteUri || '',
+        location_category: location.primaryCategory?.displayName || 
+                          location.categories?.primaryCategory?.displayName || '',
+        location_latitude: location.storefrontAddress?.latlng?.latitude || 
+                          location.storefront?.address?.latlng?.latitude || null,
+        location_longitude: location.storefrontAddress?.latlng?.longitude || 
+                           location.storefront?.address?.latlng?.longitude || null,
         is_primary: isPrimary,
       }, {
         onConflict: 'customer_id,site_slug,account_id,location_id',
