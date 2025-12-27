@@ -174,13 +174,13 @@ A Elevea desenvolve plataformas SaaS para gestão de varejo. Através do nosso p
 
 **Descrição adicional (se houver campo de texto):**
 ```
-A Elevea desenvolve o EleveaOne, uma plataforma SaaS que permite que lojas de varejo gerenciem seus perfis do Google Business Profile de forma integrada. Queremos oferecer funcionalidades como:
-- Gerenciamento de reviews e respostas
-- Análise de métricas de performance
-- Gerenciamento de informações da loja (horários, fotos, posts)
-- Sincronização de dados entre múltiplas unidades
+A Elevea é uma empresa de tecnologia especializada no desenvolvimento de plataformas SaaS para gestão de varejo. Desenvolvemos o EleveaOne, uma solução multi-tenant que integra gestão de vendas, pessoas e clientes para lojas de moda e varejo em geral. 
 
-Isso permite que nossos clientes gerenciem sua presença online no Google de forma centralizada através da nossa plataforma EleveaOne.
+Nossa missão é transformar a operação de varejistas através de tecnologia inteligente, oferecendo ferramentas de gamificação, CRM automatizado, controle de ponto digital, integração com ERPs (Tiny, Bling, Linx) e gestão de campanhas via WhatsApp.
+
+Através da integração com as APIs do Google Business Profile, queremos estender nossa plataforma para permitir que nossos clientes gerenciem suas fichas do Google Maps e perfis de negócios de forma centralizada, incluindo reviews, métricas de performance, postagens e informações da loja, tudo integrado ao seu sistema de gestão principal.
+
+A Elevea atende pequenas e médias empresas de varejo que precisam de mais do que um ERP básico, oferecendo uma camada de inteligência e automação para vendas, equipes e relacionamento com clientes.
 ```
 
 ---
