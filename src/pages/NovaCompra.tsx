@@ -126,13 +126,15 @@ const NovaCompra = () => {
 
       const totalParcelas = parcelasTotal?.reduce((sum, p) => sum + Number(p.valor_parcela), 0) || 0;
 
-      // Buscar adiantamentos APROVADOS e DESCONTADOS
+      // Buscar adiantamentos APROVADOS que ainda NÃO foram descontados
+      // IMPORTANTE: Quando descontado (data_desconto não é null), o limite já foi liberado
       const { data: adiantamentos } = await supabase
         .schema("sistemaretiradas")
         .from("adiantamentos")
         .select("valor, mes_competencia")
         .eq("colaboradora_id", colaboradoraId)
-        .in("status", ["APROVADO", "DESCONTADO"]);
+        .eq("status", "APROVADO")
+        .is("data_desconto", null);
 
       const totalAdiantamentos = adiantamentos?.reduce((sum, a) => sum + Number(a.valor), 0) || 0;
       const usado_total = totalParcelas + totalAdiantamentos;

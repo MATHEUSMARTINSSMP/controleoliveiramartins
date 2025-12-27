@@ -87,12 +87,14 @@ export const FinancialDashboard = () => {
                     .eq("competencia", mesAtual)
                     .in("status_parcela", ["PENDENTE", "AGENDADO"]),
 
-                // Adiantamentos aprovados
+                // Adiantamentos aprovados que ainda NÃO foram descontados
+                // IMPORTANTE: Quando descontado (data_desconto não é null), o limite já foi liberado
                 supabase
                     .schema("sistemaretiradas")
                     .from("adiantamentos")
                     .select("valor, status, mes_competencia")
-                    .in("status", ["APROVADO", "DESCONTADO"])
+                    .eq("status", "APROVADO")
+                    .is("data_desconto", null)
             ]);
 
             if (parcelasError) throw parcelasError;
@@ -181,12 +183,15 @@ export const FinancialDashboard = () => {
             });
 
             // Buscar TODOS os adiantamentos de TODAS as colaboradoras de uma vez
+            // IMPORTANTE: Apenas contar adiantamentos APROVADOS que ainda NÃO foram descontados
+            // Quando descontado (data_desconto não é null), o limite já foi liberado
             const { data: allAdiantamentos } = await supabase
                 .schema("sistemaretiradas")
                 .from("adiantamentos")
                 .select("valor, colaboradora_id")
                 .in("colaboradora_id", profileIds)
-                .in("status", ["APROVADO", "DESCONTADO"]);
+                .eq("status", "APROVADO")
+                .is("data_desconto", null);
 
             // Agrupar adiantamentos por colaboradora
             const adiantamentosByColaboradora = new Map<string, number>();
