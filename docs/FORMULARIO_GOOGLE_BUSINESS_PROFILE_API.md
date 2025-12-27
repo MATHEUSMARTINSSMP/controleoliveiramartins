@@ -57,16 +57,77 @@
 ---
 
 ### 8. URL da ficha da sede da empresa no Google Maps *
-**Resposta:** (URL do Google Maps da empresa)
+**Situação:** Não tenho ficha no Google Maps
 
-**Como encontrar:**
-1. Busque sua empresa no Google Maps
-2. Clique no perfil da empresa
-3. Copie a URL da página
+**Opções:**
+
+#### Opção 1: Criar uma ficha no Google Maps (RECOMENDADO)
+
+**Se você tem um endereço físico (escritório, sede, etc.):**
+
+1. Acesse: https://www.google.com/business/
+2. Clique em "Gerenciar agora" ou "Começar"
+3. Faça login com sua conta Google (mathmartins@gmail.com)
+4. Preencha:
+   - Nome da empresa: **EleveaOne**
+   - Categoria: **Empresa de software** ou **Tecnologia da informação**
+   - Endereço: Seu endereço físico (escritório, sede)
+   - Telefone: Seu telefone comercial
+   - Site: https://eleveaone.com.br
+5. Complete a verificação (geralmente por telefone ou carta postal)
+6. Após a verificação, copie a URL do perfil
 
 **Exemplo de formato:** `https://www.google.com/maps/place/EleveaOne/...`
 
-**Nota:** Se a empresa não tiver uma ficha física no Google Maps, você pode precisar criar uma ou usar o endereço da empresa se houver.
+---
+
+#### Opção 2: Se você NÃO tem endereço físico
+
+**Se sua empresa é totalmente remota/virtual:**
+
+1. **Use o endereço residencial do responsável** (se permitido pela empresa)
+   - Algumas empresas remotas usam o endereço do fundador/CEO para fins legais
+   
+2. **Use um endereço de correspondência comercial**
+   - Algumas empresas usam serviços de endereço comercial (co-working, caixa postal comercial)
+   
+3. **Deixe em branco ou explique no formulário**
+   - Se o formulário permitir, você pode explicar que é uma empresa 100% remota
+   - Ou deixe o campo em branco se for opcional
+
+---
+
+#### Opção 3: Criar ficha temporária apenas para o formulário
+
+**Se você precisa apenas preencher o formulário:**
+
+1. Crie uma ficha básica no Google Maps
+2. Use seu endereço residencial ou de correspondência
+3. Após o formulário ser aprovado, você pode:
+   - Manter a ficha ativa
+   - Ou ocultá-la (se não quiser que apareça publicamente)
+
+**⚠️ IMPORTANTE:** 
+- O Google precisa verificar que você realmente gerencia uma empresa real
+- Ter uma ficha no Google Maps ajuda na aprovação
+- Se você é uma empresa real (mesmo que remota), é recomendado criar a ficha
+
+---
+
+#### O que fazer AGORA:
+
+**Recomendação:** Se possível, crie uma ficha no Google Maps antes de enviar o formulário. Isso aumenta as chances de aprovação.
+
+**Passos rápidos:**
+1. Acesse: https://www.google.com/business/
+2. Crie a ficha da empresa EleveaOne
+3. Use seu endereço (pode ser residencial se a empresa for remota)
+4. Complete a verificação (pode levar alguns dias)
+5. Após verificado, copie a URL e use no formulário
+
+**Se não puder criar agora:**
+- Você pode tentar deixar o campo em branco (se permitido)
+- Ou explicar na descrição do formulário que é uma empresa remota
 
 ---
 
