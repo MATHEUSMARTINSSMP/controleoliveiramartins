@@ -294,9 +294,26 @@ exports.handler = async (event) => {
     // Buscar location_ids
     let locationIds = [];
     if (locationId) {
-      locationIds = [locationId];
+      // Se locationId foi fornecido, buscar account_id correspondente
+      const { data: locationData, error: locError } = await supabase
+        .schema('sistemaretiradas')
+        .from('google_business_accounts')
+        .select('account_id')
+        .eq('customer_id', userEmail)
+        .eq('site_slug', siteSlug)
+        .eq('location_id', locationId)
+        .limit(1)
+        .maybeSingle();
+
+      if (!locError && locationData) {
+        locationIds = [buildV4Parent(locationData.account_id, locationId)];
+      } else {
+        // Se não encontrou no banco, assumir que locationId já está no formato v4
+        locationIds = [locationId];
+      }
     } else {
       const { data: locations, error: locError } = await supabase
+        .schema('sistemaretiradas')
         .from('google_business_accounts')
         .select('account_id, location_id')
         .eq('customer_id', userEmail)
@@ -309,7 +326,7 @@ exports.handler = async (event) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             success: false,
-            error: 'Locations não encontradas',
+            error: 'Nenhuma location encontrada',
           }),
         };
       }
