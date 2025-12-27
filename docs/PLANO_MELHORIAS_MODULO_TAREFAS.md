@@ -16,18 +16,20 @@
 - ⚠️ Falta visualização em formato calendário/tabela
 
 ### Objetivo:
-- 🎯 Visualização tipo calendário: **Colunas = Dias da Semana**, **Linhas = Tarefas**
+- 🎯 Visualização tipo calendário: **Colunas = Dias da Semana (fixos)**, **Linhas = Tarefas**
+- 🎯 **Tarefas fixas por dia da semana**: Toda Segunda-feira = mesmas tarefas, toda Terça-feira = mesmas tarefas, etc.
+- 🎯 **Sem navegação entre semanas** - visualização fixa dos dias da semana
 - 🎯 Status visual: **PENDENTE**, **PENDENTE - ATRASADO**, **CONCLUÍDA**
-- 🎯 Admin: CRUD completo, prioridades
-- 🎯 Loja: Visualizar, concluir, indicar quem fez, marcar horário
+- 🎯 Admin: CRUD completo, prioridades, configurar tarefas por dia da semana
+- 🎯 Loja: Visualizar tarefas do dia atual, concluir, indicar quem fez, marcar horário
 
 ---
 
 ## 🗄️ PARTE 1: MELHORIAS NO BANCO DE DADOS
 
-### 1.1 Adicionar Campo `priority` à Tabela `daily_tasks`
+### 1.1 Adicionar Campos `priority` e `weekday` à Tabela `daily_tasks`
 
-**Migration:** `20251228000001_add_priority_to_daily_tasks.sql`
+**Migration:** `20251228000001_add_priority_and_weekday_to_daily_tasks.sql`
 
 ```sql
 -- Adicionar coluna priority
@@ -37,12 +39,27 @@ CHECK (priority IN ('ALTA', 'MÉDIA', 'BAIXA'));
 
 COMMENT ON COLUMN sistemaretiradas.daily_tasks.priority IS 'Prioridade da tarefa: ALTA, MÉDIA ou BAIXA';
 
--- Criar índice para ordenação por prioridade
+-- Adicionar coluna weekday (dia da semana)
+ALTER TABLE sistemaretiradas.daily_tasks
+ADD COLUMN IF NOT EXISTS weekday INTEGER 
+CHECK (weekday BETWEEN 0 AND 6); -- 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+
+COMMENT ON COLUMN sistemaretiradas.daily_tasks.weekday IS 'Dia da semana fixo (0=Domingo, 1=Segunda, 2=Terça, 3=Quarta, 4=Quinta, 5=Sexta, 6=Sábado). NULL = tarefa aparece todos os dias';
+
+-- Criar índices
 CREATE INDEX IF NOT EXISTS idx_daily_tasks_priority 
 ON sistemaretiradas.daily_tasks(priority);
+
+CREATE INDEX IF NOT EXISTS idx_daily_tasks_weekday 
+ON sistemaretiradas.daily_tasks(weekday);
+
+CREATE INDEX IF NOT EXISTS idx_daily_tasks_store_weekday 
+ON sistemaretiradas.daily_tasks(store_id, weekday, is_active);
 ```
 
-**Justificativa:** Permitir que admin marque prioridades nas tarefas (ALTA, MÉDIA, BAIXA)
+**Justificativa:** 
+- `priority`: Permitir que admin marque prioridades nas tarefas (ALTA, MÉDIA, BAIXA)
+- `weekday`: Vincular tarefa a um dia da semana específico. Se `NULL`, tarefa aparece todos os dias
 
 ---
 
@@ -74,51 +91,54 @@ ON sistemaretiradas.daily_tasks(priority);
 **Localização:** `src/components/admin/AdminTasksCalendarView.tsx`
 
 **Funcionalidades:**
-- ✅ Visualização em formato tabela: **Colunas = Dias da Semana** (Seg, Ter, Qua, Qui, Sex, Sáb, Dom)
+- ✅ Visualização em formato tabela: **Colunas = Dias da Semana (fixos)** (Seg, Ter, Qua, Qui, Sex, Sáb, Dom)
 - ✅ Linhas dinâmicas: Tarefas adicionadas conforme demanda
 - ✅ Ordenação por horário (`due_time`) dentro de cada dia
 - ✅ Indicador visual de prioridade (cores: ALTA=vermelho, MÉDIA=amarelo, BAIXA=verde)
-- ✅ Navegação entre semanas (setas ← →)
+- ✅ **Sem navegação entre semanas** - visualização fixa dos dias da semana
 - ✅ Filtro por loja
-- ✅ Botão "Adicionar Tarefa" abre modal de criação
+- ✅ Botão "Adicionar Tarefa" abre modal de criação (seleciona dia da semana)
 
 **Interface:**
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  [← Semana Anterior]  Semana de 28/12 a 03/01  [Próxima Semana →]         │
+│  📅 Tarefas Semanais (Configuração Fixa)                    [+ Adicionar]  │
 ├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
-│   Seg    │   Ter    │   Qua    │   Qui    │   Sex    │   Sáb    │   Dom    │
-│  28/12   │  29/12   │  30/12   │  31/12   │  01/01   │  02/01   │  03/01   │
+│ Segunda  │ Terça    │ Quarta   │ Quinta   │ Sexta    │ Sábado   │ Domingo  │
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ 10:00    │ 10:00    │ 10:00    │ 10:00    │ 10:00    │ 10:00    │ 10:00    │
-│ 🔴 ALTA  │ 🔴 ALTA  │ 🔴 ALTA  │ 🔴 ALTA  │ 🔴 ALTA  │ 🔴 ALTA  │ 🔴 ALTA  │
-│ Varrer   │ Varrer   │ Varrer   │ Varrer   │ Varrer   │ Varrer   │ Varrer   │
-│ [✏️] [🗑️]│ [✏️] [🗑️]│ [✏️] [🗑️]│ [✏️] [🗑️]│ [✏️] [🗑️]│ [✏️] [🗑️]│ [✏️] [🗑️]│
+│ 10:00    │ 10:00    │          │          │ 10:00    │          │          │
+│ 🔴 ALTA  │ 🔴 ALTA  │          │          │ 🔴 ALTA  │          │          │
+│ Varrer   │ Varrer   │          │          │ Varrer   │          │          │
+│ Loja     │ Loja     │          │          │ Loja     │          │          │
+│ [✏️][🗑️] │ [✏️][🗑️] │          │          │ [✏️][🗑️] │          │          │
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ 11:00    │ 11:00    │ 11:00    │ 11:00    │ 11:00    │ 11:00    │ 11:00    │
-│ 🟡 MÉDIA │ 🟡 MÉDIA │ 🟡 MÉDIA │ 🟡 MÉDIA │ 🟡 MÉDIA │ 🟡 MÉDIA │ 🟡 MÉDIA │
-│ Espirrar │ Espirrar │ Espirrar │ Espirrar │ Espirrar │ Espirrar │ Espirrar │
-│ Essência │ Essência │ Essência │ Essência │ Essência │ Essência │ Essência │
-│ [✏️] [🗑️]│ [✏️] [🗑️]│ [✏️] [🗑️]│ [✏️] [🗑️]│ [✏️] [🗑️]│ [✏️] [🗑️]│ [✏️] [🗑️]│
+│ 11:00    │ 11:00    │ 11:00    │ 11:00    │ 11:00    │          │          │
+│ 🟡 MÉDIA │ 🟡 MÉDIA │ 🟡 MÉDIA │ 🟡 MÉDIA │ 🟡 MÉDIA │          │          │
+│ Espirrar │ Espirrar │ Espirrar │ Espirrar │ Espirrar │          │          │
+│ Essência │ Essência │ Essência │ Essência │ Essência │          │          │
+│ [✏️][🗑️] │ [✏️][🗑️] │ [✏️][🗑️] │ [✏️][🗑️] │ [✏️][🗑️] │          │          │
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ 12:00    │          │ 12:00    │          │ 12:00    │          │          │
-│ 🟡 MÉDIA │          │ 🟡 MÉDIA │          │ 🟡 MÉDIA │          │          │
-│ Aspirar  │          │ Aspirar  │          │ Aspirar  │          │          │
-│ Provador │          │ Provador │          │ Provador │          │          │
-│ [✏️] [🗑️]│          │ [✏️] [🗑️]│          │ [✏️] [🗑️]│          │          │
+│          │          │ 12:00    │          │          │          │          │
+│          │          │ 🟡 MÉDIA │          │          │          │          │
+│          │          │ Aspirar  │          │          │          │          │
+│          │          │ Provador │          │          │          │          │
+│          │          │ [✏️][🗑️] │          │          │          │          │
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
 │ 14:00    │ 14:00    │ 14:00    │ 14:00    │ 14:00    │          │          │
 │ 🟢 BAIXA │ 🟢 BAIXA │ 🟢 BAIXA │ 🟢 BAIXA │ 🟢 BAIXA │          │          │
 │ Ligar    │ Ligar    │ Ligar    │ Ligar    │ Ligar    │          │          │
 │ Clientes │ Clientes │ Clientes │ Clientes │ Clientes │          │          │
-│ [✏️] [🗑️]│ [✏️] [🗑️]│ [✏️] [🗑️]│ [✏️] [🗑️]│ [✏️] [🗑️]│          │          │
+│ [✏️][🗑️] │ [✏️][🗑️] │ [✏️][🗑️] │ [✏️][🗑️] │ [✏️][🗑️] │          │          │
 └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 ```
+
+**Nota:** Cada tarefa está vinculada a um dia da semana específico. Não há navegação entre semanas - a visualização mostra a configuração fixa para cada dia da semana.
 
 **Estrutura de Dados:**
 ```typescript
 interface TaskCalendarCell {
-  date: Date;
+  weekday: number; // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+  weekdayName: string; // "Segunda", "Terça", etc
   tasks: DailyTask[];
 }
 
@@ -127,7 +147,7 @@ interface DailyTask {
   title: string;
   due_time: string; // "10:00", "14:00", etc
   priority: "ALTA" | "MÉDIA" | "BAIXA";
-  is_recurring: boolean;
+  weekday: number | null; // 0-6 ou null (se aparece todos os dias)
   shift_id: string | null;
   // ... outros campos
 }
@@ -141,40 +161,40 @@ interface DailyTask {
 - ✅ **Horário** (`due_time`) - input tipo time
 - ✅ **Prioridade** - Select (ALTA, MÉDIA, BAIXA)
 - ✅ **Turno** - Select (Manhã, Tarde, Noite, Integral)
-- ✅ **Recorrente** - Switch (se true, aparece em todos os dias)
-- ✅ **Dias da Semana** - Checkboxes (só aparece se não for recorrente)
-  - [ ] Segunda
-  - [ ] Terça
-  - [ ] Quarta
-  - [ ] Quinta
-  - [ ] Sexta
-  - [ ] Sábado
-  - [ ] Domingo
+- ✅ **Dia da Semana** - Select único ou Radio (obrigatório)
+  - [ ] Todos os dias (weekday = NULL)
+  - [ ] Segunda-feira (weekday = 1)
+  - [ ] Terça-feira (weekday = 2)
+  - [ ] Quarta-feira (weekday = 3)
+  - [ ] Quinta-feira (weekday = 4)
+  - [ ] Sexta-feira (weekday = 5)
+  - [ ] Sábado (weekday = 6)
+  - [ ] Domingo (weekday = 0)
 
 **Lógica:**
-- Se `is_recurring = true`: Tarefa aparece todos os dias
-- Se `is_recurring = false`: Admin seleciona dias específicos (cria tarefas separadas)
+- **Uma tarefa = Um dia da semana** (ou todos os dias se weekday = NULL)
+- Se admin quer a mesma tarefa em múltiplos dias, cria tarefas separadas
+- Exemplo: "Varrer Loja às 10h" na Segunda, Terça e Sexta = 3 tarefas separadas
 
 ### 2.3 Funcionalidades Admin:
 
 1. **Adicionar Tarefa:**
    - Clica em "+" ou botão "Adicionar Tarefa"
    - Abre modal de criação
-   - Define horário, prioridade, dias
-   - Se recorrente: cria 1 tarefa que aparece todos os dias
-   - Se não recorrente: cria N tarefas (uma para cada dia selecionado)
+   - Define horário, prioridade, **dia da semana** (obrigatório)
+   - Salva tarefa vinculada àquele dia específico
+   - Se quer mesma tarefa em múltiplos dias, cria tarefas separadas
 
 2. **Editar Tarefa:**
    - Clica em ✏️ na célula
    - Abre modal de edição
-   - Edita todos os campos
+   - Edita todos os campos (incluindo dia da semana)
    - Salva alterações
 
 3. **Deletar Tarefa:**
    - Clica em 🗑️ na célula
    - Confirmação: "Deseja realmente excluir esta tarefa?"
-   - Se recorrente: pergunta "Excluir apenas este dia ou todos os dias?"
-   - Deleta tarefa
+   - Deleta apenas aquela tarefa específica (daquele dia da semana)
 
 4. **Visualizar Prioridade:**
    - Badge colorido na célula:
@@ -191,13 +211,13 @@ interface DailyTask {
 **Localização:** `src/components/loja/LojaTasksCalendarView.tsx`
 
 **Funcionalidades:**
-- ✅ Visualização em formato tabela: **Colunas = Dias da Semana**
-- ✅ Mostra apenas tarefas do dia atual por padrão
-- ✅ Navegação entre dias (setas ← →)
-- ✅ Status visual: PENDENTE, PENDENTE - ATRASADO, CONCLUÍDA
-- ✅ Indicador de quem completou (se concluída)
+- ✅ Visualização focada no **dia atual** (semana atual)
+- ✅ Mostra apenas tarefas do dia da semana atual (ex: se hoje é Segunda, mostra tarefas de Segunda)
+- ✅ Status visual: PENDENTE, PENDENTE - ATRASADO, CONCLUÍDA (calculado baseado no dia atual)
+- ✅ Indicador de quem completou (se concluída no dia atual)
 - ✅ Botão "Marcar como Concluída"
 - ✅ Mostra horário de conclusão
+- ✅ Tarefas são ordenadas por horário (`due_time`)
 
 **Interface:**
 ```
@@ -281,21 +301,21 @@ interface DailyTask {
    - Ao clicar, pergunta confirmação
    - Remove `task_completion`
 
-5. **Navegação:**
-   - Setas ← → para navegar entre dias
-   - Mostra data atual no topo
-   - Ao mudar dia, busca tarefas daquele dia
+5. **Visualização:**
+   - Mostra sempre as tarefas do dia atual (calcula automaticamente qual dia da semana é hoje)
+   - Se hoje é Segunda-feira, mostra tarefas configuradas para Segunda-feira
+   - Se hoje é Terça-feira, mostra tarefas configuradas para Terça-feira
+   - Data atual exibida no topo: "Segunda-feira, 28 de Dezembro de 2025"
 
 ---
 
 ## 🔧 PARTE 4: FUNÇÕES RPC (Backend)
 
-### 4.1 Função: `get_daily_tasks_by_week`
+### 4.1 Função: `get_daily_tasks_by_weekday` (Para Admin - ver toda a semana)
 
 ```sql
-CREATE OR REPLACE FUNCTION sistemaretiradas.get_daily_tasks_by_week(
-    p_store_id UUID,
-    p_week_start DATE DEFAULT DATE_TRUNC('week', CURRENT_DATE)::DATE
+CREATE OR REPLACE FUNCTION sistemaretiradas.get_daily_tasks_by_weekday(
+    p_store_id UUID
 )
 RETURNS TABLE (
     id UUID,
@@ -304,14 +324,10 @@ RETURNS TABLE (
     description TEXT,
     due_time TIME,
     priority VARCHAR,
-    is_recurring BOOLEAN,
+    weekday INTEGER, -- 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
     shift_id UUID,
     shift_name VARCHAR,
-    task_date DATE, -- Data específica da tarefa
-    completed_by UUID,
-    completed_at TIMESTAMPTZ,
-    completion_notes TEXT,
-    status VARCHAR -- 'PENDENTE', 'ATRASADO', 'CONCLUÍDA'
+    display_order INTEGER
 ) AS $$
 BEGIN
     RETURN QUERY
@@ -322,54 +338,29 @@ BEGIN
         dt.description,
         dt.due_time,
         dt.priority,
-        dt.is_recurring,
+        dt.weekday,
         dt.shift_id,
         s.name as shift_name,
-        task_date,
-        tc.profile_id as completed_by,
-        tc.completed_at,
-        tc.notes as completion_notes,
-        CASE
-            WHEN tc.completed_at IS NOT NULL THEN 'CONCLUÍDA'
-            WHEN dt.due_time < CURRENT_TIME THEN 'ATRASADO'
-            ELSE 'PENDENTE'
-        END as status
-    FROM (
-        -- Tarefas recorrentes (aparecem todos os dias da semana)
-        SELECT dt.*, date_series.task_date
-        FROM sistemaretiradas.daily_tasks dt
-        CROSS JOIN generate_series(
-            p_week_start,
-            p_week_start + INTERVAL '6 days',
-            INTERVAL '1 day'
-        ) as date_series(task_date)
-        WHERE dt.store_id = p_store_id
-          AND dt.is_active = true
-          AND dt.is_recurring = true
-        
-        UNION ALL
-        
-        -- Tarefas não recorrentes (apenas no dia específico)
-        SELECT dt.*, dt.created_at::DATE as task_date
-        FROM sistemaretiradas.daily_tasks dt
-        WHERE dt.store_id = p_store_id
-          AND dt.is_active = true
-          AND dt.is_recurring = false
-          AND dt.created_at::DATE >= p_week_start
-          AND dt.created_at::DATE <= p_week_start + INTERVAL '6 days'
-    ) dt
+        dt.display_order
+    FROM sistemaretiradas.daily_tasks dt
     LEFT JOIN sistemaretiradas.shifts s ON s.id = dt.shift_id
-    LEFT JOIN sistemaretiradas.task_completions tc ON tc.task_id = dt.id 
-        AND tc.completion_date = task_date
-    ORDER BY task_date, dt.due_time NULLS LAST;
+    WHERE dt.store_id = p_store_id
+      AND dt.is_active = true
+    ORDER BY 
+        COALESCE(dt.weekday, 999), -- NULL (todos os dias) no final
+        dt.due_time NULLS LAST,
+        dt.priority DESC,
+        dt.display_order;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-### 4.2 Função: `get_daily_tasks_by_date` (Já existe, mas vamos melhorar)
+**Uso:** Admin usa esta função para ver todas as tarefas organizadas por dia da semana (visualização calendário)
+
+### 4.2 Função: `get_daily_tasks_by_weekday_current` (Para Loja - ver dia atual)
 
 ```sql
--- Atualizar função existente para incluir status e priority
+-- Atualizar função existente para usar weekday ao invés de is_recurring
 CREATE OR REPLACE FUNCTION sistemaretiradas.get_daily_tasks(
     p_store_id UUID,
     p_date DATE DEFAULT CURRENT_DATE
@@ -386,8 +377,8 @@ RETURNS TABLE (
     shift_color VARCHAR,
     due_time TIME,
     priority VARCHAR, -- ✅ NOVO
+    weekday INTEGER, -- ✅ NOVO
     is_active BOOLEAN,
-    is_recurring BOOLEAN,
     display_order INTEGER,
     created_at TIMESTAMPTZ,
     completed_by UUID,
@@ -395,7 +386,13 @@ RETURNS TABLE (
     completion_notes TEXT,
     status VARCHAR -- ✅ NOVO: 'PENDENTE', 'ATRASADO', 'CONCLUÍDA'
 ) AS $$
+DECLARE
+    v_weekday INTEGER;
 BEGIN
+    -- Calcular dia da semana (0 = Domingo, 1 = Segunda, ..., 6 = Sábado)
+    -- PostgreSQL: EXTRACT(DOW FROM date) retorna 0 (Domingo) a 6 (Sábado)
+    v_weekday := EXTRACT(DOW FROM p_date)::INTEGER;
+
     RETURN QUERY
     SELECT 
         dt.id,
@@ -409,14 +406,14 @@ BEGIN
         s.color as shift_color,
         dt.due_time,
         dt.priority, -- ✅ NOVO
+        dt.weekday, -- ✅ NOVO
         dt.is_active,
-        dt.is_recurring,
         dt.display_order,
         dt.created_at,
         tc.profile_id as completed_by,
         tc.completed_at,
         tc.notes as completion_notes,
-        CASE -- ✅ NOVO: Calcula status
+        CASE -- ✅ NOVO: Calcula status baseado no dia atual
             WHEN tc.completed_at IS NOT NULL THEN 'CONCLUÍDA'
             WHEN dt.due_time IS NOT NULL AND dt.due_time < CURRENT_TIME THEN 'ATRASADO'
             ELSE 'PENDENTE'
@@ -428,16 +425,18 @@ BEGIN
     WHERE dt.store_id = p_store_id
       AND dt.is_active = true
       AND (
-        dt.is_recurring = true -- Tarefas recorrentes aparecem todos os dias
-        OR dt.created_at::DATE = p_date -- Tarefas não recorrentes apenas no dia criado
+        dt.weekday IS NULL -- Tarefas que aparecem todos os dias
+        OR dt.weekday = v_weekday -- Tarefas do dia da semana específico
       )
     ORDER BY 
         dt.due_time NULLS LAST,
-        dt.priority DESC, -- ✅ NOVO: Ordena por prioridade
+        dt.priority DESC, -- ✅ NOVO: Ordena por prioridade (ALTA > MÉDIA > BAIXA)
         dt.display_order;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
+
+**Nota:** Esta função calcula automaticamente o dia da semana da data fornecida e retorna apenas as tarefas configuradas para aquele dia (ou tarefas com `weekday = NULL` que aparecem todos os dias).
 
 ---
 
@@ -473,9 +472,9 @@ src/hooks/
 ## ✅ CHECKLIST DE IMPLEMENTAÇÃO
 
 ### Fase 1: Banco de Dados
-- [ ] Migration: Adicionar `priority` à `daily_tasks`
-- [ ] Migration: Atualizar função `get_daily_tasks` com status
-- [ ] Migration: Criar função `get_daily_tasks_by_week`
+- [ ] Migration: Adicionar `priority` e `weekday` à `daily_tasks`
+- [ ] Migration: Atualizar função `get_daily_tasks` com status e weekday
+- [ ] Migration: Criar função `get_daily_tasks_by_weekday` (para admin)
 - [ ] Testar migrations
 
 ### Fase 2: Componentes Admin
@@ -506,27 +505,41 @@ src/hooks/
 
 ## 🎨 EXEMPLO VISUAL DETALHADO
 
-### Admin View (Semana):
+### Admin View (Semana Fixa):
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│  📅 Semana de 28/12/2025 a 03/01/2026                     [+ Adicionar Tarefa]        │
+│  📅 Configuração de Tarefas Semanais (Fixas)              [+ Adicionar Tarefa]        │
 ├──────────────┬──────────────┬──────────────┬──────────────┬──────────────┬──────────────┤
 │ Segunda      │ Terça        │ Quarta       │ Quinta       │ Sexta        │ Sábado       │
-│ 28/12        │ 29/12        │ 30/12        │ 31/12        │ 01/01        │ 02/01        │
+│              │              │              │              │              │              │
 ├──────────────┼──────────────┼──────────────┼──────────────┼──────────────┼──────────────┤
-│ 🔴 ALTA      │ 🔴 ALTA      │ 🔴 ALTA      │ 🔴 ALTA      │ 🔴 ALTA      │ 🔴 ALTA      │
-│ 10:00        │ 10:00        │ 10:00        │ 10:00        │ 10:00        │ 10:00        │
-│ Varrer Loja  │ Varrer Loja  │ Varrer Loja  │ Varrer Loja  │ Varrer Loja  │ Varrer Loja  │
-│ [✏️] [🗑️]   │ [✏️] [🗑️]   │ [✏️] [🗑️]   │ [✏️] [🗑️]   │ [✏️] [🗑️]   │ [✏️] [🗑️]   │
+│ 🔴 ALTA      │ 🔴 ALTA      │              │              │ 🔴 ALTA      │              │
+│ 10:00        │ 10:00        │              │              │ 10:00        │              │
+│ Varrer Loja  │ Varrer Loja  │              │              │ Varrer Loja  │              │
+│ [✏️] [🗑️]   │ [✏️] [🗑️]   │              │              │ [✏️] [🗑️]   │              │
 ├──────────────┼──────────────┼──────────────┼──────────────┼──────────────┼──────────────┤
 │ 🟡 MÉDIA     │ 🟡 MÉDIA     │ 🟡 MÉDIA     │ 🟡 MÉDIA     │ 🟡 MÉDIA     │              │
 │ 11:00        │ 11:00        │ 11:00        │ 11:00        │ 11:00        │              │
 │ Espirrar     │ Espirrar     │ Espirrar     │ Espirrar     │ Espirrar     │              │
 │ Essência     │ Essência     │ Essência     │ Essência     │ Essência     │              │
 │ [✏️] [🗑️]   │ [✏️] [🗑️]   │ [✏️] [🗑️]   │ [✏️] [🗑️]   │ [✏️] [🗑️]   │              │
+├──────────────┼──────────────┼──────────────┼──────────────┼──────────────┼──────────────┤
+│              │              │ 🟡 MÉDIA     │              │              │              │
+│              │              │ 12:00        │              │              │              │
+│              │              │ Aspirar      │              │              │              │
+│              │              │ Provador     │              │              │              │
+│              │              │ [✏️] [🗑️]   │              │              │              │
+├──────────────┼──────────────┼──────────────┼──────────────┼──────────────┼──────────────┤
+│ 🟢 BAIXA     │ 🟢 BAIXA     │ 🟢 BAIXA     │ 🟢 BAIXA     │ 🟢 BAIXA     │              │
+│ 14:00        │ 14:00        │ 14:00        │ 14:00        │ 14:00        │              │
+│ Ligar        │ Ligar        │ Ligar        │ Ligar        │ Ligar        │              │
+│ Clientes     │ Clientes     │ Clientes     │ Clientes     │ Clientes     │              │
+│ [✏️] [🗑️]   │ [✏️] [🗑️]   │ [✏️] [🗑️]   │ [✏️] [🗑️]   │ [✏️] [🗑️]   │              │
 └──────────────┴──────────────┴──────────────┴──────────────┴──────────────┴──────────────┘
 ```
+
+**Nota:** Não há navegação entre semanas. A visualização mostra a configuração fixa para cada dia da semana.
 
 ### Loja View (Dia):
 
@@ -583,9 +596,16 @@ src/hooks/
 - **ATRASADO**: `completed_at IS NULL AND due_time < CURRENT_TIME`
 - **PENDENTE**: `completed_at IS NULL AND (due_time IS NULL OR due_time >= CURRENT_TIME)`
 
-### Tarefas Recorrentes vs Não Recorrentes:
-- **Recorrentes** (`is_recurring = true`): Aparecem todos os dias
-- **Não Recorrentes** (`is_recurring = false`): Aparecem apenas no dia criado
+### Tarefas por Dia da Semana:
+- **Tarefas com `weekday = NULL`**: Aparecem todos os dias
+- **Tarefas com `weekday = 0`**: Aparecem apenas aos Domingos
+- **Tarefas com `weekday = 1`**: Aparecem apenas às Segundas-feiras
+- **Tarefas com `weekday = 2`**: Aparecem apenas às Terças-feiras
+- E assim por diante...
+
+### Nota sobre `is_recurring`:
+- Campo `is_recurring` pode ser removido no futuro (substituído por `weekday`)
+- Por enquanto, manteremos para compatibilidade, mas a lógica principal usa `weekday`
 
 ### Ordenação:
 1. Por horário (`due_time` ASC)
