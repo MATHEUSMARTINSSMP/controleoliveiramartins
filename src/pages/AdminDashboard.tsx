@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw, AlertTriangle, Plus, Link2, Target, Send, Globe, CheckSquare2 } from "lucide-react";
+import { LogOut, KeyRound, Bell, Settings, ExternalLink, BarChart, TrendingUp, Package, Brain, Gift, Sparkles, MessageSquare, Clock, Users, Wallet, RefreshCw, AlertTriangle, Plus, Link2, Target, Send, CheckSquare2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
