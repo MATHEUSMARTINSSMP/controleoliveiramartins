@@ -45,30 +45,29 @@ export function useTasksRealtime({
 
     console.log('[useTasksRealtime] Configurando subscriptions para:', channelName);
 
-    // Canal para task_completions (mudanças de conclusão)
+    // Canal para daily_task_executions (mudanças de conclusão)
     const completionsChannel = supabase
-      .channel(`${channelName}:completions`)
+      .channel(`${channelName}:executions`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'sistemaretiradas',
-          table: 'task_completions',
-          filter: `completion_date=eq.${dateStr}`,
+          table: 'daily_task_executions',
+          filter: `execution_date=eq.${dateStr}`,
         },
         (payload) => {
-          console.log('[useTasksRealtime] Mudança em task_completions:', payload.eventType, payload);
+          console.log('[useTasksRealtime] Mudança em daily_task_executions:', payload.eventType, payload);
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            // Tarefa foi completada
+            const isCompleted = payload.new.is_completed === true;
             onTaskCompleted?.(
               payload.new.task_id,
-              true,
-              payload.new.profile_id,
+              isCompleted,
+              payload.new.completed_by,
               payload.new.completed_at
             );
           } else if (payload.eventType === 'DELETE') {
-            // Tarefa foi desmarcada
             onTaskCompleted?.(
               payload.old.task_id,
               false
@@ -78,9 +77,9 @@ export function useTasksRealtime({
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('[useTasksRealtime] Subscribed to task_completions');
+          console.log('[useTasksRealtime] Subscribed to daily_task_executions');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[useTasksRealtime] Channel error on task_completions');
+          console.error('[useTasksRealtime] Channel error on daily_task_executions');
         }
       });
 

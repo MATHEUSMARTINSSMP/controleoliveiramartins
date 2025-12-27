@@ -156,48 +156,64 @@ CREATE POLICY "daily_task_executions_update_policy" ON sistemaretiradas.daily_ta
     );
 
 -- 5. Função para buscar tarefas do dia com status de execução
+-- NOTA: Retorna campos compatíveis com a interface DailyTask do frontend
 CREATE OR REPLACE FUNCTION sistemaretiradas.get_tasks_for_date(
     p_store_id UUID,
     p_date DATE
 )
 RETURNS TABLE (
-    task_id UUID,
+    id UUID,
+    store_id UUID,
     title TEXT,
     description TEXT,
+    shift_id UUID,
+    shift_name TEXT,
+    shift_start_time TIME,
+    shift_end_time TIME,
+    shift_color TEXT,
     due_time TIME,
     priority TEXT,
     weekday INT,
-    shift_id UUID,
-    shift_name TEXT,
-    execution_id UUID,
-    is_completed BOOLEAN,
-    completed_at TIMESTAMPTZ,
+    status TEXT,
+    is_active BOOLEAN,
+    is_recurring BOOLEAN,
+    display_order INT,
+    created_at TIMESTAMPTZ,
     completed_by UUID,
-    completed_by_name TEXT,
+    completed_at TIMESTAMPTZ,
     completion_notes TEXT
 ) AS $$
 BEGIN
     RETURN QUERY
     SELECT 
-        dt.id AS task_id,
+        dt.id,
+        dt.store_id,
         dt.title,
         dt.description,
+        dt.shift_id,
+        s.name AS shift_name,
+        s.start_time AS shift_start_time,
+        s.end_time AS shift_end_time,
+        s.color AS shift_color,
         dt.due_time,
         dt.priority,
         dt.weekday,
-        dt.shift_id,
-        s.name AS shift_name,
-        dte.id AS execution_id,
-        COALESCE(dte.is_completed, FALSE) AS is_completed,
-        dte.completed_at,
+        CASE 
+            WHEN dte.is_completed = TRUE THEN 'CONCLUÍDA'::TEXT
+            WHEN dt.due_time IS NOT NULL AND p_date = CURRENT_DATE AND dt.due_time < CURRENT_TIME THEN 'ATRASADO'::TEXT
+            ELSE 'PENDENTE'::TEXT
+        END AS status,
+        dt.is_active,
+        COALESCE(dt.is_recurring, TRUE) AS is_recurring,
+        dt.display_order,
+        dt.created_at,
         dte.completed_by,
-        p.name AS completed_by_name,
+        dte.completed_at,
         dte.completion_notes
     FROM sistemaretiradas.daily_tasks dt
     LEFT JOIN sistemaretiradas.shifts s ON dt.shift_id = s.id
     LEFT JOIN sistemaretiradas.daily_task_executions dte 
         ON dt.id = dte.task_id AND dte.execution_date = p_date
-    LEFT JOIN sistemaretiradas.profiles p ON dte.completed_by = p.id
     WHERE dt.store_id = p_store_id
         AND dt.is_active = TRUE
         AND (dt.weekday IS NULL OR dt.weekday = EXTRACT(DOW FROM p_date)::INT)
@@ -319,7 +335,58 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 9. Comentários
+-- 9. Função para estatísticas de tarefas (usada por useTaskStatistics)
+CREATE OR REPLACE FUNCTION sistemaretiradas.get_task_statistics(
+    p_store_id UUID,
+    p_date DATE
+)
+RETURNS JSON AS $$
+DECLARE
+    v_result JSON;
+BEGIN
+    WITH task_stats AS (
+        SELECT 
+            COUNT(*)::INT AS total_tasks,
+            COUNT(CASE WHEN dte.is_completed = TRUE THEN 1 END)::INT AS completed_tasks,
+            COUNT(CASE WHEN dte.is_completed IS NULL OR dte.is_completed = FALSE THEN 1 END)::INT AS pending_tasks
+        FROM sistemaretiradas.daily_tasks dt
+        LEFT JOIN sistemaretiradas.daily_task_executions dte 
+            ON dt.id = dte.task_id AND dte.execution_date = p_date
+        WHERE dt.store_id = p_store_id
+            AND dt.is_active = TRUE
+            AND (dt.weekday IS NULL OR dt.weekday = EXTRACT(DOW FROM p_date)::INT)
+    ),
+    top_performers AS (
+        SELECT 
+            dte.completed_by AS profile_id,
+            p.name AS profile_name,
+            COUNT(*)::INT AS tasks_completed
+        FROM sistemaretiradas.daily_task_executions dte
+        JOIN sistemaretiradas.profiles p ON dte.completed_by = p.id
+        WHERE dte.store_id = p_store_id
+            AND dte.execution_date = p_date
+            AND dte.is_completed = TRUE
+        GROUP BY dte.completed_by, p.name
+        ORDER BY tasks_completed DESC
+        LIMIT 5
+    )
+    SELECT json_build_object(
+        'total_tasks', COALESCE((SELECT total_tasks FROM task_stats), 0),
+        'completed_tasks', COALESCE((SELECT completed_tasks FROM task_stats), 0),
+        'pending_tasks', COALESCE((SELECT pending_tasks FROM task_stats), 0),
+        'completion_rate', CASE 
+            WHEN (SELECT total_tasks FROM task_stats) > 0 
+            THEN ROUND(((SELECT completed_tasks FROM task_stats)::NUMERIC / (SELECT total_tasks FROM task_stats)::NUMERIC) * 100, 2)
+            ELSE 0 
+        END,
+        'top_performers', COALESCE((SELECT json_agg(row_to_json(tp)) FROM top_performers tp), '[]'::json)
+    ) INTO v_result;
+    
+    RETURN v_result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 10. Comentários
 COMMENT ON TABLE sistemaretiradas.daily_task_executions IS 
 'Histórico de execuções de tarefas diárias. Uma execução por tarefa por data.';
 
@@ -344,8 +411,9 @@ COMMENT ON FUNCTION sistemaretiradas.uncomplete_task_execution IS
 COMMENT ON FUNCTION sistemaretiradas.get_task_execution_history IS 
 'Retorna histórico de execuções de tarefas para um período específico (Admin)';
 
--- 10. Grants
+-- 11. Grants
 GRANT EXECUTE ON FUNCTION sistemaretiradas.get_tasks_for_date TO authenticated;
 GRANT EXECUTE ON FUNCTION sistemaretiradas.complete_task_execution TO authenticated;
 GRANT EXECUTE ON FUNCTION sistemaretiradas.uncomplete_task_execution TO authenticated;
 GRANT EXECUTE ON FUNCTION sistemaretiradas.get_task_execution_history TO authenticated;
+GRANT EXECUTE ON FUNCTION sistemaretiradas.get_task_statistics TO authenticated;

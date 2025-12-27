@@ -47,6 +47,7 @@ The system is built with a modern web stack, emphasizing a chic, minimalist, and
             -   `complete_task_execution(p_task_id, p_profile_id, p_notes, p_completion_date)` - Records execution
             -   `uncomplete_task_execution(p_task_id, p_profile_id, p_completion_date)` - Reverts execution
             -   `get_task_execution_history(p_store_id, p_start_date, p_end_date)` - Admin history view
+            -   `get_task_statistics(p_store_id, p_date)` - Statistics for task progress
         -   Hooks: useDailyTasks, useTaskStatistics, useTasksRealtime
         -   Components: AdminTasksCalendarView, AdminTasksHistoryView, AdminDailyTasksConfig, LojaTasksTab, TaskOverdueNotification
         -   Migrations: docs/tasks-whatsapp-notification-migration.sql, docs/tasks-executions-migration.sql

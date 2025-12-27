@@ -71,7 +71,7 @@ export function useTaskStatistics({
         fetchStatistics();
     }, [fetchStatistics]);
 
-    // ✅ ATUALIZAÇÃO EM TEMPO REAL
+    // ✅ ATUALIZAÇÃO EM TEMPO REAL - monitorando daily_task_executions
     useEffect(() => {
         if (!storeId || !enabled) return;
 
@@ -82,16 +82,17 @@ export function useTaskStatistics({
                 {
                     event: '*',
                     schema: 'sistemaretiradas',
-                    table: 'task_completions',
+                    table: 'daily_task_executions',
+                    filter: `store_id=eq.${storeId}`,
                 },
                 (payload) => {
-                    console.log('[useTaskStatistics] 📥 Mudança detectada, atualizando estatísticas');
+                    console.log('[useTaskStatistics] Mudança detectada, atualizando estatísticas');
                     fetchStatistics();
                 }
             )
             .subscribe((status) => {
                 if (status === 'SUBSCRIBED') {
-                    console.log('[useTaskStatistics] ✅ Conectado ao realtime');
+                    console.log('[useTaskStatistics] Conectado ao realtime');
                 }
             });
 
