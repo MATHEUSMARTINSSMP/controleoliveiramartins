@@ -21,7 +21,7 @@ interface Store {
   ajustes_condicionais_ativo: boolean;
   caixa_ativo: boolean;
   lista_da_vez_ativo: boolean;
-  tasks_ativo: boolean;
+  tasks_module_enabled: boolean;
   whatsapp_notificacoes_ajustes_condicionais: string | null;
   whatsapp_caixa_numeros: string[] | null;
   whatsapp_caixa_usar_global: boolean;
@@ -36,7 +36,7 @@ interface ModuleInfo {
   name: string;
   description: string;
   icon: React.ReactNode;
-  field: 'cashback_ativo' | 'crm_ativo' | 'wishlist_ativo' | 'ponto_ativo' | 'ajustes_condicionais_ativo' | 'daily_goal_check_ativo' | 'caixa_ativo' | 'lista_da_vez_ativo' | 'tasks_ativo';
+  field: 'cashback_ativo' | 'crm_ativo' | 'wishlist_ativo' | 'ponto_ativo' | 'ajustes_condicionais_ativo' | 'daily_goal_check_ativo' | 'caixa_ativo' | 'lista_da_vez_ativo' | 'tasks_module_enabled';
   color: string;
   hasConfig?: boolean;
 }
@@ -218,9 +218,9 @@ export const ModulesStoreConfig = () => {
           const updated = store.id === storeId
             ? { ...store, [module.field]: newValue }
             : store;
-          // Garantir que tasks_ativo existe mesmo se não veio do banco
-          if (!('tasks_ativo' in updated)) {
-            (updated as any).tasks_ativo = false;
+          // Garantir que tasks_module_enabled existe mesmo se não veio do banco
+          if (!('tasks_module_enabled' in updated)) {
+            (updated as any).tasks_module_enabled = true; // Default: habilitado
           }
           return updated;
         })
@@ -478,10 +478,10 @@ export const ModulesStoreConfig = () => {
                         <span className="font-medium">Lista da Vez</span>
                         {store.lista_da_vez_ativo ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                       </div>
-                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded ${store.tasks_ativo ? 'bg-success/10 text-success' : 'text-muted-foreground'}`}>
+                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded ${store.tasks_module_enabled ? 'bg-success/10 text-success' : 'text-muted-foreground'}`}>
                         <CheckSquare2 className="h-3.5 w-3.5" />
                         <span className="font-medium">Tarefas</span>
-                        {store.tasks_ativo ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                        {store.tasks_module_enabled ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                       </div>
                     </div>
                   )}
