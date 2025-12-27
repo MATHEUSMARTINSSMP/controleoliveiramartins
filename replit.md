@@ -26,6 +26,15 @@ The system is built with a modern web stack, emphasizing a chic, minimalist, and
     -   Multi-store support with granular configuration options.
     -   Subscription system with tiered access (Starter, Business, Enterprise) to features and limits.
     -   Time Clock System: REP-P compliant with digital signature PIN, change requests, and advanced reporting, adhering to Brazilian labor law (CLT and Portaria 671/2021).
+    -   **Daily Tasks Module (Tarefas do Dia)**: Complete task management system with:
+        -   Admin: Weekly calendar view (7 columns) with CRUD for recurring tasks by weekday
+        -   Admin: Configure priority (Alta/Média/Baixa), due time, and shift assignment
+        -   Store: Timeline view with progress bar, checkboxes, and real-time updates via Supabase Realtime
+        -   Visual indicators: color-coded priorities, overdue alerts, completion status with who/when
+        -   Overdue notifications: In-app alerts for stores with pending tasks
+        -   WhatsApp notifications: Backend service ready (via Supabase Edge Function/cron) for auto-notification
+        -   Hooks: useDailyTasks, useTaskStatistics, useTasksRealtime
+        -   Components: AdminTasksCalendarView, LojaTasksTab, TaskOverdueNotification
     -   Store Task Alerts System: Allows admins to schedule recurring WhatsApp task reminders for stores.
     -   Daily Goal Check Module: Gamified system for collaborators to confirm daily goal viewing, with configurable bonuses and time limits.
     -   WhatsApp Global Fallback System: Ensures notifications can be sent from a global number if a store lacks its own connected WhatsApp credentials.

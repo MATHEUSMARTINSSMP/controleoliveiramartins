@@ -1,6 +1,6 @@
 /**
  * Componente de Visualização em Calendário/Tabela de Tarefas do Dia
- * Exibe tarefas organizadas por dia da semana em formato de tabela
+ * Design moderno tipo timeline com visual atraente e cores de prioridade
  */
 
 import { useState, useEffect, useMemo } from "react";
@@ -9,14 +9,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Plus, Edit, Trash2, CheckSquare2 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+    Loader2, Plus, Edit, Trash2, CheckSquare2, Clock, Calendar,
+    ChevronLeft, ChevronRight, AlertTriangle, Zap, Flag
+} from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
+import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, isToday, isSameDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface TaskByWeekday {
     id: string;
@@ -25,7 +31,7 @@ interface TaskByWeekday {
     description: string | null;
     due_time: string | null;
     priority: string | null;
-    weekday: number | null; // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado, NULL = todos os dias
+    weekday: number | null;
     shift_id: string | null;
     shift_name: string | null;
     display_order: number;
@@ -42,20 +48,19 @@ interface Shift {
 }
 
 const WEEKDAYS = [
-    { value: 0, label: 'Domingo' },
-    { value: 1, label: 'Segunda' },
-    { value: 2, label: 'Terça' },
-    { value: 3, label: 'Quarta' },
-    { value: 4, label: 'Quinta' },
-    { value: 5, label: 'Sexta' },
-    { value: 6, label: 'Sábado' },
-    { value: null, label: 'Todos os Dias' },
+    { value: 0, label: 'Dom', fullLabel: 'Domingo' },
+    { value: 1, label: 'Seg', fullLabel: 'Segunda' },
+    { value: 2, label: 'Ter', fullLabel: 'Terça' },
+    { value: 3, label: 'Qua', fullLabel: 'Quarta' },
+    { value: 4, label: 'Qui', fullLabel: 'Quinta' },
+    { value: 5, label: 'Sex', fullLabel: 'Sexta' },
+    { value: 6, label: 'Sáb', fullLabel: 'Sábado' },
 ];
 
 const PRIORITIES = [
-    { value: 'ALTA', label: 'ALTA', color: 'destructive' },
-    { value: 'MÉDIA', label: 'MÉDIA', color: 'default' },
-    { value: 'BAIXA', label: 'BAIXA', color: 'secondary' },
+    { value: 'ALTA', label: 'Alta', color: 'bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30', icon: AlertTriangle },
+    { value: 'MÉDIA', label: 'Média', color: 'bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30', icon: Flag },
+    { value: 'BAIXA', label: 'Baixa', color: 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30', icon: Zap },
 ];
 
 export function AdminTasksCalendarView() {
@@ -67,6 +72,7 @@ export function AdminTasksCalendarView() {
     const [loading, setLoading] = useState(false);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<TaskByWeekday | null>(null);
+    const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
     const [formData, setFormData] = useState({
         title: "",
         description: "",
@@ -101,7 +107,7 @@ export function AdminTasksCalendarView() {
 
             if (error) throw error;
             setStores(data || []);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[AdminTasksCalendarView] Erro ao buscar lojas:', error);
             toast.error('Erro ao carregar lojas');
         }
@@ -124,7 +130,7 @@ export function AdminTasksCalendarView() {
                 throw error;
             }
             setShifts(data || []);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[AdminTasksCalendarView] Erro ao buscar turnos:', error);
             setShifts([]);
         }
@@ -141,7 +147,7 @@ export function AdminTasksCalendarView() {
 
             if (error) {
                 if (error.code === 'PGRST42883' || error.message?.includes('does not exist')) {
-                    console.warn('[AdminTasksCalendarView] Função get_daily_tasks_by_weekday não existe ainda. Execute a migration primeiro.');
+                    console.warn('[AdminTasksCalendarView] Função get_daily_tasks_by_weekday não existe ainda.');
                     setTasks([]);
                     return;
                 }
@@ -149,43 +155,43 @@ export function AdminTasksCalendarView() {
             }
 
             setTasks((data as unknown as TaskByWeekday[]) || []);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const err = error as { message?: string };
             console.error('[AdminTasksCalendarView] Erro ao buscar tarefas:', error);
-            toast.error('Erro ao carregar tarefas: ' + (error.message || 'Erro desconhecido'));
+            toast.error('Erro ao carregar tarefas: ' + (err.message || 'Erro desconhecido'));
             setTasks([]);
         } finally {
             setLoading(false);
         }
     };
 
-    // Agrupar tarefas por horário (due_time) e depois por dia da semana
-    const tasksByTimeAndWeekday = useMemo(() => {
-        const grouped: Record<string, Partial<Record<number | 'all', TaskByWeekday[]>>> = {};
+    const tasksByWeekday = useMemo(() => {
+        const grouped: Record<number, TaskByWeekday[]> = {};
+        
+        WEEKDAYS.forEach(wd => {
+            grouped[wd.value] = [];
+        });
 
         tasks.forEach(task => {
-            const timeKey = task.due_time || 'sem-horario';
-            const weekdayKey = task.weekday === null ? 'all' : task.weekday;
-
-            if (!grouped[timeKey]) {
-                grouped[timeKey] = {};
+            if (task.weekday === null) {
+                WEEKDAYS.forEach(wd => {
+                    grouped[wd.value].push({ ...task, weekday: wd.value });
+                });
+            } else {
+                grouped[task.weekday].push(task);
             }
-            if (!grouped[timeKey][weekdayKey]) {
-                grouped[timeKey][weekdayKey] = [];
-            }
-            grouped[timeKey][weekdayKey]!.push(task);
         });
 
-        // Ordenar por horário
-        const sortedTimes = Object.keys(grouped).sort((a, b) => {
-            if (a === 'sem-horario') return 1;
-            if (b === 'sem-horario') return -1;
-            return a.localeCompare(b);
+        Object.keys(grouped).forEach(key => {
+            grouped[Number(key)].sort((a, b) => {
+                if (!a.due_time && !b.due_time) return a.display_order - b.display_order;
+                if (!a.due_time) return 1;
+                if (!b.due_time) return -1;
+                return a.due_time.localeCompare(b.due_time);
+            });
         });
 
-        return sortedTimes.map(time => ({
-            time,
-            tasks: grouped[time]
-        }));
+        return grouped;
     }, [tasks]);
 
     const handleOpenDialog = (task?: TaskByWeekday, weekday?: number) => {
@@ -235,11 +241,8 @@ export function AdminTasksCalendarView() {
             return;
         }
 
-        // weekday já está validado pelo Select (não precisa validação adicional)
-
         try {
             if (editingTask) {
-                // Atualizar tarefa - usar função RPC ou update direto
                 const { error } = await supabase
                     .schema('sistemaretiradas')
                     .from('daily_tasks')
@@ -257,7 +260,6 @@ export function AdminTasksCalendarView() {
                 if (error) throw error;
                 toast.success('Tarefa atualizada com sucesso!');
             } else {
-                // Criar tarefa
                 const { error } = await supabase
                     .schema('sistemaretiradas')
                     .from('daily_tasks')
@@ -280,9 +282,10 @@ export function AdminTasksCalendarView() {
 
             handleCloseDialog();
             fetchTasks();
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const err = error as { message?: string };
             console.error('[AdminTasksCalendarView] Erro ao salvar tarefa:', error);
-            toast.error('Erro ao salvar tarefa: ' + (error.message || 'Erro desconhecido'));
+            toast.error('Erro ao salvar tarefa: ' + (err.message || 'Erro desconhecido'));
         }
     };
 
@@ -301,181 +304,253 @@ export function AdminTasksCalendarView() {
             if (error) throw error;
             toast.success('Tarefa excluída com sucesso!');
             fetchTasks();
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const err = error as { message?: string };
             console.error('[AdminTasksCalendarView] Erro ao excluir tarefa:', error);
-            toast.error('Erro ao excluir tarefa: ' + (error.message || 'Erro desconhecido'));
+            toast.error('Erro ao excluir tarefa: ' + (err.message || 'Erro desconhecido'));
         }
     };
 
-    const getPriorityBadge = (priority: string | null) => {
-        const priorityData = PRIORITIES.find(p => p.value === priority) || PRIORITIES[1];
-        return (
-            <Badge variant={priorityData.color as any} className="text-xs">
-                {priorityData.label}
-            </Badge>
-        );
+    const getPriorityData = (priority: string | null) => {
+        return PRIORITIES.find(p => p.value === priority) || PRIORITIES[1];
     };
+
+    const navigateWeek = (direction: 'prev' | 'next') => {
+        if (direction === 'prev') {
+            setCurrentWeekStart(subWeeks(currentWeekStart, 1));
+        } else {
+            setCurrentWeekStart(addWeeks(currentWeekStart, 1));
+        }
+    };
+
+    const goToCurrentWeek = () => {
+        setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
+    };
+
+    const getWeekDates = () => {
+        return WEEKDAYS.map((wd, index) => {
+            const date = new Date(currentWeekStart);
+            date.setDate(date.getDate() + index);
+            return date;
+        });
+    };
+
+    const weekDates = getWeekDates();
+    const currentWeekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 0 });
 
     return (
         <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <CheckSquare2 className="h-5 w-5" />
-                        Tarefas Semanais (Configuração Fixa)
-                    </CardTitle>
-                    <CardDescription>
-                        Configure tarefas fixas para cada dia da semana. Cada tarefa está vinculada a um dia específico.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {/* Seletor de Loja */}
-                    <div>
-                        <Label>Selecione a Loja</Label>
-                        <Select value={selectedStoreId || ""} onValueChange={setSelectedStoreId}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Selecione uma loja" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {stores.map(store => (
-                                    <SelectItem key={store.id} value={store.id}>
-                                        {store.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+            <Card className="border-2 shadow-lg">
+                <CardHeader className="pb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <CardTitle className="flex items-center gap-2 text-xl">
+                                <div className="p-2 rounded-lg bg-primary/10">
+                                    <CheckSquare2 className="h-5 w-5 text-primary" />
+                                </div>
+                                Tarefas Semanais
+                            </CardTitle>
+                            <CardDescription className="mt-1">
+                                Configure tarefas recorrentes para cada dia da semana
+                            </CardDescription>
+                        </div>
+                        
+                        <div className="w-full sm:w-64">
+                            <Select value={selectedStoreId || ""} onValueChange={setSelectedStoreId}>
+                                <SelectTrigger data-testid="select-store">
+                                    <SelectValue placeholder="Selecione uma loja" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {stores.map(store => (
+                                        <SelectItem key={store.id} value={store.id}>
+                                            {store.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
+                </CardHeader>
 
-                    {/* Botão Adicionar Tarefa */}
-                    {selectedStoreId && (
-                        <div className="flex justify-end">
-                            <Button onClick={() => handleOpenDialog()}>
+                {selectedStoreId && (
+                    <CardContent className="space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg bg-muted/50">
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => navigateWeek('prev')}
+                                    data-testid="button-prev-week"
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                <div className="flex items-center gap-2 px-3">
+                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                    <span className="font-medium text-sm">
+                                        {format(currentWeekStart, "dd MMM", { locale: ptBR })} - {format(currentWeekEnd, "dd MMM yyyy", { locale: ptBR })}
+                                    </span>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => navigateWeek('next')}
+                                    data-testid="button-next-week"
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={goToCurrentWeek}
+                                    data-testid="button-current-week"
+                                >
+                                    Hoje
+                                </Button>
+                            </div>
+                            
+                            <Button onClick={() => handleOpenDialog()} data-testid="button-add-task">
                                 <Plus className="h-4 w-4 mr-2" />
-                                Adicionar Tarefa
+                                Nova Tarefa
                             </Button>
                         </div>
-                    )}
 
-                    {/* Tabela de Calendário */}
-                    {selectedStoreId && (
-                        <div className="border rounded-lg overflow-hidden">
-                            {loading ? (
-                                <div className="flex items-center justify-center py-12">
-                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        {loading ? (
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : tasks.length === 0 ? (
+                            <div className="text-center py-12 text-muted-foreground">
+                                <div className="p-4 rounded-full bg-muted/50 w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                                    <CheckSquare2 className="h-10 w-10 opacity-50" />
                                 </div>
-                            ) : tasks.length === 0 ? (
-                                <div className="text-center py-12 text-muted-foreground">
-                                    <CheckSquare2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                                    <p>Nenhuma tarefa configurada para esta loja.</p>
-                                    <p className="text-sm mt-2">Clique em "Adicionar Tarefa" para começar.</p>
-                                </div>
-                            ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-[120px]">Horário</TableHead>
-                                            {WEEKDAYS.filter(wd => wd.value !== null).map(weekday => (
-                                                <TableHead key={weekday.value} className="text-center">
+                                <p className="text-lg font-medium">Nenhuma tarefa configurada</p>
+                                <p className="text-sm mt-2">Clique em "Nova Tarefa" para começar</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-7 gap-2">
+                                {WEEKDAYS.map((weekday, index) => {
+                                    const dayTasks = tasksByWeekday[weekday.value] || [];
+                                    const date = weekDates[index];
+                                    const isTodayDate = isToday(date);
+
+                                    return (
+                                        <div
+                                            key={weekday.value}
+                                            className={cn(
+                                                "min-h-[300px] rounded-lg border-2 transition-all duration-200",
+                                                isTodayDate 
+                                                    ? "border-primary bg-primary/5" 
+                                                    : "border-border bg-card"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "p-2 border-b text-center",
+                                                isTodayDate ? "bg-primary/10" : "bg-muted/30"
+                                            )}>
+                                                <p className={cn(
+                                                    "text-xs font-semibold uppercase tracking-wide",
+                                                    isTodayDate ? "text-primary" : "text-muted-foreground"
+                                                )}>
                                                     {weekday.label}
-                                                </TableHead>
-                                            ))}
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {tasksByTimeAndWeekday.map(({ time, tasks: timeTasks }) => (
-                                            <TableRow key={time}>
-                                                <TableCell className="font-medium">
-                                                    {time === 'sem-horario' ? 'Sem horário' : time}
-                                                </TableCell>
-                                                {WEEKDAYS.filter(wd => wd.value !== null).map(weekday => {
-                                                    const weekdayTasks = timeTasks[weekday.value!] || [];
-                                                    return (
-                                                        <TableCell key={weekday.value} className="align-top">
-                                                            <div className="space-y-2">
-                                                                {weekdayTasks.map(task => (
-                                                                    <div
-                                                                        key={task.id}
-                                                                        className="p-2 border rounded-md bg-card"
-                                                                    >
-                                                                        <div className="flex items-start justify-between gap-2 mb-1">
-                                                                            <div className="flex-1 min-w-0">
-                                                                                <div className="font-medium text-sm truncate">{task.title}</div>
-                                                                                {task.description && (
-                                                                                    <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                                                                        {task.description}
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                            <div className="flex gap-1 flex-shrink-0">
-                                                                                <Button
-                                                                                    variant="ghost"
-                                                                                    size="icon"
-                                                                                    className="h-6 w-6"
-                                                                                    onClick={() => handleOpenDialog(task)}
-                                                                                >
-                                                                                    <Edit className="h-3 w-3" />
-                                                                                </Button>
-                                                                                <Button
-                                                                                    variant="ghost"
-                                                                                    size="icon"
-                                                                                    className="h-6 w-6 text-destructive"
-                                                                                    onClick={() => handleDelete(task)}
-                                                                                >
-                                                                                    <Trash2 className="h-3 w-3" />
-                                                                                </Button>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-2 mt-2">
-                                                                            {getPriorityBadge(task.priority)}
-                                                                            {task.shift_name && (
-                                                                                <Badge variant="outline" className="text-xs">
-                                                                                    {task.shift_name}
-                                                                                </Badge>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                                {weekdayTasks.length === 0 && (
-                                                                    <div className="text-center text-xs text-muted-foreground py-2">
-                                                                        -
-                                                                    </div>
+                                                </p>
+                                                <p className={cn(
+                                                    "text-lg font-bold",
+                                                    isTodayDate ? "text-primary" : ""
+                                                )}>
+                                                    {format(date, "dd")}
+                                                </p>
+                                            </div>
+
+                                            <ScrollArea className="h-[250px]">
+                                                <div className="p-2 space-y-2">
+                                                    {dayTasks.map((task) => {
+                                                        const priorityData = getPriorityData(task.priority);
+                                                        const PriorityIcon = priorityData.icon;
+
+                                                        return (
+                                                            <div
+                                                                key={`${task.id}-${weekday.value}`}
+                                                                className={cn(
+                                                                    "p-2 rounded-md border transition-all duration-200 hover-elevate group",
+                                                                    priorityData.color
                                                                 )}
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="w-full mt-1 text-xs h-7"
-                                                                    onClick={() => handleOpenDialog(undefined, weekday.value!)}
-                                                                >
-                                                                    <Plus className="h-3 w-3 mr-1" />
-                                                                    Adicionar
-                                                                </Button>
+                                                            >
+                                                                <div className="flex items-start justify-between gap-1">
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <div className="flex items-center gap-1 mb-1">
+                                                                            <PriorityIcon className="h-3 w-3 flex-shrink-0" />
+                                                                            <span className="text-xs font-medium truncate">
+                                                                                {task.title}
+                                                                            </span>
+                                                                        </div>
+                                                                        {task.due_time && (
+                                                                            <div className="flex items-center gap-1 text-[10px] opacity-80">
+                                                                                <Clock className="h-2.5 w-2.5" />
+                                                                                {task.due_time}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-5 w-5"
+                                                                            onClick={() => handleOpenDialog(task)}
+                                                                            data-testid={`button-edit-task-${task.id}`}
+                                                                        >
+                                                                            <Edit className="h-2.5 w-2.5" />
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-5 w-5 text-destructive"
+                                                                            onClick={() => handleDelete(task)}
+                                                                            data-testid={`button-delete-task-${task.id}`}
+                                                                        >
+                                                                            <Trash2 className="h-2.5 w-2.5" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                        </TableCell>
-                                                    );
-                                                })}
-                                            </TableRow>
-                                        ))}
-                                        {tasksByTimeAndWeekday.length === 0 && (
-                                            <TableRow>
-                                                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                                                    Nenhuma tarefa encontrada
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            )}
-                        </div>
-                    )}
-                </CardContent>
+                                                        );
+                                                    })}
+
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="w-full h-7 text-xs border-dashed border hover:border-solid"
+                                                        onClick={() => handleOpenDialog(undefined, weekday.value)}
+                                                        data-testid={`button-add-task-${weekday.value}`}
+                                                    >
+                                                        <Plus className="h-3 w-3 mr-1" />
+                                                        Adicionar
+                                                    </Button>
+                                                </div>
+                                            </ScrollArea>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </CardContent>
+                )}
             </Card>
 
-            {/* Dialog de Criar/Editar Tarefa */}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-lg">
                     <DialogHeader>
-                        <DialogTitle className="text-xl">
-                            {editingTask ? 'Editar Tarefa' : 'Nova Tarefa'}
+                        <DialogTitle className="flex items-center gap-2">
+                            {editingTask ? (
+                                <>
+                                    <Edit className="h-5 w-5" />
+                                    Editar Tarefa
+                                </>
+                            ) : (
+                                <>
+                                    <Plus className="h-5 w-5" />
+                                    Nova Tarefa
+                                </>
+                            )}
                         </DialogTitle>
                         <DialogDescription>
                             {editingTask
@@ -483,133 +558,117 @@ export function AdminTasksCalendarView() {
                                 : 'Preencha os dados para criar uma nova tarefa'}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="py-4">
-                        {/* Estrutura tipo tabela para melhor organização visual */}
-                        <div className="border rounded-lg overflow-hidden bg-card">
-                            <Table>
-                                <TableBody>
-                                    <TableRow className="border-b">
-                                        <TableCell className="font-semibold bg-muted/50 w-[200px]">
-                                            Título *
-                                        </TableCell>
-                                        <TableCell>
-                                            <Input
-                                                id="title"
-                                                value={formData.title}
-                                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                                placeholder="Ex: Varrer a Loja"
-                                                className="w-full"
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                    <TableRow className="border-b">
-                                        <TableCell className="font-semibold bg-muted/50 align-top pt-4">
-                                            Descrição
-                                        </TableCell>
-                                        <TableCell>
-                                            <Textarea
-                                                id="description"
-                                                value={formData.description}
-                                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                                placeholder="Descrição opcional da tarefa"
-                                                rows={3}
-                                                className="w-full"
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                    <TableRow className="border-b">
-                                        <TableCell className="font-semibold bg-muted/50">
-                                            Horário
-                                        </TableCell>
-                                        <TableCell>
-                                            <Input
-                                                id="due_time"
-                                                type="time"
-                                                value={formData.due_time}
-                                                onChange={(e) => setFormData({ ...formData, due_time: e.target.value })}
-                                                className="w-full max-w-[200px]"
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                    <TableRow className="border-b">
-                                        <TableCell className="font-semibold bg-muted/50">
-                                            Prioridade *
-                                        </TableCell>
-                                        <TableCell>
-                                            <Select
-                                                value={formData.priority}
-                                                onValueChange={(value) => setFormData({ ...formData, priority: value })}
-                                            >
-                                                <SelectTrigger id="priority" className="w-full max-w-[200px]">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {PRIORITIES.map(priority => (
-                                                        <SelectItem key={priority.value} value={priority.value}>
-                                                            {priority.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </TableCell>
-                                    </TableRow>
-                                    <TableRow className="border-b">
-                                        <TableCell className="font-semibold bg-muted/50">
-                                            Dia da Semana *
-                                        </TableCell>
-                                        <TableCell>
-                                            <Select
-                                                value={formData.weekday === null ? 'all' : formData.weekday.toString()}
-                                                onValueChange={(value) => setFormData({ ...formData, weekday: value === 'all' ? null : parseInt(value) })}
-                                            >
-                                                <SelectTrigger id="weekday" className="w-full max-w-[250px]">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {WEEKDAYS.map(weekday => (
-                                                        <SelectItem
-                                                            key={weekday.value === null ? 'all' : weekday.value.toString()}
-                                                            value={weekday.value === null ? 'all' : weekday.value.toString()}
-                                                        >
-                                                            {weekday.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell className="font-semibold bg-muted/50">
-                                            Turno
-                                        </TableCell>
-                                        <TableCell>
-                                            <Select
-                                                value={formData.shift_id}
-                                                onValueChange={(value) => setFormData({ ...formData, shift_id: value })}
-                                            >
-                                                <SelectTrigger id="shift_id" className="w-full max-w-[250px]">
-                                                    <SelectValue placeholder="Sem turno" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="none">Sem turno</SelectItem>
-                                                    {shifts.map(shift => (
-                                                        <SelectItem key={shift.id} value={shift.id}>
-                                                            {shift.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </TableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
+
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="title">Título *</Label>
+                            <Input
+                                id="title"
+                                value={formData.title}
+                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                placeholder="Ex: Varrer a Loja"
+                                data-testid="input-task-title"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="description">Descrição</Label>
+                            <Textarea
+                                id="description"
+                                value={formData.description}
+                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                placeholder="Detalhes adicionais..."
+                                rows={2}
+                                data-testid="input-task-description"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="weekday">Dia da Semana</Label>
+                                <Select
+                                    value={formData.weekday === null ? "all" : String(formData.weekday)}
+                                    onValueChange={(v) => setFormData({ 
+                                        ...formData, 
+                                        weekday: v === "all" ? null : Number(v) 
+                                    })}
+                                >
+                                    <SelectTrigger data-testid="select-weekday">
+                                        <SelectValue placeholder="Selecione" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todos os Dias</SelectItem>
+                                        {WEEKDAYS.map(wd => (
+                                            <SelectItem key={wd.value} value={String(wd.value)}>
+                                                {wd.fullLabel}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="due_time">Horário Limite</Label>
+                                <Input
+                                    id="due_time"
+                                    type="time"
+                                    value={formData.due_time}
+                                    onChange={(e) => setFormData({ ...formData, due_time: e.target.value })}
+                                    data-testid="input-task-time"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="priority">Prioridade</Label>
+                                <Select
+                                    value={formData.priority}
+                                    onValueChange={(v) => setFormData({ ...formData, priority: v })}
+                                >
+                                    <SelectTrigger data-testid="select-priority">
+                                        <SelectValue placeholder="Selecione" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {PRIORITIES.map(p => (
+                                            <SelectItem key={p.value} value={p.value}>
+                                                <span className="flex items-center gap-2">
+                                                    <p.icon className="h-3 w-3" />
+                                                    {p.label}
+                                                </span>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="shift">Turno</Label>
+                                <Select
+                                    value={formData.shift_id}
+                                    onValueChange={(v) => setFormData({ ...formData, shift_id: v })}
+                                >
+                                    <SelectTrigger data-testid="select-shift">
+                                        <SelectValue placeholder="Selecione" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Nenhum</SelectItem>
+                                        {shifts.map(s => (
+                                            <SelectItem key={s.id} value={s.id}>
+                                                {s.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </div>
+
                     <DialogFooter>
-                        <Button variant="outline" onClick={handleCloseDialog}>
+                        <Button variant="outline" onClick={handleCloseDialog} data-testid="button-cancel">
                             Cancelar
                         </Button>
-                        <Button onClick={handleSubmit}>
+                        <Button onClick={handleSubmit} data-testid="button-save-task">
                             {editingTask ? 'Salvar Alterações' : 'Criar Tarefa'}
                         </Button>
                     </DialogFooter>
@@ -618,4 +677,3 @@ export function AdminTasksCalendarView() {
         </div>
     );
 }
-

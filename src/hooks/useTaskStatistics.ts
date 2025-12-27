@@ -58,7 +58,7 @@ export function useTaskStatistics({
 
             if (fetchError) throw fetchError;
 
-            setStatistics(data as TaskStatistics);
+            setStatistics((data as unknown) as TaskStatistics);
         } catch (err: any) {
             console.error('[useTaskStatistics] Erro ao buscar estatísticas:', err);
             setError(err.message || 'Erro ao buscar estatísticas');
