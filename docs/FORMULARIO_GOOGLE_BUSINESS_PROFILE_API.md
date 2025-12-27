@@ -22,9 +22,13 @@
 ---
 
 ### 4. Nome da empresa *
-**Resposta:** `EleveaOne` ou `Elevea`
+**Resposta:** `Elevea` ou `Elevea Agência`
 
-**Nota:** O nome oficial da empresa conforme registrado.
+**Nota:** 
+- **Elevea** (ou **Elevea Agência**) é a empresa desenvolvedora
+- **EleveaOne** é o produto/sistema SaaS desenvolvido pela Elevea
+- Use o nome legal da empresa (provavelmente "Elevea" ou "Elevea Agência")
+- O Google OAuth Consent Screen está configurado como "ELEVEA" (ver: docs/CONFIGURACAO_GOOGLE_OAUTH_NETLIFY.md)
 
 ---
 
@@ -158,13 +162,13 @@
 
 **Descrição adicional (se houver campo de texto):**
 ```
-Nossa plataforma SaaS (EleveaOne) permite que lojas de varejo gerenciem seus perfis do Google Business Profile de forma integrada. Queremos oferecer funcionalidades como:
+A Elevea desenvolve o EleveaOne, uma plataforma SaaS que permite que lojas de varejo gerenciem seus perfis do Google Business Profile de forma integrada. Queremos oferecer funcionalidades como:
 - Gerenciamento de reviews e respostas
 - Análise de métricas de performance
 - Gerenciamento de informações da loja (horários, fotos, posts)
 - Sincronização de dados entre múltiplas unidades
 
-Isso permite que nossos clientes gerenciem sua presença online no Google de forma centralizada através da nossa plataforma.
+Isso permite que nossos clientes gerenciem sua presença online no Google de forma centralizada através da nossa plataforma EleveaOne.
 ```
 
 ---
