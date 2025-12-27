@@ -5,6 +5,7 @@ import { CheckCircle2, Clock, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { TaskStatusBadge } from "@/components/shared/TaskStatusBadge";
 
 interface TaskCardProps {
     task: DailyTask;
@@ -74,20 +75,14 @@ export function TaskCard({ task, onToggleComplete, onCompleteClick, completedByN
                             {task.title}
                         </h4>
                         {/* Badge de Status */}
-                        {isCompleted ? (
-                            <Badge variant="default" className="text-xs shrink-0 bg-emerald-600">
-                                <CheckCircle2 className="h-3 w-3 mr-1" />
-                                CONCLUÍDA
-                            </Badge>
-                        ) : isOverdue ? (
-                            <Badge variant="destructive" className="text-xs shrink-0">
-                                ⚠️ ATRASADO
-                            </Badge>
-                        ) : (
-                            <Badge variant="secondary" className="text-xs shrink-0">
-                                ⏳ PENDENTE
-                            </Badge>
-                        )}
+                        <TaskStatusBadge 
+                            status={
+                                isCompleted ? "CONCLUÍDA" : 
+                                isOverdue ? "ATRASADO" : 
+                                "PENDENTE"
+                            }
+                            className="shrink-0"
+                        />
                         
                         {/* Badge de Prioridade */}
                         {task.priority && (
