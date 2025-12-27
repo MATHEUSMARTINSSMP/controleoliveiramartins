@@ -234,13 +234,18 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
                 pedidosNotificadosRef.current.add(pedidoId);
                 
                 // ✅ Mostrar notificação IMEDIATAMENTE (balãozinho)
+                // ✅ CORREÇÃO: Converter valor_total para número corretamente (evitar somas duplicadas)
+                const valorTotal = typeof novoPedido.valor_total === 'string' 
+                  ? parseFloat(novoPedido.valor_total) || 0 
+                  : (typeof novoPedido.valor_total === 'number' ? novoPedido.valor_total : 0);
+                
                 toast({
                   title: "🎉 Nova Venda Detectada!",
                   description: (
                     <div className="flex flex-col gap-1">
                       <span className="font-medium">{novoPedido.cliente_nome || 'Cliente'}</span>
                       <span>Pedido #{novoPedido.numero_pedido || novoPedido.tiny_id}</span>
-                      <span className="font-bold text-green-600">{formatCurrency(Number(novoPedido.valor_total) || 0)}</span>
+                      <span className="font-bold text-green-600">{formatCurrency(valorTotal)}</span>
                     </div>
                   ),
                   duration: 5000,
@@ -383,13 +388,18 @@ export default function TinyOrdersList({ storeId, limit = 50 }: TinyOrdersListPr
                 console.log(`[AUTO-REFRESH] 🔔 Mostrando ${novosParaNotificar.length} notificações (${novosSemDuplicados.length - novosParaNotificar.length} já foram notificadas pelo Realtime)`);
                 novosParaNotificar.forEach((novoPedido) => {
                   // ✅ Notificação Toast (Balãozinho - Shadcn UI) - SEMPRE mostrar
+                  // ✅ CORREÇÃO: Converter valor_total para número corretamente (evitar somas duplicadas)
+                  const valorTotal = typeof novoPedido.valor_total === 'string' 
+                    ? parseFloat(novoPedido.valor_total) || 0 
+                    : (typeof novoPedido.valor_total === 'number' ? novoPedido.valor_total : 0);
+                  
                   toast({
                     title: "🎉 Nova Venda Detectada!",
                     description: (
                       <div className="flex flex-col gap-1">
                         <span className="font-medium">{novoPedido.cliente_nome || 'Cliente'}</span>
                         <span>Pedido #{novoPedido.numero_pedido || novoPedido.tiny_id}</span>
-                        <span className="font-bold text-green-600">{formatCurrency(novoPedido.valor_total || 0)}</span>
+                        <span className="font-bold text-green-600">{formatCurrency(valorTotal)}</span>
                       </div>
                     ),
                     duration: 5000,
