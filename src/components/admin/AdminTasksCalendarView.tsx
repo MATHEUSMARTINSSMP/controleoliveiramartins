@@ -148,7 +148,7 @@ export function AdminTasksCalendarView() {
                 throw error;
             }
 
-            setTasks((data as TaskByWeekday[]) || []);
+            setTasks((data as unknown as TaskByWeekday[]) || []);
         } catch (error: any) {
             console.error('[AdminTasksCalendarView] Erro ao buscar tarefas:', error);
             toast.error('Erro ao carregar tarefas: ' + (error.message || 'Erro desconhecido'));
@@ -160,7 +160,7 @@ export function AdminTasksCalendarView() {
 
     // Agrupar tarefas por horário (due_time) e depois por dia da semana
     const tasksByTimeAndWeekday = useMemo(() => {
-        const grouped: Record<string, Record<number | 'all', TaskByWeekday[]>> = {};
+        const grouped: Record<string, Partial<Record<number | 'all', TaskByWeekday[]>>> = {};
 
         tasks.forEach(task => {
             const timeKey = task.due_time || 'sem-horario';
@@ -172,7 +172,7 @@ export function AdminTasksCalendarView() {
             if (!grouped[timeKey][weekdayKey]) {
                 grouped[timeKey][weekdayKey] = [];
             }
-            grouped[timeKey][weekdayKey].push(task);
+            grouped[timeKey][weekdayKey]!.push(task);
         });
 
         // Ordenar por horário

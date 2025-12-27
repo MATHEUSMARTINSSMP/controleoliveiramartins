@@ -72,6 +72,8 @@ const WishlistLojaView = lazy(() => import("@/components/loja/WishlistLojaView")
 const StoreConditionalsAdjustments = lazy(() => import("@/components/loja/StoreConditionalsAdjustments"));
 const CaixaLojaView = lazy(() => import("@/components/loja/CaixaLojaView"));
 import { ListaDaVez } from "@/components/loja/ListaDaVez";
+import { LinkErpSaleToAttendanceDialog } from "@/components/admin/LinkErpSaleToAttendanceDialog";
+import { TaskOverdueNotification } from "@/components/tasks/TaskOverdueNotification";
 const LojaTasksTab = lazy(() => import("@/components/loja/LojaTasksTab").then(m => ({ default: m.LojaTasksTab })));
 
 interface Sale {
@@ -3240,6 +3242,7 @@ export default function LojaDashboard() {
             cliente_nome: "",
             venda_perdida: false,
             motivo_perda_venda: "",
+            attendance_id: "",
         });
         setSearchCliente("");
         setSelectedClienteId(null);
@@ -3989,6 +3992,13 @@ export default function LojaDashboard() {
             </header>
 
             <main className="container mx-auto px-4 sm:px-6 py-6">
+                {/* Notificação de Tarefas Atrasadas em Tempo Real */}
+                {tasksAtivo && storeId && (
+                    <div className="mb-4">
+                        <TaskOverdueNotification storeId={storeId} />
+                    </div>
+                )}
+
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}

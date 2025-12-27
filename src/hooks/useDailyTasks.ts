@@ -74,7 +74,7 @@ export function useDailyTasks({
 
             if (fetchError) throw fetchError;
 
-            setTasks((data as DailyTask[]) || []);
+            setTasks((data as unknown as DailyTask[]) || []);
         } catch (err: any) {
             console.error('[useDailyTasks] Erro ao buscar tarefas:', err);
             setError(err.message || 'Erro ao buscar tarefas');
@@ -82,7 +82,7 @@ export function useDailyTasks({
         } finally {
             setLoading(false);
         }
-    }, [storeId, date, enabled, moduleEnabled]);
+    }, [storeId, date, enabled]);
 
     const completeTask = useCallback(async (taskId: string, notes?: string): Promise<boolean> => {
         if (!storeId) return false;
