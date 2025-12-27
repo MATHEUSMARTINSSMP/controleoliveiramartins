@@ -7,6 +7,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+const { buildV4Parent } = require('./utils/googleBusinessProfileHelpers');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -62,16 +63,49 @@ exports.handler = async (event) => {
     const reply = (body.reply || '').trim();
 
     // Validar parâmetros obrigatórios
-    if (!customerId || !siteSlug || !accountId || !locationId || !reviewId || !reply) {
+    if (!customerId || !siteSlug || !reviewId || !reply) {
       return {
         statusCode: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           success: false,
-          error: 'customerId, siteSlug, accountId, locationId, reviewId e reply são obrigatórios',
+          error: 'customerId, siteSlug, reviewId e reply são obrigatórios',
         }),
       };
     }
+
+    // Buscar account_id e location_id do banco se não fornecidos
+    let finalAccountId = accountId;
+    let finalLocationId = locationId;
+
+    if (!finalAccountId || !finalLocationId) {
+      const { data: locationData, error: locError } = await supabase
+        .schema('sistemaretiradas')
+        .from('google_business_accounts')
+        .select('account_id, location_id')
+        .eq('customer_id', customerId)
+        .eq('site_slug', siteSlug)
+        .not('location_id', 'is', null)
+        .limit(1)
+        .maybeSingle();
+
+      if (locError || !locationData) {
+        return {
+          statusCode: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            success: false,
+            error: 'Location não encontrada. Conecte sua conta Google primeiro.',
+          }),
+        };
+      }
+
+      if (!finalAccountId) finalAccountId = locationData.account_id;
+      if (!finalLocationId) finalLocationId = locationData.location_id;
+    }
+
+    // Construir formato v4 para API
+    const locationIdForV4 = buildV4Parent(finalAccountId, finalLocationId);
 
     // Validar tamanho da resposta (limite do Google: 4096 caracteres)
     if (reply.length > 4096) {
@@ -165,7 +199,7 @@ exports.handler = async (event) => {
 
     // Enviar resposta para o Google
     // API v4: POST /v4/{name}/reviews/{reviewId}:reply
-    const replyUrl = `https://mybusiness.googleapis.com/v4/${locationId}/reviews/${reviewId}:reply`;
+    const replyUrl = `https://mybusiness.googleapis.com/v4/${locationIdForV4}/reviews/${reviewId}:reply`;
 
     const replyResponse = await fetch(replyUrl, {
       method: 'POST',
