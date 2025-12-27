@@ -285,18 +285,23 @@ export function LojaTasksTab({ storeId }: LojaTasksTabProps) {
 
             {/* Tarefas agrupadas por turno */}
             <div className="space-y-4">
-                {sortedShifts.map((shift) => (
-                    <TaskSection
-                        key={shift.shiftId || 'sem-turno'}
-                        shiftName={shift.shiftName}
-                        shiftStartTime={shift.shiftStartTime}
-                        shiftEndTime={shift.shiftEndTime}
-                        shiftColor={shift.shiftColor}
-                        tasks={shift.tasks}
-                        onToggleComplete={handleToggleComplete}
-                        onCompleteClick={handleCompleteClick}
-                        loading={loading}
-                    />
+                {sortedShifts.map((shift, shiftIndex) => (
+                    <div key={shift.shiftId || 'sem-turno'}>
+                        {shiftIndex > 0 && (
+                            <div className="my-6 border-t border-border" />
+                        )}
+                        <TaskSection
+                            shiftName={shift.shiftName}
+                            shiftStartTime={shift.shiftStartTime}
+                            shiftEndTime={shift.shiftEndTime}
+                            shiftColor={shift.shiftColor}
+                            tasks={shift.tasks}
+                            onToggleComplete={handleToggleComplete}
+                            onCompleteClick={handleCompleteClick}
+                            completedByNames={completedByNames}
+                            loading={loading}
+                        />
+                    </div>
                 ))}
             </div>
 

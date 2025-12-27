@@ -92,15 +92,34 @@ export function TaskSection({
                 </div>
             </CardHeader>
             <CardContent className="space-y-3 pt-4">
-                {tasks.map(task => (
-                    <TaskCard
-                        key={task.id}
-                        task={task}
-                        onToggleComplete={onToggleComplete}
-                        onCompleteClick={onCompleteClick}
-                        loading={loading}
-                    />
-                ))}
+                {tasks.map((task, taskIndex) => {
+                    // Agrupar visualmente por horário: adicionar linha divisória quando muda o horário
+                    const previousTask = taskIndex > 0 ? tasks[taskIndex - 1] : null;
+                    const currentHour = task.due_time ? task.due_time.split(':')[0] : null;
+                    const previousHour = previousTask?.due_time ? previousTask.due_time.split(':')[0] : null;
+                    const shouldShowDivider = currentHour && previousHour && currentHour !== previousHour && taskIndex > 0;
+
+                    return (
+                        <div key={task.id}>
+                            {shouldShowDivider && (
+                                <div className="my-4 flex items-center gap-2">
+                                    <div className="flex-1 border-t border-dashed border-muted-foreground/30" />
+                                    <span className="text-xs text-muted-foreground font-medium">
+                                        {currentHour}:00
+                                    </span>
+                                    <div className="flex-1 border-t border-dashed border-muted-foreground/30" />
+                                </div>
+                            )}
+                            <TaskCard
+                                task={task}
+                                onToggleComplete={onToggleComplete}
+                                onCompleteClick={onCompleteClick}
+                                completedByName={task.completed_by ? completedByNames.get(task.completed_by) || null : null}
+                                loading={loading}
+                            />
+                        </div>
+                    );
+                })}
             </CardContent>
         </Card>
     );
