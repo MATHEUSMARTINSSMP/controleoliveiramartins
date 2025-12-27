@@ -475,29 +475,51 @@ src/hooks/
 - [ ] Migration: Adicionar `priority` e `weekday` à `daily_tasks`
 - [ ] Migration: Atualizar função `get_daily_tasks` com status e weekday
 - [ ] Migration: Criar função `get_daily_tasks_by_weekday` (para admin)
+- [ ] Migration: Criar tabela `task_notifications` para notificações em tempo real
+- [ ] Migration: Criar função/cron para detectar tarefas atrasadas
+- [ ] Migration: Criar trigger para detectar quando tarefa entra em atraso
 - [ ] Testar migrations
 
-### Fase 2: Componentes Admin
+### Fase 2: Backend - Notificações e Tempo Real
+- [ ] Criar função Netlify `task-check-overdue` (cron job para verificar tarefas atrasadas)
+- [ ] Integrar com sistema de WhatsApp (número global) para enviar notificações
+- [ ] Criar função para enviar notificação WhatsApp quando tarefa atrasa
+- [ ] Configurar Supabase Realtime para `task_completions` (mudanças em tempo real)
+- [ ] Configurar Supabase Realtime para `daily_tasks` (atualizações em tempo real)
+- [ ] Testar notificações WhatsApp
+- [ ] Testar tempo real
+
+### Fase 3: Componentes Admin
 - [ ] Criar `AdminTasksCalendarView.tsx`
 - [ ] Criar `TaskEditDialog.tsx`
 - [ ] Integrar com hook `useDailyTasks`
 - [ ] Implementar CRUD (Create, Read, Update, Delete)
 - [ ] Implementar visualização de prioridades
+- [ ] Integrar com Supabase Realtime para atualizações em tempo real
 - [ ] Testar funcionalidades admin
 
-### Fase 3: Componentes Loja
+### Fase 4: Componentes Loja
 - [ ] Criar `LojaTasksCalendarView.tsx`
 - [ ] Criar `TaskCompletionDialog.tsx`
 - [ ] Criar `TaskStatusBadge.tsx`
-- [ ] Implementar navegação entre dias
+- [ ] Criar componente `TaskOverdueNotification.tsx` (notificação de tarefa atrasada)
+- [ ] Implementar visualização focada no dia atual
 - [ ] Implementar marcação de conclusão
-- [ ] Implementar visualização de status
+- [ ] Implementar visualização de status (PENDENTE, ATRASADO, CONCLUÍDA)
+- [ ] Integrar com Supabase Realtime para:
+  - Atualizações de status em tempo real (sem F5)
+  - Notificações de tarefas atrasadas em tempo real
+  - Mudanças de `task_completions` em tempo real
+- [ ] Implementar toast/notification quando tarefa entra em atraso
 - [ ] Testar funcionalidades loja
 
-### Fase 4: Integração e Testes
+### Fase 5: Integração e Testes
 - [ ] Integrar componentes no Admin Dashboard
 - [ ] Integrar componentes no Loja Dashboard
 - [ ] Testar fluxo completo
+- [ ] Testar notificações em tempo real
+- [ ] Testar envio de WhatsApp
+- [ ] Testar atualização de status em tempo real
 - [ ] Ajustar UI/UX
 - [ ] Documentar
 
@@ -614,7 +636,25 @@ src/hooks/
 
 ---
 
+---
+
+## 📚 NOTAS TÉCNICAS ADICIONAIS
+
+### Notificações em Tempo Real:
+- Ver documento: `docs/TAREFAS_NOTIFICACOES_TEMPO_REAL.md`
+- Notificações aparecem sem precisar atualizar (F5)
+- Mudanças de status também em tempo real
+- WhatsApp enviado via número global quando tarefa atrasa
+
+### Status Calculado:
+- **CONCLUÍDA**: `completed_at IS NOT NULL`
+- **ATRASADO**: `completed_at IS NULL AND due_time < CURRENT_TIME`
+- **PENDENTE**: `completed_at IS NULL AND (due_time IS NULL OR due_time >= CURRENT_TIME)`
+
+---
+
 **Documento criado em:** 2025-12-28  
-**Versão:** 1.0  
-**Status:** Plano completo, pronto para implementação
+**Versão:** 1.1  
+**Status:** Plano completo, pronto para implementação  
+**Documentos relacionados:** `docs/TAREFAS_NOTIFICACOES_TEMPO_REAL.md`
 
