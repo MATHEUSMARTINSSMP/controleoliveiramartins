@@ -60,6 +60,18 @@
 
 ---
 
+### 7. Por que você precisa de acesso às APIs do Perfil da Empresa? *
+
+**Opção recomendada:** Marque:
+- ✅ **Para gerenciar unidades no Google Maps e na Pesquisa**
+
+**Explicação adicional (se houver campo de texto):**
+```
+A Elevea desenvolve plataformas SaaS para gestão de varejo. Através do nosso produto EleveaOne, queremos oferecer aos nossos clientes (lojas de varejo) a capacidade de gerenciar seus perfis do Google Business Profile de forma integrada e centralizada. Isso inclui gerenciamento de reviews, métricas de performance, informações da loja (horários, fotos, posts) e sincronização de dados entre múltiplas unidades. Nosso objetivo é simplificar a gestão da presença online no Google para pequenas e médias empresas de varejo que usam nossa plataforma.
+```
+
+---
+
 ### 8. URL da ficha da sede da empresa no Google Maps *
 **Situação:** Não tenho ficha no Google Maps
 
