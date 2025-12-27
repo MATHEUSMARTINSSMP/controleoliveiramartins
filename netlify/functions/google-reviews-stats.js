@@ -85,6 +85,7 @@ exports.handler = async (event) => {
 
     // Buscar reviews do banco
     let query = supabase
+      .schema('sistemaretiradas')
       .from('google_reviews')
       .select('rating, reply')
       .eq('site_slug', siteSlug)
