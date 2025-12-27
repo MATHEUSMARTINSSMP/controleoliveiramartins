@@ -79,7 +79,7 @@ export function useDailyTasks({
         } finally {
             setLoading(false);
         }
-    }, [storeId, date, enabled]);
+    }, [storeId, date, enabled, moduleEnabled]);
 
     const completeTask = useCallback(async (taskId: string, notes?: string): Promise<boolean> => {
         if (!storeId) return false;
