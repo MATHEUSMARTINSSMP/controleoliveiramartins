@@ -19,6 +19,9 @@ export interface DailyTask {
     shift_end_time: string | null;
     shift_color: string | null;
     due_time: string | null;
+    priority: string | null; // 'ALTA' | 'MÉDIA' | 'BAIXA'
+    weekday: number | null; // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+    status: string | null; // 'PENDENTE' | 'ATRASADO' | 'CONCLUÍDA'
     is_active: boolean;
     is_recurring: boolean;
     display_order: number;
