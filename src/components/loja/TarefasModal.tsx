@@ -10,7 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
     Loader2, CheckSquare2, Calendar, ChevronLeft, ChevronRight,
     Clock, AlertTriangle, Flag, Zap, User, CheckCircle2,
@@ -212,6 +218,28 @@ export function TarefasModal({ storeId, open, onOpenChange }: TarefasModalProps)
     const completedCount = tasks.filter(t => t.completed_by).length;
     const totalCount = tasks.length;
     const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+    
+    const overdueCount = sortedTasks.filter(t => isTaskOverdue(t)).length;
+    const pendingOnTimeCount = sortedTasks.filter(t => !t.completed_by && !isTaskOverdue(t)).length;
+
+    const getCurrentTimePosition = () => {
+        if (!isTodaySelected || sortedTasks.length === 0) return null;
+        
+        const now = new Date();
+        const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        let position = 0;
+        for (const task of sortedTasks) {
+            if (task.due_time && task.due_time > currentTime) {
+                break;
+            }
+            position++;
+        }
+        
+        return position;
+    };
+
+    const currentTimePosition = getCurrentTimePosition();
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -288,14 +316,20 @@ export function TarefasModal({ storeId, open, onOpenChange }: TarefasModalProps)
                                         </span>
                                     </div>
                                     <Progress value={progressPercent} className="h-2" />
-                                    <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
-                                        <span className="flex items-center gap-1">
-                                            <CircleDashed className="h-3 w-3" />
-                                            {totalCount - completedCount} pendentes
-                                        </span>
+                                    <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground flex-wrap gap-2">
                                         <span className="flex items-center gap-1">
                                             <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                                            {Math.round(progressPercent)}% completo
+                                            {completedCount} concluídas
+                                        </span>
+                                        {isTodaySelected && overdueCount > 0 && (
+                                            <span className="flex items-center gap-1 text-red-500">
+                                                <AlertTriangle className="h-3 w-3" />
+                                                {overdueCount} atrasadas
+                                            </span>
+                                        )}
+                                        <span className="flex items-center gap-1">
+                                            <CircleDashed className="h-3 w-3" />
+                                            {pendingOnTimeCount} no prazo
                                         </span>
                                     </div>
                                 </div>
@@ -310,179 +344,206 @@ export function TarefasModal({ storeId, open, onOpenChange }: TarefasModalProps)
                                     <p className="text-sm mt-2">O administrador ainda não configurou tarefas.</p>
                                 </div>
                             ) : (
-                                <div className="relative pl-4 border-l-2 border-muted space-y-3">
-                                    {sortedTasks.map((task) => {
-                                        const priorityData = getPriorityData(task.priority);
-                                        const PriorityIcon = priorityData.icon;
-                                        const isCompleted = !!task.completed_by;
-                                        const isOverdue = isTaskOverdue(task);
-                                        const isCompleting = completingTaskId === task.id;
-                                        const isSelectingThis = selectingForTask?.id === task.id;
-                                        const completedByName = task.completed_by 
-                                            ? completedByNames.get(task.completed_by) || 'Usuário'
-                                            : null;
+                                <div className="relative">
+                                    <div className="absolute left-[15px] top-0 bottom-0 w-0.5 bg-gradient-to-b from-emerald-500 via-amber-500 to-red-500/30" />
+                                    
+                                    <div className="space-y-3">
+                                        {sortedTasks.map((task, index) => {
+                                            const priorityData = getPriorityData(task.priority);
+                                            const PriorityIcon = priorityData.icon;
+                                            const isCompleted = !!task.completed_by;
+                                            const isOverdue = isTaskOverdue(task);
+                                            const isCompleting = completingTaskId === task.id;
+                                            const isSelectingThis = selectingForTask?.id === task.id;
+                                            const completedByName = task.completed_by 
+                                                ? completedByNames.get(task.completed_by) || 'Usuário'
+                                                : null;
+                                            
+                                            const showCurrentTimeLine = isTodaySelected && 
+                                                currentTimePosition !== null && 
+                                                index === currentTimePosition;
 
-                                        return (
-                                            <div key={task.id} className="relative">
-                                                <div 
-                                                    className={cn(
-                                                        "absolute -left-[21px] top-3 w-3 h-3 rounded-full border-2 bg-background",
-                                                        isCompleted 
-                                                            ? "border-emerald-500 bg-emerald-500" 
-                                                            : isOverdue 
-                                                                ? "border-red-500 animate-pulse"
-                                                                : "border-muted-foreground/50"
+                                            return (
+                                                <div key={task.id} className="relative">
+                                                    {showCurrentTimeLine && (
+                                                        <div className="relative mb-3 flex items-center gap-2">
+                                                            <div className="absolute left-[11px] w-[9px] h-[9px] rounded-full bg-primary ring-2 ring-primary/30 animate-pulse z-10" />
+                                                            <div className="ml-8 flex-1 h-px bg-primary/50" />
+                                                            <span className="text-xs font-medium text-primary px-2">
+                                                                {format(new Date(), 'HH:mm')} - Agora
+                                                            </span>
+                                                        </div>
                                                     )}
-                                                />
-
-                                                <div 
-                                                    className={cn(
-                                                        "p-3 rounded-lg border-2 transition-all duration-200",
-                                                        isCompleted 
-                                                            ? "bg-emerald-500/10 border-emerald-500/30" 
-                                                            : isOverdue
-                                                                ? "bg-red-500/10 border-red-500/30"
-                                                                : isSelectingThis
-                                                                    ? "bg-primary/10 border-primary/50"
-                                                                    : "bg-card border-border hover:border-primary/50"
-                                                    )}
-                                                >
+                                                    
                                                     <div className="flex items-start gap-3">
-                                                        <div className="pt-0.5">
-                                                            {isCompleting ? (
-                                                                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                                                            ) : (
-                                                                <Checkbox
-                                                                    checked={isCompleted}
-                                                                    onCheckedChange={() => handleCheckboxClick(task)}
-                                                                    disabled={isPastDate && !isCompleted}
-                                                                    className="h-5 w-5"
-                                                                    data-testid={`checkbox-task-${task.id}`}
-                                                                />
-                                                            )}
+                                                        <div className="relative z-10 flex flex-col items-center">
+                                                            <div 
+                                                                className={cn(
+                                                                    "w-[9px] h-[9px] rounded-full border-2 bg-background",
+                                                                    isCompleted 
+                                                                        ? "border-emerald-500 bg-emerald-500" 
+                                                                        : isOverdue 
+                                                                            ? "border-red-500 bg-red-500 animate-pulse"
+                                                                            : "border-amber-500"
+                                                                )}
+                                                            />
                                                         </div>
 
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                <span className={cn(
-                                                                    "font-medium",
-                                                                    isCompleted && "line-through text-muted-foreground"
-                                                                )}>
-                                                                    {task.title}
-                                                                </span>
-                                                                
-                                                                <Badge 
-                                                                    variant="outline" 
-                                                                    className={cn("text-xs", priorityData.color)}
-                                                                >
-                                                                    <PriorityIcon className="h-3 w-3 mr-1" />
-                                                                    {priorityData.label}
-                                                                </Badge>
-
-                                                                {isOverdue && (
-                                                                    <Badge variant="destructive" className="text-xs">
-                                                                        <AlertTriangle className="h-3 w-3 mr-1" />
-                                                                        Atrasada
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
-
-                                                            {task.description && (
-                                                                <p className="text-sm text-muted-foreground mt-1">
-                                                                    {task.description}
-                                                                </p>
+                                                        <div 
+                                                            className={cn(
+                                                                "flex-1 p-3 rounded-lg border-2 transition-all duration-200",
+                                                                isCompleted 
+                                                                    ? "bg-emerald-500/10 border-emerald-500/30" 
+                                                                    : isOverdue
+                                                                        ? "bg-red-500/10 border-red-500/30"
+                                                                        : isSelectingThis
+                                                                            ? "bg-primary/10 border-primary/50"
+                                                                            : "bg-card border-border hover:border-primary/50"
                                                             )}
+                                                        >
+                                                            <div className="flex items-start gap-3">
+                                                                <div className="pt-0.5">
+                                                                    {isCompleting ? (
+                                                                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                                                                    ) : (
+                                                                        <Checkbox
+                                                                            checked={isCompleted}
+                                                                            onCheckedChange={() => handleCheckboxClick(task)}
+                                                                            disabled={isPastDate && !isCompleted}
+                                                                            className="h-5 w-5"
+                                                                            data-testid={`checkbox-task-${task.id}`}
+                                                                        />
+                                                                    )}
+                                                                </div>
 
-                                                            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                                                                {task.due_time && (
-                                                                    <span className={cn(
-                                                                        "flex items-center gap-1",
-                                                                        isOverdue && "text-red-500"
-                                                                    )}>
-                                                                        <Timer className="h-3 w-3" />
-                                                                        Prazo: {task.due_time}
-                                                                    </span>
-                                                                )}
-                                                                
-                                                                {isCompleted && completedByName && (
-                                                                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                                                                        <User className="h-3 w-3" />
-                                                                        {completedByName}
-                                                                        {task.completed_at && (
-                                                                            <span className="text-muted-foreground">
-                                                                                às {format(new Date(task.completed_at), 'HH:mm')}
-                                                                            </span>
-                                                                        )}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-
-                                                            {isSelectingThis && (
-                                                                <div className="mt-3 p-3 rounded-lg bg-background border border-primary/30">
-                                                                    <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                                                                        <Users className="h-4 w-4 text-primary" />
-                                                                        Quem executou esta tarefa?
-                                                                    </p>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Select
-                                                                            value={selectedColaboradora}
-                                                                            onValueChange={setSelectedColaboradora}
-                                                                        >
-                                                                            <SelectTrigger 
-                                                                                className="flex-1" 
-                                                                                data-testid="select-colaboradora"
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                                        {task.due_time && (
+                                                                            <Badge 
+                                                                                variant="outline" 
+                                                                                className={cn(
+                                                                                    "text-xs font-mono",
+                                                                                    isOverdue 
+                                                                                        ? "bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30" 
+                                                                                        : isCompleted
+                                                                                            ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                                                                            : "bg-muted"
+                                                                                )}
                                                                             >
-                                                                                <SelectValue placeholder="Selecione a colaboradora..." />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                {colaboradoras.map(colab => (
-                                                                                    <SelectItem 
-                                                                                        key={colab.id} 
-                                                                                        value={colab.id}
-                                                                                        data-testid={`option-colab-${colab.id}`}
-                                                                                    >
-                                                                                        {colab.name}
-                                                                                    </SelectItem>
-                                                                                ))}
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                        <Button
-                                                                            size="sm"
-                                                                            onClick={handleConfirmComplete}
-                                                                            disabled={!selectedColaboradora}
-                                                                            data-testid="button-confirm-complete"
+                                                                                <Clock className="h-3 w-3 mr-1" />
+                                                                                {task.due_time.substring(0, 5)}
+                                                                            </Badge>
+                                                                        )}
+                                                                        
+                                                                        <span className={cn(
+                                                                            "font-medium",
+                                                                            isCompleted && "line-through text-muted-foreground"
+                                                                        )}>
+                                                                            {task.title}
+                                                                        </span>
+                                                                        
+                                                                        <Badge 
+                                                                            variant="outline" 
+                                                                            className={cn("text-xs", priorityData.color)}
                                                                         >
-                                                                            <CheckCircle2 className="h-4 w-4 mr-1" />
-                                                                            Confirmar
-                                                                        </Button>
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="ghost"
-                                                                            onClick={() => setSelectingForTask(null)}
-                                                                            data-testid="button-cancel-complete"
-                                                                        >
-                                                                            Cancelar
-                                                                        </Button>
+                                                                            <PriorityIcon className="h-3 w-3 mr-1" />
+                                                                            {priorityData.label}
+                                                                        </Badge>
+
+                                                                        {isOverdue && (
+                                                                            <Badge variant="destructive" className="text-xs">
+                                                                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                                                                Atrasada
+                                                                            </Badge>
+                                                                        )}
                                                                     </div>
-                                                                    {colaboradoras.length === 0 && (
-                                                                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                                                                            Nenhuma colaboradora ativa encontrada.
+
+                                                                    {task.description && (
+                                                                        <p className="text-sm text-muted-foreground mt-1">
+                                                                            {task.description}
+                                                                        </p>
+                                                                    )}
+
+                                                                    {isCompleted && completedByName && (
+                                                                        <div className="flex items-center gap-1 mt-2 text-xs text-emerald-600 dark:text-emerald-400">
+                                                                            <User className="h-3 w-3" />
+                                                                            {completedByName}
+                                                                            {task.completed_at && (
+                                                                                <span className="text-muted-foreground">
+                                                                                    às {format(new Date(task.completed_at), 'HH:mm')}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+
+                                                                    {isSelectingThis && (
+                                                                        <div className="mt-3 p-3 rounded-lg bg-background border border-primary/30">
+                                                                            <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                                                                                <Users className="h-4 w-4 text-primary" />
+                                                                                Quem executou esta tarefa?
+                                                                            </p>
+                                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                                <Select
+                                                                                    value={selectedColaboradora}
+                                                                                    onValueChange={setSelectedColaboradora}
+                                                                                >
+                                                                                    <SelectTrigger 
+                                                                                        className="flex-1 min-w-[180px]" 
+                                                                                        data-testid="select-colaboradora"
+                                                                                    >
+                                                                                        <SelectValue placeholder="Selecione..." />
+                                                                                    </SelectTrigger>
+                                                                                    <SelectContent>
+                                                                                        {colaboradoras.map(colab => (
+                                                                                            <SelectItem 
+                                                                                                key={colab.id} 
+                                                                                                value={colab.id}
+                                                                                                data-testid={`option-colab-${colab.id}`}
+                                                                                            >
+                                                                                                {colab.name}
+                                                                                            </SelectItem>
+                                                                                        ))}
+                                                                                    </SelectContent>
+                                                                                </Select>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    onClick={handleConfirmComplete}
+                                                                                    disabled={!selectedColaboradora}
+                                                                                    data-testid="button-confirm-complete"
+                                                                                >
+                                                                                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                                                                                    Confirmar
+                                                                                </Button>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="ghost"
+                                                                                    onClick={() => setSelectingForTask(null)}
+                                                                                    data-testid="button-cancel-complete"
+                                                                                >
+                                                                                    Cancelar
+                                                                                </Button>
+                                                                            </div>
+                                                                            {colaboradoras.length === 0 && (
+                                                                                <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                                                                                    Nenhuma colaboradora ativa encontrada.
+                                                                                </p>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+
+                                                                    {task.completion_notes && (
+                                                                        <p className="text-xs text-muted-foreground mt-2 italic border-l-2 border-muted pl-2">
+                                                                            {task.completion_notes}
                                                                         </p>
                                                                     )}
                                                                 </div>
-                                                            )}
-
-                                                            {task.completion_notes && (
-                                                                <p className="text-xs text-muted-foreground mt-2 italic border-l-2 border-muted pl-2">
-                                                                    {task.completion_notes}
-                                                                </p>
-                                                            )}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             )}
 
