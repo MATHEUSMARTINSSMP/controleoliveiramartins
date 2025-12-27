@@ -73,7 +73,7 @@ const StoreConditionalsAdjustments = lazy(() => import("@/components/loja/StoreC
 const CaixaLojaView = lazy(() => import("@/components/loja/CaixaLojaView"));
 import { ListaDaVez } from "@/components/loja/ListaDaVez";
 import { LinkErpSaleToAttendanceDialog } from "@/components/admin/LinkErpSaleToAttendanceDialog";
-import { TaskOverdueNotification } from "@/components/tasks/TaskOverdueNotification";
+import { useOverdueTasksCount } from "@/hooks/useOverdueTasksCount";
 const LojaTasksTab = lazy(() => import("@/components/loja/LojaTasksTab").then(m => ({ default: m.LojaTasksTab })));
 
 interface Sale {
@@ -128,6 +128,7 @@ export default function LojaDashboard() {
     const [caixaAtivo, setCaixaAtivo] = useState<boolean>(false);
     const [listaDaVezAtivo, setListaDaVezAtivo] = useState<boolean>(false);
     const [tasksAtivo, setTasksAtivo] = useState<boolean>(false);
+    const overdueTasksCount = useOverdueTasksCount(storeId);
     const [activeView, setActiveView] = useState<'metas' | 'cashback' | 'crm' | 'wishlist' | 'ponto' | 'ajustes' | 'caixa' | 'tasks'>('metas');
     const [listaDaVezOpen, setListaDaVezOpen] = useState(false);
     const [linkErpSaleDialogOpen, setLinkErpSaleDialogOpen] = useState(false);
@@ -3960,8 +3961,13 @@ export default function LojaDashboard() {
                                         </TabsTrigger>
                                     )}
                                     {tasksAtivo && (
-                                        <TabsTrigger value="tasks" className="text-[10px] sm:text-xs px-2 py-1 justify-center">
+                                        <TabsTrigger value="tasks" className="text-[10px] sm:text-xs px-2 py-1 justify-center relative">
                                             Tarefas
+                                            {overdueTasksCount > 0 && (
+                                                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                                                    {overdueTasksCount > 9 ? '9+' : overdueTasksCount}
+                                                </span>
+                                            )}
                                         </TabsTrigger>
                                     )}
                                 </TabsList>
@@ -3992,13 +3998,6 @@ export default function LojaDashboard() {
             </header>
 
             <main className="container mx-auto px-4 sm:px-6 py-6">
-                {/* Notificação de Tarefas Atrasadas em Tempo Real */}
-                {tasksAtivo && storeId && (
-                    <div className="mb-4">
-                        <TaskOverdueNotification storeId={storeId} />
-                    </div>
-                )}
-
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}

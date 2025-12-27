@@ -162,29 +162,19 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
   };
 
   const getTrophyIcon = (tipo: TrophyData['tipo']) => {
-    switch (tipo) {
-      case 'META_MENSAL':
-        return <Award className="h-8 w-8 text-green-600" />;
-      case 'SUPER_META_MENSAL':
-        return <Trophy className="h-8 w-8 text-purple-600" />;
-      case 'META_SEMANAL':
-        return <Award className="h-8 w-8 text-blue-600" />;
-      case 'SUPER_META_SEMANAL':
-        return <Trophy className="h-8 w-8 text-orange-600" />;
+    const isSuper = tipo.includes('SUPER');
+    if (isSuper) {
+      return <Trophy className="h-8 w-8 text-foreground" />;
     }
+    return <Award className="h-8 w-8 text-muted-foreground" />;
   };
 
   const getTrophyColor = (tipo: TrophyData['tipo']): string => {
-    switch (tipo) {
-      case 'META_MENSAL':
-        return 'border-green-500 bg-green-50 dark:bg-green-900/20';
-      case 'SUPER_META_MENSAL':
-        return 'border-purple-500 bg-purple-50 dark:bg-purple-900/20';
-      case 'META_SEMANAL':
-        return 'border-blue-500 bg-blue-50 dark:bg-blue-900/20';
-      case 'SUPER_META_SEMANAL':
-        return 'border-orange-500 bg-orange-50 dark:bg-orange-900/20';
+    const isSuper = tipo.includes('SUPER');
+    if (isSuper) {
+      return 'border-foreground/30 bg-foreground/5 dark:bg-foreground/10';
     }
+    return 'border-border bg-muted/50 dark:bg-muted/30';
   };
 
   if (loading) {
@@ -251,7 +241,7 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-purple-600" />
+            <Sparkles className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">
               <strong className="text-foreground">{superTrophiesCount}</strong> super metas alcançadas
             </span>
@@ -263,7 +253,7 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
           {trophies.map((trophy) => (
             <Card
               key={trophy.id}
-              className={`relative overflow-hidden border-2 transition-all hover:shadow-lg hover:scale-105 ${getTrophyColor(trophy.tipo)}`}
+              className={`relative overflow-hidden border transition-all ${getTrophyColor(trophy.tipo)}`}
             >
               {/* Decoração de fundo */}
               <div className="absolute top-0 right-0 w-24 h-24 opacity-10">
@@ -287,7 +277,7 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
                   {getTrophyLabel(trophy)}
                 </h3>
 
-                <p className="text-sm font-semibold text-primary mb-4">
+                <p className="text-sm font-semibold text-muted-foreground mb-4">
                   {trophy.colaboradora_name}
                 </p>
 
@@ -298,13 +288,13 @@ export const TrophiesGallery: React.FC<TrophiesGalleryProps> = ({ storeId, limit
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Realizado:</span>
-                    <span className="font-semibold text-green-600">
+                    <span className="font-semibold text-foreground">
                       {formatCurrency(trophy.realizado)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t">
                     <span className="text-muted-foreground">Desempenho:</span>
-                    <span className="font-bold text-primary text-sm">
+                    <span className="font-bold text-foreground text-sm">
                       {trophy.percentual.toFixed(1)}%
                     </span>
                   </div>
