@@ -144,49 +144,22 @@ export function useDailyTasks({
         fetchTasks();
     }, [fetchTasks]);
 
-    // ✅ ATUALIZAÇÃO EM TEMPO REAL
-    useEffect(() => {
-        if (!storeId || !enabled) return;
-
-        const channel = supabase
-            .channel(`daily-tasks-${storeId}-${Date.now()}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'sistemaretiradas',
-                    table: 'task_completions',
-                },
-                (payload) => {
-                    console.log('[useDailyTasks] 📥 Mudança em execuções detectada:', payload.eventType);
-                    // Recarregar tarefas quando houver mudança
-                    fetchTasks();
-                }
-            )
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'sistemaretiradas',
-                    table: 'daily_tasks',
-                    filter: `store_id=eq.${storeId}`,
-                },
-                (payload) => {
-                    console.log('[useDailyTasks] 📥 Mudança em tarefas detectada:', payload.eventType);
-                    // Recarregar tarefas quando houver mudança
-                    fetchTasks();
-                }
-            )
-            .subscribe((status) => {
-                if (status === 'SUBSCRIBED') {
-                    console.log('[useDailyTasks] ✅ Conectado ao realtime');
-                }
-            });
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [storeId, enabled, fetchTasks]);
+    // ✅ ATUALIZAÇÃO EM TEMPO REAL - Usar hook dedicado
+    useTasksRealtime({
+      storeId: storeId || null,
+      date: date,
+      enabled: !!storeId && !!date && enabled,
+      onTaskCompleted: (taskId, completed, profileId, completedAt) => {
+        console.log('[useDailyTasks] 📥 Tarefa completada via Realtime:', { taskId, completed });
+        // Recarregar tarefas quando execuções mudarem
+        fetchTasks();
+      },
+      onTaskUpdated: (task) => {
+        console.log('[useDailyTasks] 📥 Tarefa atualizada via Realtime:', task);
+        // Recarregar tarefas quando tarefas mudarem
+        fetchTasks();
+      },
+    });
 
     return {
         tasks,
