@@ -27,9 +27,14 @@ The system is built with a modern web stack, emphasizing a chic, minimalist, and
     -   Subscription system with tiered access (Starter, Business, Enterprise) to features and limits.
     -   Time Clock System: REP-P compliant with digital signature PIN, change requests, and advanced reporting, adhering to Brazilian labor law (CLT and Portaria 671/2021).
     -   **Daily Tasks Module (Tarefas do Dia)**: Complete task management system with:
+        -   **Architecture**: Tasks are RECURRING TEMPLATES (fixed weekly schedule), executions are separate historical records
+        -   **Database Tables**:
+            -   `daily_tasks` - Template table for recurring tasks (fixed weekday/time slots)
+            -   `daily_task_executions` - Execution history tracking (who completed what when)
         -   Admin: Weekly calendar view (7 columns) with CRUD for recurring tasks by weekday
         -   Admin: Configure priority (Alta/Media/Baixa), due time, and shift assignment
         -   Admin: Per-store WhatsApp notification toggle (tasks_whatsapp_notificacoes_ativas)
+        -   **Admin: History Tab** - Navigate by dates to view execution history (who did what when)
         -   Store: Timeline view with progress bar, checkboxes, and real-time updates via Supabase Realtime
         -   Visual indicators: color-coded priorities, overdue alerts, completion status with who/when
         -   Overdue notifications: In-app alerts for stores with pending tasks
@@ -37,9 +42,14 @@ The system is built with a modern web stack, emphasizing a chic, minimalist, and
             -   Sender: Always uses GLOBAL WhatsApp number (not store's connected number)
             -   Recipient: Store's whatsapp field (phone number in stores table)
             -   Enable/disable: Per-store toggle in ModulesStoreConfig (tasks_whatsapp_notificacoes_ativas)
+        -   **SQL Functions** (in `docs/tasks-executions-migration.sql`):
+            -   `get_daily_tasks(p_store_id, p_date)` - Gets tasks for a date with execution status
+            -   `complete_task(p_task_id, p_profile_id, p_notes, p_completion_date)` - Records execution
+            -   `uncomplete_task(p_task_id, p_profile_id, p_completion_date)` - Reverts execution
+            -   `get_task_execution_history(p_store_id, p_start_date, p_end_date)` - Admin history view
         -   Hooks: useDailyTasks, useTaskStatistics, useTasksRealtime
-        -   Components: AdminTasksCalendarView, LojaTasksTab, TaskOverdueNotification
-        -   Migration: docs/tasks-whatsapp-notification-migration.sql
+        -   Components: AdminTasksCalendarView, AdminTasksHistoryView, AdminDailyTasksConfig, LojaTasksTab, TaskOverdueNotification
+        -   Migrations: docs/tasks-whatsapp-notification-migration.sql, docs/tasks-executions-migration.sql
         -   Database field: Uses `tasks_ativo` (consolidated, removed duplicate `tasks_module_enabled`)
     -   Store Task Alerts System: Allows admins to schedule recurring WhatsApp task reminders for stores.
     -   Daily Goal Check Module: Gamified system for collaborators to confirm daily goal viewing, with configurable bonuses and time limits.
