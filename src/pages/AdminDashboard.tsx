@@ -270,8 +270,8 @@ const AdminDashboard = () => {
                 <span className="sm:hidden">Metas</span>
               </TabsTrigger>
               <TabsTrigger value="gestao-pessoas" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[50px] justify-center">
-                <span className="hidden sm:inline">Gestao de Pessoas</span>
-                <span className="sm:hidden">Pessoas</span>
+                <span className="hidden sm:inline">Gestão de Perfis</span>
+                <span className="sm:hidden">Perfis</span>
               </TabsTrigger>
               <TabsTrigger value="gestao-sistemas" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[50px] justify-center">
                 <span className="hidden sm:inline">Gestao de Sistemas</span>
@@ -450,11 +450,6 @@ const AdminDashboard = () => {
                     <span className="hidden sm:inline">Ajustes & Condicionais</span>
                     <span className="sm:hidden">Ajustes</span>
                   </TabsTrigger>
-                  <TabsTrigger value="site" className="text-[10px] sm:text-xs px-2 py-1.5 flex-1 min-w-[60px] justify-center" data-testid="tab-site">
-                    <Globe className="h-3 w-3 mr-1" />
-                    <span className="hidden sm:inline">Meu Site</span>
-                    <span className="sm:hidden">Site</span>
-                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="dashboard" className="space-y-4">
@@ -485,9 +480,6 @@ const AdminDashboard = () => {
                   <ConditionalsAdjustmentsManager />
                 </TabsContent>
 
-                <TabsContent value="site" className="space-y-4">
-                  <AdminSiteManager stores={adminStores} />
-                </TabsContent>
               </Tabs>
             </TabsContent>
 

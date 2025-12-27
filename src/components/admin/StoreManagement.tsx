@@ -15,7 +15,7 @@ interface Store {
     active: boolean;
     admin_id: string;
     sistema_erp: string | null;
-    cashback_ativo: boolean;
+    whatsapp: string | null;
     created_at: string;
 }
 
@@ -33,7 +33,7 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
     const [formData, setFormData] = useState({
         name: "",
         sistema_erp: "",
-        cashback_ativo: false,
+        whatsapp: "",
     });
 
     // Limites do plano
@@ -93,7 +93,7 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
             setFormData({
                 name: store.name,
                 sistema_erp: store.sistema_erp || "",
-                cashback_ativo: store.cashback_ativo,
+                whatsapp: store.whatsapp || "",
             });
         } else {
             setEditMode(false);
@@ -101,7 +101,7 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
             setFormData({
                 name: "",
                 sistema_erp: "",
-                cashback_ativo: false,
+                whatsapp: "",
             });
         }
         setDialogOpen(true);
@@ -115,6 +115,11 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
             }
 
             if (editMode && selectedId) {
+                // Normalizar WhatsApp (remover caracteres não numéricos, exceto se vazio)
+                const whatsappNormalizado = formData.whatsapp.trim() 
+                    ? formData.whatsapp.replace(/\D/g, '') 
+                    : null;
+
                 // Editar loja existente
                 const { error } = await supabase
                     .schema("sistemaretiradas")
@@ -122,7 +127,7 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
                     .update({
                         name: formData.name,
                         sistema_erp: formData.sistema_erp || null,
-                        cashback_ativo: formData.cashback_ativo,
+                        whatsapp: whatsappNormalizado,
                         updated_at: new Date().toISOString(),
                     })
                     .eq("id", selectedId);
@@ -139,6 +144,11 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
                     return;
                 }
 
+                // Normalizar WhatsApp (remover caracteres não numéricos, exceto se vazio)
+                const whatsappNormalizado = formData.whatsapp.trim() 
+                    ? formData.whatsapp.replace(/\D/g, '') 
+                    : null;
+
                 // Criar nova loja
                 const { error } = await supabase
                     .schema("sistemaretiradas")
@@ -147,7 +157,7 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
                         name: formData.name,
                         admin_id: adminId,
                         sistema_erp: formData.sistema_erp || null,
-                        cashback_ativo: formData.cashback_ativo,
+                        whatsapp: whatsappNormalizado,
                         active: true,
                     });
 
@@ -238,7 +248,7 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
                             <TableRow className="bg-muted/50">
                                 <TableHead className="font-semibold">Nome</TableHead>
                                 <TableHead className="font-semibold">Sistema ERP</TableHead>
-                                <TableHead className="font-semibold">Cashback</TableHead>
+                                <TableHead className="font-semibold">WhatsApp</TableHead>
                                 <TableHead className="font-semibold">Status</TableHead>
                                 <TableHead className="font-semibold">Ações</TableHead>
                             </TableRow>
@@ -248,13 +258,7 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
                                 <TableRow key={store.id} className="hover:bg-muted/50 transition-colors">
                                     <TableCell className="font-medium">{store.name}</TableCell>
                                     <TableCell>{store.sistema_erp || "-"}</TableCell>
-                                    <TableCell>
-                                        {store.cashback_ativo ? (
-                                            <span className="text-xs px-2 py-1 bg-success/10 text-success rounded-full">Ativo</span>
-                                        ) : (
-                                            <span className="text-xs px-2 py-1 bg-muted text-muted-foreground rounded-full">Inativo</span>
-                                        )}
-                                    </TableCell>
+                                    <TableCell>{store.whatsapp || "-"}</TableCell>
                                     <TableCell>
                                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${store.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
                                             }`}>
@@ -330,17 +334,18 @@ export function StoreManagement({ adminId }: StoreManagementProps) {
                                 placeholder="Ex: TINY, BLING"
                             />
                         </div>
-                        <div className="flex items-center space-x-2">
-                            <input
-                                type="checkbox"
-                                id="cashback_ativo"
-                                checked={formData.cashback_ativo}
-                                onChange={(e) => setFormData({ ...formData, cashback_ativo: e.target.checked })}
-                                className="h-4 w-4"
+                        <div className="space-y-2">
+                            <Label htmlFor="whatsapp">Telefone WhatsApp (opcional)</Label>
+                            <Input
+                                id="whatsapp"
+                                type="tel"
+                                value={formData.whatsapp}
+                                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                                placeholder="Ex: 5598987654321"
                             />
-                            <Label htmlFor="cashback_ativo" className="cursor-pointer">
-                                Ativar módulo de cashback
-                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                                Formato: código do país (55) + DDD + número (ex: 5598987654321). Usado para notificações de tarefas atrasadas.
+                            </p>
                         </div>
                     </div>
                     <DialogFooter>
