@@ -10,10 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
     Loader2, CheckSquare2, Calendar, ChevronLeft, ChevronRight,
     Clock, AlertTriangle, Flag, Zap, User, CheckCircle2,
-    CircleDashed, Timer
+    CircleDashed, Timer, Users
 } from "lucide-react";
 import { useDailyTasks, DailyTask } from "@/hooks/useDailyTasks";
 import { useTaskStatistics } from "@/hooks/useTaskStatistics";
@@ -21,11 +22,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, addDays, subDays, isToday, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface TarefasModalProps {
     storeId: string | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+}
+
+interface Colaboradora {
+    id: string;
+    name: string;
 }
 
 const PRIORITIES = [
@@ -38,6 +45,9 @@ export function TarefasModal({ storeId, open, onOpenChange }: TarefasModalProps)
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [completedByNames, setCompletedByNames] = useState<Map<string, string>>(new Map());
     const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+    const [colaboradoras, setColaboradoras] = useState<Colaboradora[]>([]);
+    const [selectingForTask, setSelectingForTask] = useState<DailyTask | null>(null);
+    const [selectedColaboradora, setSelectedColaboradora] = useState<string>("");
     
     const { tasks, loading, completeTask, uncompleteTask } = useDailyTasks({
         storeId,
@@ -50,6 +60,31 @@ export function TarefasModal({ storeId, open, onOpenChange }: TarefasModalProps)
         date: selectedDate,
         enabled: !!storeId && open
     });
+
+    useEffect(() => {
+        const fetchColaboradoras = async () => {
+            if (!storeId) return;
+
+            const { data, error } = await supabase
+                .schema('sistemaretiradas')
+                .from('profiles')
+                .select('id, name')
+                .eq('store_id', storeId)
+                .eq('is_active', true)
+                .order('name');
+
+            if (error) {
+                console.error('[TarefasModal] Erro ao buscar colaboradoras:', error);
+                return;
+            }
+
+            setColaboradoras(data || []);
+        };
+
+        if (open && storeId) {
+            fetchColaboradoras();
+        }
+    }, [storeId, open]);
 
     useEffect(() => {
         const fetchCompletedByNames = async () => {
@@ -89,14 +124,54 @@ export function TarefasModal({ storeId, open, onOpenChange }: TarefasModalProps)
         }
     }, [tasks]);
 
-    const handleToggleComplete = async (task: DailyTask) => {
+    const handleCheckboxClick = (task: DailyTask) => {
+        if (task.completed_by) {
+            handleUncomplete(task);
+        } else {
+            setSelectingForTask(task);
+            setSelectedColaboradora("");
+        }
+    };
+
+    const handleConfirmComplete = async () => {
+        if (!selectingForTask || !selectedColaboradora) {
+            toast.error('Selecione uma colaboradora');
+            return;
+        }
+
+        setCompletingTaskId(selectingForTask.id);
+        try {
+            await completeTaskWithProfile(selectingForTask.id, selectedColaboradora);
+            setSelectingForTask(null);
+            setSelectedColaboradora("");
+        } finally {
+            setCompletingTaskId(null);
+        }
+    };
+
+    const completeTaskWithProfile = async (taskId: string, profileId: string): Promise<boolean> => {
+        try {
+            const { error: completeError } = await supabase.rpc('complete_task_execution', {
+                p_task_id: taskId,
+                p_profile_id: profileId,
+                p_notes: null,
+                p_completion_date: selectedDate.toISOString().split('T')[0]
+            });
+
+            if (completeError) throw completeError;
+            toast.success('Tarefa marcada como completa!');
+            return true;
+        } catch (err: any) {
+            console.error('[TarefasModal] Erro ao completar tarefa:', err);
+            toast.error('Erro ao marcar tarefa: ' + (err.message || 'Erro desconhecido'));
+            return false;
+        }
+    };
+
+    const handleUncomplete = async (task: DailyTask) => {
         setCompletingTaskId(task.id);
         try {
-            if (task.completed_by) {
-                await uncompleteTask(task.id);
-            } else {
-                await completeTask(task.id);
-            }
+            await uncompleteTask(task.id);
         } finally {
             setCompletingTaskId(null);
         }
@@ -125,36 +200,12 @@ export function TarefasModal({ storeId, open, onOpenChange }: TarefasModalProps)
         return now > dueTime;
     };
 
-    const tasksByShift = tasks.reduce((acc, task) => {
-        const shiftKey = task.shift_id || 'sem-turno';
-        const shiftName = task.shift_name || 'Tarefas Gerais';
-        
-        if (!acc[shiftKey]) {
-            acc[shiftKey] = {
-                shiftId: task.shift_id,
-                shiftName,
-                shiftStartTime: task.shift_start_time,
-                shiftEndTime: task.shift_end_time,
-                shiftColor: task.shift_color,
-                tasks: []
-            };
+    const sortedTasks = [...tasks].sort((a, b) => {
+        if (a.due_time && b.due_time) {
+            return a.due_time.localeCompare(b.due_time);
         }
-        
-        acc[shiftKey].tasks.push(task);
-        return acc;
-    }, {} as Record<string, {
-        shiftId: string | null;
-        shiftName: string;
-        shiftStartTime: string | null;
-        shiftEndTime: string | null;
-        shiftColor: string | null;
-        tasks: DailyTask[];
-    }>);
-
-    const sortedShifts = Object.values(tasksByShift).sort((a, b) => {
-        if (a.shiftStartTime && b.shiftStartTime) {
-            return a.shiftStartTime.localeCompare(b.shiftStartTime);
-        }
+        if (a.due_time) return -1;
+        if (b.due_time) return 1;
         return 0;
     });
 
@@ -259,145 +310,179 @@ export function TarefasModal({ storeId, open, onOpenChange }: TarefasModalProps)
                                     <p className="text-sm mt-2">O administrador ainda não configurou tarefas.</p>
                                 </div>
                             ) : (
-                                <div className="space-y-4">
-                                    {sortedShifts.map((shift, shiftIndex) => (
-                                        <div key={shift.shiftId || 'sem-turno'}>
-                                            {shiftIndex > 0 && (
-                                                <div className="my-4 border-t border-dashed" />
-                                            )}
+                                <div className="relative pl-4 border-l-2 border-muted space-y-3">
+                                    {sortedTasks.map((task) => {
+                                        const priorityData = getPriorityData(task.priority);
+                                        const PriorityIcon = priorityData.icon;
+                                        const isCompleted = !!task.completed_by;
+                                        const isOverdue = isTaskOverdue(task);
+                                        const isCompleting = completingTaskId === task.id;
+                                        const isSelectingThis = selectingForTask?.id === task.id;
+                                        const completedByName = task.completed_by 
+                                            ? completedByNames.get(task.completed_by) || 'Usuário'
+                                            : null;
 
-                                            <div className="flex items-center gap-2 mb-3">
+                                        return (
+                                            <div key={task.id} className="relative">
                                                 <div 
-                                                    className="w-1 h-6 rounded-full"
-                                                    style={{ backgroundColor: shift.shiftColor || 'hsl(var(--primary))' }}
+                                                    className={cn(
+                                                        "absolute -left-[21px] top-3 w-3 h-3 rounded-full border-2 bg-background",
+                                                        isCompleted 
+                                                            ? "border-emerald-500 bg-emerald-500" 
+                                                            : isOverdue 
+                                                                ? "border-red-500 animate-pulse"
+                                                                : "border-muted-foreground/50"
+                                                    )}
                                                 />
-                                                <h3 className="font-semibold text-sm">{shift.shiftName}</h3>
-                                                {shift.shiftStartTime && shift.shiftEndTime && (
-                                                    <Badge variant="secondary" className="text-xs">
-                                                        <Clock className="h-3 w-3 mr-1" />
-                                                        {shift.shiftStartTime} - {shift.shiftEndTime}
-                                                    </Badge>
-                                                )}
-                                            </div>
 
-                                            <div className="relative pl-4 border-l-2 border-muted space-y-3">
-                                                {shift.tasks.map((task) => {
-                                                    const priorityData = getPriorityData(task.priority);
-                                                    const PriorityIcon = priorityData.icon;
-                                                    const isCompleted = !!task.completed_by;
-                                                    const isOverdue = isTaskOverdue(task);
-                                                    const isCompleting = completingTaskId === task.id;
-                                                    const completedByName = task.completed_by 
-                                                        ? completedByNames.get(task.completed_by) || 'Usuário'
-                                                        : null;
-
-                                                    return (
-                                                        <div key={task.id} className="relative">
-                                                            <div 
-                                                                className={cn(
-                                                                    "absolute -left-[21px] top-3 w-3 h-3 rounded-full border-2 bg-background",
-                                                                    isCompleted 
-                                                                        ? "border-emerald-500 bg-emerald-500" 
-                                                                        : isOverdue 
-                                                                            ? "border-red-500 animate-pulse"
-                                                                            : "border-muted-foreground/50"
-                                                                )}
-                                                            />
-
-                                                            <div 
-                                                                className={cn(
-                                                                    "p-3 rounded-lg border-2 transition-all duration-200",
-                                                                    isCompleted 
-                                                                        ? "bg-emerald-500/10 border-emerald-500/30" 
-                                                                        : isOverdue
-                                                                            ? "bg-red-500/10 border-red-500/30"
-                                                                            : "bg-card border-border hover:border-primary/50"
-                                                                )}
-                                                            >
-                                                                <div className="flex items-start gap-3">
-                                                                    <div className="pt-0.5">
-                                                                        {isCompleting ? (
-                                                                            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                                                                        ) : (
-                                                                            <Checkbox
-                                                                                checked={isCompleted}
-                                                                                onCheckedChange={() => handleToggleComplete(task)}
-                                                                                disabled={isPastDate && !isCompleted}
-                                                                                className="h-5 w-5"
-                                                                                data-testid={`checkbox-task-${task.id}`}
-                                                                            />
-                                                                        )}
-                                                                    </div>
-
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <div className="flex items-center gap-2 flex-wrap">
-                                                                            <span className={cn(
-                                                                                "font-medium",
-                                                                                isCompleted && "line-through text-muted-foreground"
-                                                                            )}>
-                                                                                {task.title}
-                                                                            </span>
-                                                                            
-                                                                            <Badge 
-                                                                                variant="outline" 
-                                                                                className={cn("text-xs", priorityData.color)}
-                                                                            >
-                                                                                <PriorityIcon className="h-3 w-3 mr-1" />
-                                                                                {priorityData.label}
-                                                                            </Badge>
-
-                                                                            {isOverdue && (
-                                                                                <Badge variant="destructive" className="text-xs">
-                                                                                    <AlertTriangle className="h-3 w-3 mr-1" />
-                                                                                    Atrasada
-                                                                                </Badge>
-                                                                            )}
-                                                                        </div>
-
-                                                                        {task.description && (
-                                                                            <p className="text-sm text-muted-foreground mt-1">
-                                                                                {task.description}
-                                                                            </p>
-                                                                        )}
-
-                                                                        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                                                                            {task.due_time && (
-                                                                                <span className={cn(
-                                                                                    "flex items-center gap-1",
-                                                                                    isOverdue && "text-red-500"
-                                                                                )}>
-                                                                                    <Timer className="h-3 w-3" />
-                                                                                    Prazo: {task.due_time}
-                                                                                </span>
-                                                                            )}
-                                                                            
-                                                                            {isCompleted && completedByName && (
-                                                                                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                                                                                    <User className="h-3 w-3" />
-                                                                                    {completedByName}
-                                                                                    {task.completed_at && (
-                                                                                        <span className="text-muted-foreground">
-                                                                                            às {format(new Date(task.completed_at), 'HH:mm')}
-                                                                                        </span>
-                                                                                    )}
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-
-                                                                        {task.completion_notes && (
-                                                                            <p className="text-xs text-muted-foreground mt-2 italic border-l-2 border-muted pl-2">
-                                                                                {task.completion_notes}
-                                                                            </p>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
+                                                <div 
+                                                    className={cn(
+                                                        "p-3 rounded-lg border-2 transition-all duration-200",
+                                                        isCompleted 
+                                                            ? "bg-emerald-500/10 border-emerald-500/30" 
+                                                            : isOverdue
+                                                                ? "bg-red-500/10 border-red-500/30"
+                                                                : isSelectingThis
+                                                                    ? "bg-primary/10 border-primary/50"
+                                                                    : "bg-card border-border hover:border-primary/50"
+                                                    )}
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="pt-0.5">
+                                                            {isCompleting ? (
+                                                                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                                                            ) : (
+                                                                <Checkbox
+                                                                    checked={isCompleted}
+                                                                    onCheckedChange={() => handleCheckboxClick(task)}
+                                                                    disabled={isPastDate && !isCompleted}
+                                                                    className="h-5 w-5"
+                                                                    data-testid={`checkbox-task-${task.id}`}
+                                                                />
+                                                            )}
                                                         </div>
-                                                    );
-                                                })}
+
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className={cn(
+                                                                    "font-medium",
+                                                                    isCompleted && "line-through text-muted-foreground"
+                                                                )}>
+                                                                    {task.title}
+                                                                </span>
+                                                                
+                                                                <Badge 
+                                                                    variant="outline" 
+                                                                    className={cn("text-xs", priorityData.color)}
+                                                                >
+                                                                    <PriorityIcon className="h-3 w-3 mr-1" />
+                                                                    {priorityData.label}
+                                                                </Badge>
+
+                                                                {isOverdue && (
+                                                                    <Badge variant="destructive" className="text-xs">
+                                                                        <AlertTriangle className="h-3 w-3 mr-1" />
+                                                                        Atrasada
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+
+                                                            {task.description && (
+                                                                <p className="text-sm text-muted-foreground mt-1">
+                                                                    {task.description}
+                                                                </p>
+                                                            )}
+
+                                                            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                                                                {task.due_time && (
+                                                                    <span className={cn(
+                                                                        "flex items-center gap-1",
+                                                                        isOverdue && "text-red-500"
+                                                                    )}>
+                                                                        <Timer className="h-3 w-3" />
+                                                                        Prazo: {task.due_time}
+                                                                    </span>
+                                                                )}
+                                                                
+                                                                {isCompleted && completedByName && (
+                                                                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                                                                        <User className="h-3 w-3" />
+                                                                        {completedByName}
+                                                                        {task.completed_at && (
+                                                                            <span className="text-muted-foreground">
+                                                                                às {format(new Date(task.completed_at), 'HH:mm')}
+                                                                            </span>
+                                                                        )}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            {isSelectingThis && (
+                                                                <div className="mt-3 p-3 rounded-lg bg-background border border-primary/30">
+                                                                    <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                                                                        <Users className="h-4 w-4 text-primary" />
+                                                                        Quem executou esta tarefa?
+                                                                    </p>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Select
+                                                                            value={selectedColaboradora}
+                                                                            onValueChange={setSelectedColaboradora}
+                                                                        >
+                                                                            <SelectTrigger 
+                                                                                className="flex-1" 
+                                                                                data-testid="select-colaboradora"
+                                                                            >
+                                                                                <SelectValue placeholder="Selecione a colaboradora..." />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                {colaboradoras.map(colab => (
+                                                                                    <SelectItem 
+                                                                                        key={colab.id} 
+                                                                                        value={colab.id}
+                                                                                        data-testid={`option-colab-${colab.id}`}
+                                                                                    >
+                                                                                        {colab.name}
+                                                                                    </SelectItem>
+                                                                                ))}
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                        <Button
+                                                                            size="sm"
+                                                                            onClick={handleConfirmComplete}
+                                                                            disabled={!selectedColaboradora}
+                                                                            data-testid="button-confirm-complete"
+                                                                        >
+                                                                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                                                                            Confirmar
+                                                                        </Button>
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="ghost"
+                                                                            onClick={() => setSelectingForTask(null)}
+                                                                            data-testid="button-cancel-complete"
+                                                                        >
+                                                                            Cancelar
+                                                                        </Button>
+                                                                    </div>
+                                                                    {colaboradoras.length === 0 && (
+                                                                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                                                                            Nenhuma colaboradora ativa encontrada.
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            )}
+
+                                                            {task.completion_notes && (
+                                                                <p className="text-xs text-muted-foreground mt-2 italic border-l-2 border-muted pl-2">
+                                                                    {task.completion_notes}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
 
@@ -424,9 +509,9 @@ export function TarefasModal({ storeId, open, onOpenChange }: TarefasModalProps)
                                             </p>
                                             <p className="text-xs text-muted-foreground">Pendentes</p>
                                         </div>
-                                        <div className="p-2 rounded-lg bg-blue-500/10 text-center">
-                                            <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                                                {Math.round(statistics.completion_rate || 0)}%
+                                        <div className="p-2 rounded-lg bg-primary/10 text-center">
+                                            <p className="text-xl font-bold text-primary">
+                                                {statistics.completion_rate || 0}%
                                             </p>
                                             <p className="text-xs text-muted-foreground">Taxa</p>
                                         </div>
